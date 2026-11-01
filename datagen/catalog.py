@@ -60,6 +60,12 @@ PROGRAM_OUTCOMES = [
     ("PSO2", "PSO", "Build secure, scalable computing solutions"),
 ]
 
+# PO6-PO11 (society, environment, ethics, teamwork, communication, project management) are touched
+# only lightly by technical courses: about one CO in four also maps to one of them at strength 1,
+# so every outcome has attainment values.
+SOFT_POS = [6, 7, 8, 9, 10, 11]
+SOFT_PO_SHARE = 0.25
+
 # Planted root-cause story (PRD Section 11.6). In the weak batch, Data Structures CO2 is
 # weakened for half the students and DBMS CO4 depends strongly on it for the same students.
 # Programming in C CO5 is a declared but unrelated (decoy) dependency of DBMS CO4.

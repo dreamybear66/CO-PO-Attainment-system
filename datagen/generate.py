@@ -60,6 +60,8 @@ def sigmoid(x):
 class Builder:
     def __init__(self, seed: int, hash_key: bytes):
         self.rng = np.random.default_rng(seed)
+        # Own stream for the PO6-PO11 maps, so adding them left every other draw unchanged.
+        self.soft_po_rng = np.random.default_rng([seed, 1])
         self.hash_key = hash_key          # SURVEY_HASH_SECRET, for respondent ids
         self.fake = Faker("en_IN")
         Faker.seed(seed)
@@ -103,11 +105,14 @@ class Builder:
                 statement = (cat.CO_STATEMENTS[code][n - 1] if code in cat.CO_STATEMENTS
                              else f"{cat.BLOOM_VERBS[bloom]} the unit {n} concepts of {title}")
                 r["course_outcome"].append((co, self.course_id[code], n, statement, bloom))
-                # Every CO supports PO1, plus 1-3 of PO2-PO5, PO12, PSO1, PSO2.
+                # Every CO supports PO1, plus 1-3 of PO2-PO5, PO12, PSO1, PSO2, and sometimes
+                # one of PO6-PO11 at strength 1.
                 r["co_po_map"].append((co, 1, int(self.rng.integers(2, 4))))
                 extra = self.rng.choice([2, 3, 4, 5, 12, 13, 14], size=int(self.rng.integers(1, 4)), replace=False)
                 for po in sorted(int(p) for p in extra):
                     r["co_po_map"].append((co, po_ids[po - 1], int(self.rng.integers(1, 4))))
+                if self.soft_po_rng.random() < cat.SOFT_PO_SHARE:
+                    r["co_po_map"].append((co, int(self.soft_po_rng.choice(cat.SOFT_POS)), 1))
 
         self.dependencies()
 
