@@ -12,7 +12,6 @@ Usage:  python -m datagen.generate [--reset] [--seed 2026] [--database copo]
 
 import argparse
 import hashlib
-import os
 import time
 from datetime import datetime, timezone
 
@@ -21,6 +20,7 @@ import numpy as np
 import psycopg
 from faker import Faker
 from pymongo import ASCENDING, MongoClient
+from pymongo.database import Database
 
 from api import config
 from datagen import catalog as cat
@@ -241,10 +241,7 @@ class Builder:
 
     # ------------------------------------------------------------------ users
 
-    def users(self, batches) -> None:
-        password = os.getenv("DEMO_PASSWORD")
-        if not password:
-            raise RuntimeError("Set DEMO_PASSWORD in .env (password for the demo logins)")
+    def users(self, batches, password: str) -> None:
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         r = self.rows["app_user"]
         r.append((1, "hod", pw_hash, "admin", 1, None))
@@ -288,29 +285,33 @@ SERIALS = {
 }
 
 
-def load_postgres(b: Builder, dbname: str | None, reset: bool) -> None:
-    with psycopg.connect(config.owner_dsn(dbname)) as conn:
-        with conn.cursor() as cur:
-            if reset:
-                truncate_all(cur)
-            for table in TABLES_IN_LOAD_ORDER:
-                with cur.copy(f"COPY {table} ({COLUMNS[table]}) FROM STDIN") as copy:
-                    for row in b.rows[table]:
-                        copy.write_row(row)
-                print(f"  {table:<24} {len(b.rows[table]):>8,} rows")
-            for table, col in SERIALS.items():
-                cur.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), "
-                            f"(SELECT max({col}) FROM {table}))")
-            # Lock completed assessments only after their marks are in.
-            cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
-                        "WHERE assessment_id = ANY(%s)", (b.locks,))
-            print(f"  locked {cur.rowcount:,} assessments")
+def load(b: Builder, dbname: str | None, mongo: Database, reset: bool) -> None:
+    """Load both stores as one unit as far as possible: the PostgreSQL transaction commits only
+    after the surveys are in MongoDB, so a MongoDB failure rolls the PostgreSQL load back."""
+    with psycopg.connect(config.owner_dsn(dbname)) as conn:   # commits on exit, rolls back on error
+        load_postgres(b, conn, reset)
+        load_mongo(b, mongo, reset)
 
 
-def load_mongo(b: Builder, dbname: str | None, reset: bool) -> None:
-    """Surveys go to the MongoDB database of the same name as the PostgreSQL one (default
-    MONGO_DATABASE), so --database copo_test never touches the main dataset."""
-    db = MongoClient(config.MONGO_URI)[dbname or config.MONGO_DATABASE]
+def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
+    with conn.cursor() as cur:
+        if reset:
+            truncate_all(cur)
+        for table in TABLES_IN_LOAD_ORDER:
+            with cur.copy(f"COPY {table} ({COLUMNS[table]}) FROM STDIN") as copy:
+                for row in b.rows[table]:
+                    copy.write_row(row)
+            print(f"  {table:<24} {len(b.rows[table]):>8,} rows")
+        for table, col in SERIALS.items():
+            cur.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), "
+                        f"(SELECT max({col}) FROM {table}))")
+        # Lock completed assessments only after their marks are in.
+        cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
+                    "WHERE assessment_id = ANY(%s)", (b.locks,))
+        print(f"  locked {cur.rowcount:,} assessments")
+
+
+def load_mongo(b: Builder, db: Database, reset: bool) -> None:
     if reset:
         # Reset both stores together. delete_many keeps the collections' indexes. The audit chain
         # mirrors audit_outbox, whose ids the PostgreSQL truncate restarts at 1; a stale audit_log
@@ -335,15 +336,26 @@ def main() -> None:
     parser.add_argument("--database")
     args = parser.parse_args()
 
+    # Check settings and both databases before the 10-40 s of generation.
+    demo_password = config._env("DEMO_PASSWORD")
+    dbname = args.database or config.PG_DATABASE
+    with psycopg.connect(config.owner_dsn(dbname)) as conn:
+        if conn.execute("SELECT to_regclass('public.student_question_mark')").fetchone()[0] is None:
+            raise SystemExit(f"Database {dbname} has no schema; run `python -m scripts.migrate` first")
+    client = MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command("ping")
+    # Surveys go to the MongoDB database named like the PostgreSQL one (default MONGO_DATABASE),
+    # so --database copo_test never touches the main dataset.
+    mongo = client[args.database or config.MONGO_DATABASE]
+
     started = time.perf_counter()
     b = Builder(args.seed)
     b.master()
     batches = b.students()
     b.offerings(batches)
-    b.users(batches)
+    b.users(batches, demo_password)
     print(f"generated in {time.perf_counter() - started:.1f}s; loading")
-    load_postgres(b, args.database, args.reset)
-    load_mongo(b, args.database, args.reset)
+    load(b, dbname, mongo, args.reset)
     print(f"done in {time.perf_counter() - started:.1f}s")
 
 
