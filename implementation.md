@@ -138,9 +138,11 @@ Output: root-cause report, what-if simulator, versioned rules.
 
 Output: demo-ready system.
 
-1. Auth: bcrypt hashes in `app_user`; each request sets `app.faculty_id` (FR-7.1).
-2. PostgreSQL roles (admin, faculty, coordinator) with GRANTs; RLS policies on marks, attainment and
-   survey-derived tables (NFR-5).
+1. Auth: bcrypt hashes in `app_user`; each request sets `app.faculty_id` (faculty) or `app.usn`
+   (student) (FR-7.1).
+2. PostgreSQL roles (admin, faculty, coordinator, student) with GRANTs; RLS policies on marks,
+   attainment and survey-derived tables (NFR-5). Student policy: own `enrollment` rows only, read-only;
+   student screen shows own CO-wise scores.
 3. Screens: CSV marks upload with row errors, lock/unlock request, compute, CO-PO heatmap, CO trend,
    weakest-CO ranking, root-cause report, what-if side-by-side, audit verification.
 4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`.
@@ -150,9 +152,9 @@ Output: demo-ready system.
 
 | PRD test | Location |
 | --- | --- |
-| Correctness | `tests/test_worked_example.py` |
+| Correctness | `tests/test_worked_example.py`, `tests/test_component_weights.py` |
 | Constraints | `tests/test_constraints.py` |
-| Access control | `tests/test_rls.py` |
+| Access control | `tests/test_rls.py` (faculty A vs B; student sees only own rows) |
 | Audit tamper | `tests/test_audit_chain.py` |
 | Performance | `docs/explain/` reports |
 | Root cause | `tests/test_root_cause.py` |
