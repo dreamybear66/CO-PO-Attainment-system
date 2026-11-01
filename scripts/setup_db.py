@@ -48,14 +48,20 @@ def main() -> None:
             # and a repeated plain GRANT never changes an existing membership.
             cur.execute(sql.SQL("GRANT {} TO copo_api WITH INHERIT FALSE, SET TRUE").format(sql.Identifier(role)))
 
-        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (args.database,))
-        if not cur.fetchone():
+        cur.execute("SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = %s", (args.database,))
+        row = cur.fetchone()
+        if not row:
             cur.execute(
                 sql.SQL("CREATE DATABASE {} OWNER copo_owner ENCODING 'UTF8'").format(
                     sql.Identifier(args.database)
                 )
             )
             print(f"created database {args.database}")
+        elif row[0] != "copo_owner":
+            # migrate needs copo_owner to own the database: on PG15+ that is what lets it create
+            # tables in, and drop and recreate, the public schema (owned by pg_database_owner).
+            cur.execute(sql.SQL("ALTER DATABASE {} OWNER TO copo_owner").format(sql.Identifier(args.database)))
+            print(f"database {args.database} was owned by {row[0]}; now owned by copo_owner")
 
     # Extensions need superuser on some installs; create them up front.
     with psycopg.connect(config.superuser_dsn(args.database), autocommit=True) as conn:
