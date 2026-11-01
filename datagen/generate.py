@@ -297,6 +297,17 @@ def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
     with conn.cursor() as cur:
         if reset:
             truncate_all(cur)
+        # Seed data is not an audited change: keep the audit triggers (audit_insert, audit_row)
+        # from copying ~570k loaded rows into audit_outbox and the MongoDB hash chain. DISABLE
+        # TRIGGER is transactional, so a failed load leaves them enabled.
+        audit = cur.execute(
+            "SELECT quote_ident(c.relname), quote_ident(t.tgname) FROM pg_trigger t "
+            "JOIN pg_class c ON c.oid = t.tgrelid "
+            "WHERE c.relnamespace = 'public'::regnamespace AND NOT t.tgisinternal "
+            "AND t.tgenabled <> 'D' AND t.tgname LIKE 'audit%'"
+        ).fetchall()
+        for table, trigger in audit:
+            cur.execute(f"ALTER TABLE {table} DISABLE TRIGGER {trigger}")
         for table in TABLES_IN_LOAD_ORDER:
             with cur.copy(f"COPY {table} ({COLUMNS[table]}) FROM STDIN") as copy:
                 for row in b.rows[table]:
@@ -309,6 +320,8 @@ def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
         cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
                     "WHERE assessment_id = ANY(%s)", (b.locks,))
         print(f"  locked {cur.rowcount:,} assessments")
+        for table, trigger in audit:
+            cur.execute(f"ALTER TABLE {table} ENABLE TRIGGER {trigger}")
 
 
 def load_mongo(b: Builder, db: Database, reset: bool) -> None:
