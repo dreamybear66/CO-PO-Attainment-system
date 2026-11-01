@@ -2,6 +2,7 @@
 
 from decimal import Decimal as D
 
+from scripts.migrate import truncate_all
 from tests.conftest import add_offering, raises_sqlstate
 
 
@@ -92,3 +93,9 @@ def test_level_follows_the_stored_percentage(db):
     db.execute("CALL sp_compute_attainment(2)")
     row = db.execute("SELECT pct_attained, direct_level FROM co_attainment WHERE offering_id = 2 AND co_id = 1").fetchone()
     assert row == (D("66.67"), 2)     # 2 of 3 = 66.666...%, stored as 66.67, which meets l2 = 66.67
+
+
+def test_truncate_also_empties_the_dashboards(db):
+    db.execute("CALL sp_compute_attainment(1)")
+    truncate_all(db)
+    assert db.execute("SELECT count(*) FROM mv_co_po_heatmap").fetchone()[0] == 0
