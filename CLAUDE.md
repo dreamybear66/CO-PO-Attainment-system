@@ -16,6 +16,9 @@ Course Outcome (CO) and Program Outcome (PO) attainment from question-wise marks
 - Branch names: `<type>/<feature>` (e.g. `docs/project-planning`, `feat/attainment-engine`).
 - Commit messages: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
 - No AI attribution in commits or PRs (no `Co-Authored-By` trailer, no "Generated with" footer).
+- Identity: commit as the `dreamybear66` GitHub account — repo-local git config
+  `user.name = krrish97`, `user.email = krrishagarwal.is24@rvce.edu.in` — and keep `gh` switched
+  to `dreamybear66` (`gh auth switch -u dreamybear66`) before pushing or opening PRs.
 
 ## Scope guardrails
 
