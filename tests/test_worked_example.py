@@ -40,6 +40,19 @@ def test_recompute_is_idempotent(db):
     assert db.execute("SELECT count(*) FROM improvement_action").fetchone()[0] == 1
 
 
+def test_official_results_use_the_offerings_rule_version(db):
+    db.execute("""
+        INSERT INTO attainment_config (config_id, program_id, target_pct, l3_pct, l2_pct, l1_pct,
+            direct_weight, indirect_weight, co_target_level, po_target_level, valid_from, valid_to)
+        VALUES (2, 1, 40, 70, 60, 50, 80, 20, 2.0, 2.0, '2010-08-01', '2020-08-01');
+        INSERT INTO config_component_weight VALUES (2, 'SEE', 100);
+    """)
+    with raises_sqlstate("CP015"):                 # an older, more lenient version
+        db.execute("CALL sp_compute_attainment(1, 2)")
+    db.execute("CALL sp_compute_attainment(1, 1)")   # naming its own version is fine
+    assert [r[5] for r in co_rows(db)] == [1, 1, 1]
+
+
 def test_refuses_when_an_assessment_is_unlocked(db):
     db.execute("INSERT INTO assessment (offering_id, type, name, max_marks) VALUES (1, 'CIE_QUIZ', 'Quiz 1', 10)")
     with raises_sqlstate("CP012"):

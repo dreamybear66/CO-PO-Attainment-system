@@ -1,7 +1,8 @@
 -- 005_attainment.sql
 -- The attainment engine (PRD FR-4.2 - FR-4.4, Section 5): sp_compute_attainment, sp_compute_all.
 --   CP010 offering not found   CP011 no rule version   CP012 assessments missing or unlocked
---   CP013 CO not assessed      CP014 bad scenario      42501 not allowed
+--   CP013 CO not assessed      CP014 bad scenario      CP015 config is not the offering's rule version
+--   42501 not allowed
 --
 -- Privileges: every routine here loses the default EXECUTE for PUBLIC (end of file). Faculty and
 -- admin may call sp_compute_attainment, only admin sp_compute_all; the rest run inside them.
@@ -188,6 +189,7 @@ DECLARE
     v_total     int;
     v_unlocked  int;
     v_rules     attainment_rules;
+    v_official  int;
 BEGIN
     -- 0. permission first, so a caller who may not compute never holds the offering's lock
     IF NOT EXISTS (SELECT 1 FROM course_offering WHERE offering_id = p_offering_id) THEN
@@ -206,9 +208,14 @@ BEGIN
         IF p_scenario_id IS NOT NULL THEN
             RAISE EXCEPTION 'A what-if scenario cannot be persisted' USING ERRCODE = 'CP014';
         END IF;
-        IF p_config_id IS NULL THEN
-            SELECT config_id INTO p_config_id FROM v_offering_config WHERE offering_id = p_offering_id;
+        -- Official results always use the rule version valid at the offering's term; other rules
+        -- can be tried as a what-if scenario.
+        SELECT config_id INTO v_official FROM v_offering_config WHERE offering_id = p_offering_id;
+        IF p_config_id IS NOT NULL AND p_config_id IS DISTINCT FROM v_official THEN
+            RAISE EXCEPTION 'Config % is not the rule version of offering %; try other rules as a what-if scenario',
+                p_config_id, p_offering_id USING ERRCODE = 'CP015';
         END IF;
+        p_config_id := v_official;
     ELSE
         SELECT * INTO v_scn FROM whatif_scenario
         WHERE scenario_id = p_scenario_id AND offering_id = p_offering_id;
