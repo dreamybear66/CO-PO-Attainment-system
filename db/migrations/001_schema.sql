@@ -9,6 +9,14 @@
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS btree_gist SCHEMA extensions;
 
+-- ---------------------------------------------------------------- value domains
+-- Shared by the rule tables and every result table (official and what-if), so a value out of
+-- range is rejected the same way everywhere.
+
+CREATE DOMAIN pct_0_100      AS numeric(5,2) CHECK (VALUE BETWEEN 0 AND 100);  -- percentages, weights
+CREATE DOMAIN level_0_3      AS smallint     CHECK (VALUE BETWEEN 0 AND 3);    -- attainment level
+CREATE DOMAIN attainment_0_3 AS numeric(4,2) CHECK (VALUE BETWEEN 0 AND 3);    -- weighted level, targets
+
 -- ---------------------------------------------------------------- academic structure
 
 CREATE TABLE department (
@@ -150,14 +158,14 @@ CREATE TABLE student_question_mark (
 CREATE TABLE attainment_config (
     config_id       serial PRIMARY KEY,
     program_id      int  NOT NULL REFERENCES program,
-    target_pct      numeric(5,2) NOT NULL CHECK (target_pct BETWEEN 0 AND 100),
-    l3_pct          numeric(5,2) NOT NULL CHECK (l3_pct BETWEEN 0 AND 100),
-    l2_pct          numeric(5,2) NOT NULL CHECK (l2_pct BETWEEN 0 AND 100),
-    l1_pct          numeric(5,2) NOT NULL CHECK (l1_pct BETWEEN 0 AND 100),
-    direct_weight   numeric(5,2) NOT NULL CHECK (direct_weight BETWEEN 0 AND 100),
-    indirect_weight numeric(5,2) NOT NULL CHECK (indirect_weight BETWEEN 0 AND 100),
-    co_target_level numeric(3,2) NOT NULL CHECK (co_target_level BETWEEN 0 AND 3),
-    po_target_level numeric(3,2) NOT NULL CHECK (po_target_level BETWEEN 0 AND 3),
+    target_pct      pct_0_100      NOT NULL,
+    l3_pct          pct_0_100      NOT NULL,
+    l2_pct          pct_0_100      NOT NULL,
+    l1_pct          pct_0_100      NOT NULL,
+    direct_weight   pct_0_100      NOT NULL,
+    indirect_weight pct_0_100      NOT NULL,
+    co_target_level attainment_0_3 NOT NULL,
+    po_target_level attainment_0_3 NOT NULL,
     rc_min_n        int          NOT NULL DEFAULT 20  CHECK (rc_min_n >= 3),
     rc_min_r        numeric(3,2) NOT NULL DEFAULT 0.40 CHECK (rc_min_r BETWEEN 0 AND 1),
     valid_from      date NOT NULL,
@@ -172,7 +180,7 @@ CREATE TABLE attainment_config (
 CREATE TABLE config_component_weight (
     config_id  int NOT NULL REFERENCES attainment_config,
     component  assessment_component NOT NULL,
-    weight_pct numeric(5,2) NOT NULL CHECK (weight_pct > 0 AND weight_pct <= 100),
+    weight_pct pct_0_100 NOT NULL CHECK (weight_pct > 0),
     PRIMARY KEY (config_id, component)
 );
 
@@ -180,11 +188,11 @@ CREATE TABLE co_attainment (
     offering_id    int NOT NULL REFERENCES course_offering,
     co_id          int NOT NULL REFERENCES course_outcome,
     config_id      int NOT NULL REFERENCES attainment_config,
-    students       int NOT NULL,
-    pct_attained   numeric(5,2) NOT NULL,
-    direct_level   smallint NOT NULL CHECK (direct_level BETWEEN 0 AND 3),
-    indirect_level smallint NOT NULL CHECK (indirect_level BETWEEN 0 AND 3),
-    final_level    numeric(4,2) NOT NULL CHECK (final_level BETWEEN 0 AND 3),
+    students       int NOT NULL CHECK (students >= 0),
+    pct_attained   pct_0_100      NOT NULL,
+    direct_level   level_0_3      NOT NULL,
+    indirect_level level_0_3      NOT NULL,
+    final_level    attainment_0_3 NOT NULL,
     computed_at    timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (offering_id, co_id)
 );
@@ -193,8 +201,8 @@ CREATE TABLE indirect_attainment (
     offering_id    int NOT NULL REFERENCES course_offering,
     co_id          int NOT NULL REFERENCES course_outcome,
     respondents    int NOT NULL CHECK (respondents >= 0),
-    pct_favourable numeric(5,2) NOT NULL CHECK (pct_favourable BETWEEN 0 AND 100),
-    level          smallint NOT NULL CHECK (level BETWEEN 0 AND 3),
+    pct_favourable pct_0_100 NOT NULL,
+    level          level_0_3 NOT NULL,
     loaded_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (offering_id, co_id)
 );
@@ -203,7 +211,7 @@ CREATE TABLE po_attainment (
     offering_id int NOT NULL REFERENCES course_offering,
     po_id       int NOT NULL REFERENCES program_outcome,
     config_id   int NOT NULL REFERENCES attainment_config,
-    attainment  numeric(4,2) NOT NULL CHECK (attainment BETWEEN 0 AND 3),
+    attainment  attainment_0_3 NOT NULL,
     computed_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (offering_id, po_id)
 );
@@ -252,20 +260,22 @@ CREATE TABLE app_user (
 );
 
 -- Scenario rules override the base config; component weights come from the base config.
+-- The rule columns use the same domains as attainment_config. The root-cause thresholds
+-- (rc_min_n, rc_min_r) are left out on purpose: what-if only recomputes attainment.
 CREATE TABLE whatif_scenario (
     scenario_id     serial PRIMARY KEY,
     offering_id     int NOT NULL REFERENCES course_offering,
     base_config_id  int NOT NULL REFERENCES attainment_config,
     created_by      int NOT NULL REFERENCES app_user,
     name            text NOT NULL,
-    target_pct      numeric(5,2) NOT NULL CHECK (target_pct BETWEEN 0 AND 100),
-    l3_pct          numeric(5,2) NOT NULL CHECK (l3_pct BETWEEN 0 AND 100),
-    l2_pct          numeric(5,2) NOT NULL CHECK (l2_pct BETWEEN 0 AND 100),
-    l1_pct          numeric(5,2) NOT NULL CHECK (l1_pct BETWEEN 0 AND 100),
-    direct_weight   numeric(5,2) NOT NULL CHECK (direct_weight BETWEEN 0 AND 100),
-    indirect_weight numeric(5,2) NOT NULL CHECK (indirect_weight BETWEEN 0 AND 100),
-    co_target_level numeric(3,2) NOT NULL CHECK (co_target_level BETWEEN 0 AND 3),
-    po_target_level numeric(3,2) NOT NULL CHECK (po_target_level BETWEEN 0 AND 3),
+    target_pct      pct_0_100      NOT NULL,
+    l3_pct          pct_0_100      NOT NULL,
+    l2_pct          pct_0_100      NOT NULL,
+    l1_pct          pct_0_100      NOT NULL,
+    direct_weight   pct_0_100      NOT NULL,
+    indirect_weight pct_0_100      NOT NULL,
+    co_target_level attainment_0_3 NOT NULL,
+    po_target_level attainment_0_3 NOT NULL,
     created_at      timestamptz NOT NULL DEFAULT now(),
     CHECK (l3_pct >= l2_pct AND l2_pct >= l1_pct),
     CHECK (direct_weight + indirect_weight = 100)
@@ -274,17 +284,17 @@ CREATE TABLE whatif_scenario (
 CREATE TABLE whatif_result (
     scenario_id    int NOT NULL REFERENCES whatif_scenario ON DELETE CASCADE,
     co_id          int NOT NULL REFERENCES course_outcome,
-    pct_attained   numeric(5,2) NOT NULL,
-    direct_level   smallint NOT NULL,
-    indirect_level smallint NOT NULL,
-    final_level    numeric(4,2) NOT NULL,
+    pct_attained   pct_0_100      NOT NULL,
+    direct_level   level_0_3      NOT NULL,
+    indirect_level level_0_3      NOT NULL,
+    final_level    attainment_0_3 NOT NULL,
     PRIMARY KEY (scenario_id, co_id)
 );
 
 CREATE TABLE whatif_po_result (
     scenario_id int NOT NULL REFERENCES whatif_scenario ON DELETE CASCADE,
     po_id       int NOT NULL REFERENCES program_outcome,
-    attainment  numeric(4,2) NOT NULL,
+    attainment  attainment_0_3 NOT NULL,
     PRIMARY KEY (scenario_id, po_id)
 );
 
