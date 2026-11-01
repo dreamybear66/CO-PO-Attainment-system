@@ -20,7 +20,7 @@ import bcrypt
 import numpy as np
 import psycopg
 from faker import Faker
-from pymongo import MongoClient
+from pymongo import ASCENDING, MongoClient
 
 from api import config
 from datagen import catalog as cat
@@ -307,10 +307,22 @@ def load_postgres(b: Builder, dbname: str | None, reset: bool) -> None:
             print(f"  locked {cur.rowcount:,} assessments")
 
 
-def load_mongo(b: Builder, reset: bool) -> None:
-    db = MongoClient(config.MONGO_URI)[config.MONGO_DATABASE]
+def load_mongo(b: Builder, dbname: str | None, reset: bool) -> None:
+    """Surveys go to the MongoDB database of the same name as the PostgreSQL one (default
+    MONGO_DATABASE), so --database copo_test never touches the main dataset."""
+    db = MongoClient(config.MONGO_URI)[dbname or config.MONGO_DATABASE]
     if reset:
-        db.survey_responses.drop()
+        # Reset both stores together. delete_many keeps the collections' indexes. The audit chain
+        # mirrors audit_outbox, whose ids the PostgreSQL truncate restarts at 1; a stale audit_log
+        # would make the outbox writer treat new rows as already copied.
+        db.survey_responses.delete_many({})
+        db.audit_log.delete_many({})
+    # One response per respondent, offering and survey type (S12). Same definition as
+    # api.mongo.ensure_indexes, so creating it twice is a no-op.
+    db.survey_responses.create_index(
+        [("respondent_hash", ASCENDING), ("offering_id", ASCENDING), ("survey_type", ASCENDING)],
+        unique=True, name="one_response_per_respondent",
+    )
     if b.surveys:
         db.survey_responses.insert_many(b.surveys, ordered=False)
     print(f"  survey_responses         {len(b.surveys):>8,} documents")
@@ -331,7 +343,7 @@ def main() -> None:
     b.users(batches)
     print(f"generated in {time.perf_counter() - started:.1f}s; loading")
     load_postgres(b, args.database, args.reset)
-    load_mongo(b, args.reset)
+    load_mongo(b, args.database, args.reset)
     print(f"done in {time.perf_counter() - started:.1f}s")
 
 
