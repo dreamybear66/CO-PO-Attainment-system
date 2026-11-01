@@ -86,7 +86,7 @@ SHARED_LAST_QUESTION = {"CIE Test 1", "CIE Test 2"}
 CURRENT_TERM_ASSESSMENTS = {"CIE Test 1", "Quiz 1"}
 
 # Logit offsets per component: quizzes and EL score higher than the SEE.
-COMPONENT_EASE = {"CIE_THEORY": 0.7, "CIE_QUIZ": 0.9, "EL": 1.1, "SEE": 0.4}
+COMPONENT_EASE = {"CIE_THEORY": 1.0, "CIE_QUIZ": 1.2, "EL": 1.4, "SEE": 0.7}
 ABSENCE_RATE = {"CIE_THEORY": 0.03, "CIE_QUIZ": 0.03, "EL": 0.0, "SEE": 0.01}
 
 # Two rule versions show that results keep the config they were computed with.
