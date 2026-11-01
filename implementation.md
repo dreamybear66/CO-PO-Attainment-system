@@ -69,3 +69,40 @@ Output: database with 500k+ mark rows.
 3. Survey documents into MongoDB with `respondent_hash`, one per (respondent, offering, survey_type) (S12).
 4. Deterministic seed so test runs are reproducible.
 5. `db/seed/worked_example.sql` — the exact 60-student, 3-CO case from PRD Section 5.
+
+## Phase 3 — Attainment engine (weeks 3–4) · Member A
+
+Output: engine that matches the worked example to two decimals.
+
+1. Trigger `mark_guard` (`trg_check_mark`): reject marks outside 0..max and any write to a locked
+   assessment; emit an audit row (FR-3.3, FR-3.5).
+2. Deferred constraint trigger: per-question CO weights sum to 1 (FR-3.2).
+3. Trigger on `co_dependency`: reject cycles and prereq COs outside the course-prerequisite graph (FR-2.3, S9).
+4. View `student_co_score` (PRD Section 5, step 1), honouring the S6 absent rule.
+5. `sp_compute_attainment(p_offering_id, p_config_id, p_persist)`:
+   1. `SELECT ... FOR UPDATE` on the offering (NFR-3).
+   2. Raise if any assessment is unlocked (FR-4.3).
+   3. Direct level per CO from config thresholds.
+   4. Indirect level from `indirect_attainment` (0 if no survey).
+   5. Final level with weights per S1.
+   6. PO per offering from `co_po_map` strengths.
+   7. `p_persist` → write `co_attainment` / `po_attainment` and refresh views; else write
+      `whatif_result` / `whatif_po_result` only (NFR-8).
+   8. Insert `improvement_action` for each CO below `co_target_level` (FR-4.4).
+6. Programme-level PO query per S10 (FR-4.5).
+7. Indexes: `student_question_mark(question_id)`, `enrollment(offering_id)`,
+   `question_co_map(co_id)`; record EXPLAIN ANALYZE before/after in `docs/` (NFR-7).
+8. Test: worked example → CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48.
+
+## Phase 4 — MongoDB, ETL and audit chain (week 5) · Member B
+
+Output: integrated NoSQL layer.
+
+1. Collections `survey_responses` (unique index per S12) and `audit_log`.
+2. API reference checks: `offering_id`, `co_id` must exist in PostgreSQL before a survey insert (FR-5.1).
+3. Nightly ETL: % rating ≥ 4 per (offering, CO) → level via config thresholds → upsert
+   `indirect_attainment` (FR-5.2).
+4. Audit: DB triggers write to `audit_outbox` in the same transaction; a worker moves rows to
+   `audit_log` with `hash = SHA256(prev_hash + canonical JSON)` and marks them sent (S8).
+5. Daily job copies the chain head into `audit_anchor`; verifier recomputes the chain and reports the
+   first broken `seq` (FR-7.2, NFR-6).
