@@ -3,7 +3,7 @@
 Usage:
   python -m scripts.migrate                 apply pending migrations
   python -m scripts.migrate --reset         drop and recreate the public schema first
-  python -m scripts.migrate --until 004     stop after the migration with this prefix
+  python -m scripts.migrate --until 004     stop after the migration with this number
   python -m scripts.migrate --database X    target another database (tests use copo_test)
 
 With --reset, the drop and every migration run in one transaction, so a failure leaves the
@@ -21,14 +21,21 @@ from api import config
 MIGRATIONS = config.ROOT / "db" / "migrations"
 
 
-def migration_files(until: str | None = None) -> list[Path]:
-    files = sorted(MIGRATIONS.glob("*.sql"))
-    if until:
-        files = [f for f in files if f.name[: len(until)] <= until]
-    return files
+def number(path: Path) -> int:
+    return int(path.name.split("_", 1)[0])
 
 
-def apply(dbname: str | None = None, *, reset: bool = False, until: str | None = None) -> list[str]:
+def migration_files(until: str | int | None = None) -> list[Path]:
+    files = sorted(MIGRATIONS.glob("*.sql"), key=number)
+    if until is None:
+        return files
+    last = int(until)
+    if last not in {number(f) for f in files}:
+        raise ValueError(f"No migration numbered {until}; have {', '.join(f.name for f in files)}")
+    return [f for f in files if number(f) <= last]
+
+
+def apply(dbname: str | None = None, *, reset: bool = False, until: str | int | None = None) -> list[str]:
     files = migration_files(until)
     applied: list[str] = []
     with psycopg.connect(config.owner_dsn(dbname), autocommit=True) as conn:
@@ -54,7 +61,7 @@ def apply(dbname: str | None = None, *, reset: bool = False, until: str | None =
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true")
-    parser.add_argument("--until")
+    parser.add_argument("--until", help="last migration number to apply, e.g. 004 or 4")
     parser.add_argument("--database")
     args = parser.parse_args()
     applied = apply(args.database, reset=args.reset, until=args.until)
