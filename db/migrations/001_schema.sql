@@ -295,7 +295,9 @@ CREATE TABLE unlock_request (
     decided_by    int REFERENCES app_user,
     requested_at  timestamptz NOT NULL DEFAULT now(),
     decided_at    timestamptz,
-    CHECK ((status = 'pending') = (decided_by IS NULL))
+    CHECK ((status = 'pending') = (decided_by IS NULL)),
+    CHECK ((decided_by IS NULL) = (decided_at IS NULL)),
+    CHECK (decided_by IS DISTINCT FROM requested_by)     -- no self-approval
 );
 
 -- Daily copy of the MongoDB audit-chain head.
