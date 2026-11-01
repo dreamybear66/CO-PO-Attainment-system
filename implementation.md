@@ -88,21 +88,27 @@ Output: engine that matches the worked example to two decimals.
    assessment; emit an audit row (FR-3.3, FR-3.5).
 2. Deferred constraint trigger: per-question CO weights sum to 1 (FR-3.2).
 3. Trigger on `co_dependency`: reject cycles and prereq COs outside the course-prerequisite graph (FR-2.3, S9).
-4. View `student_co_score` (PRD Section 5, step 1), honouring the S6 absent rule.
+4. Views for the student CO score (PRD Section 5, steps 1–2):
+   - `student_component_co_pct` — per (usn, offering, CO, component): weighted marks ÷ weighted max
+     × 100, absent marks counted as 0.
+   - `student_co_score` — Σ(weight_pct × component %) ÷ Σ weight_pct over the components that test the
+     CO, weights from `config_component_weight`.
 5. `sp_compute_attainment(p_offering_id, p_config_id, p_persist)`:
    1. `SELECT ... FOR UPDATE` on the offering (NFR-3).
    2. Raise if any assessment is unlocked (FR-4.3).
    3. Direct level per CO from config thresholds.
    4. Indirect level from `indirect_attainment` (0 if no survey).
-   5. Final level with weights per S1.
+   5. Final level = `(direct_weight × direct + indirect_weight × indirect) / 100`.
    6. PO per offering from `co_po_map` strengths.
    7. `p_persist` → write `co_attainment` / `po_attainment` and refresh views; else write
       `whatif_result` / `whatif_po_result` only (NFR-8).
    8. Insert `improvement_action` for each CO below `co_target_level` (FR-4.4).
-6. Programme-level PO query per S10 (FR-4.5).
+6. Programme-level PO = plain average of offering-level PO values (FR-4.5).
 7. Indexes: `student_question_mark(question_id)`, `enrollment(offering_id)`,
    `question_co_map(co_id)`; record EXPLAIN ANALYZE before/after in `docs/` (NFR-7).
-8. Test: worked example → CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48.
+8. Tests: worked example → CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48; component weighting → a student
+   at 70 / 80 / 90 / 60 % (theory / quiz / EL / SEE) scores 70.0%, and 68.9% when no quiz question
+   tests the CO.
 
 ## Phase 4 — MongoDB, ETL and audit chain (week 5) · Member B
 
