@@ -29,7 +29,10 @@ def migration_files(until: str | int | None = None) -> list[Path]:
     files = sorted(MIGRATIONS.glob("*.sql"), key=number)
     if until is None:
         return files
-    last = int(until)
+    try:
+        last = int(until)
+    except ValueError:
+        raise ValueError(f"--until takes a migration number such as 004, not {until!r}") from None
     if last not in {number(f) for f in files}:
         raise ValueError(f"No migration numbered {until}; have {', '.join(f.name for f in files)}")
     return [f for f in files if number(f) <= last]
@@ -64,7 +67,10 @@ def main() -> None:
     parser.add_argument("--until", help="last migration number to apply, e.g. 004 or 4")
     parser.add_argument("--database")
     args = parser.parse_args()
-    applied = apply(args.database, reset=args.reset, until=args.until)
+    try:
+        applied = apply(args.database, reset=args.reset, until=args.until)
+    except ValueError as e:
+        parser.error(str(e))
     print("\n".join(f"applied {name}" for name in applied) or "nothing to apply")
 
 
