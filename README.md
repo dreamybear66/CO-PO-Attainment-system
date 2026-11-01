@@ -26,3 +26,24 @@ copy .env.example .env        # then fill in the passwords and secrets
 ```
 
 `scripts.migrate --reset` drops and recreates the schema; `--until 005` stops after a given migration.
+
+## Synthetic data
+
+```powershell
+.\.venv\Scripts\python.exe -m datagen.generate --reset
+```
+
+One ISE programme: 16 courses, 6 batches (1,440 students), 280 offerings from 2021-22 to the current
+term (2026-27 odd), ~557k question-wise marks and ~12k course-exit surveys in MongoDB. Current-term
+offerings have only CIE Test 1 and Quiz 1 and stay unlocked. The 2023 batch carries the planted
+root-cause story (Data Structures CO2 → DBMS CO4, with Programming in C CO5 as a decoy); see
+`datagen/catalog.py`. Demo logins (`hod`, `coordinator`, `fac01`–`fac14`, four student USNs) use
+`DEMO_PASSWORD` from `.env`. Survey respondents are stored as an HMAC of the USN keyed by
+`SURVEY_HASH_SECRET`, so set both before generating.
+
+`--reset` empties PostgreSQL and the MongoDB `survey_responses` and `audit_log` together, and the
+PostgreSQL load commits only once the surveys are in MongoDB. `--database NAME` targets the
+PostgreSQL and MongoDB databases of that name (e.g. `copo_test`). `pytest tests/test_datagen.py`
+checks the generator without a database.
+
+`db/seed/worked_example.sql` is the PRD Section 5 example, loaded into an empty database by the tests.

@@ -54,3 +54,8 @@ def api_dsn(dbname: str | None = None) -> str:
 
 def jwt_secret() -> str:
     return _env("JWT_SECRET")
+
+
+def survey_hash_secret() -> str:
+    """Key for survey respondent ids (api.survey_hash)."""
+    return _env("SURVEY_HASH_SECRET")
