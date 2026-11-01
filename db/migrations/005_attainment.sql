@@ -152,14 +152,25 @@ BEGIN
     INSERT INTO po_attainment (offering_id, po_id, config_id, attainment)
     SELECT offering_id, po_id, config_id, attainment FROM _po_rows;
 
-    -- 7. an improvement action for every CO below target
+    -- 7. Automatic improvement actions follow the latest computation (FR-4.4): one per CO below
+    -- target, with its text kept current. When a recompute (after a corrected unlock) puts the CO at
+    -- target, its action is closed. Otherwise status is left to people.
     INSERT INTO improvement_action (co_id, offering_id, description, owner, source)
     SELECT c.co_id, c.offering_id,
            format('CO%s final level %s is below the target %s', c.co_number, c.final_level, c.co_target_level),
            o.faculty_id, 'auto'
     FROM _co_rows c JOIN course_offering o ON o.offering_id = c.offering_id
     WHERE c.final_level < c.co_target_level
-    ON CONFLICT (offering_id, co_id) WHERE source = 'auto' DO NOTHING;
+    ON CONFLICT (offering_id, co_id) WHERE source = 'auto'
+    DO UPDATE SET description = EXCLUDED.description;
+
+    UPDATE improvement_action ia
+    SET status = 'done',
+        description = format('CO%s final level %s meets the target %s after a recompute',
+                             c.co_number, c.final_level, c.co_target_level)
+    FROM _co_rows c
+    WHERE ia.source = 'auto' AND ia.offering_id = c.offering_id AND ia.co_id = c.co_id
+      AND c.final_level >= c.co_target_level AND ia.status <> 'done';
 
     -- close the loop: each computed offering is the follow-up for last year's actions on the same
     -- course and section
