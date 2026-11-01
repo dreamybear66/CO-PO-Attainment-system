@@ -4,13 +4,16 @@ A scenario overrides the rule values of an offering's base config; the same stor
 with p_persist = false, so results land only in whatif_result / whatif_po_result.
 """
 
-RULE_FIELDS = ("target_pct", "l3_pct", "l2_pct", "l1_pct", "direct_weight", "indirect_weight",
+from psycopg.rows import tuple_row
+
+RULE_FIELDS =("target_pct", "l3_pct", "l2_pct", "l1_pct", "direct_weight", "indirect_weight",
                "co_target_level", "po_target_level")
 
 
 def create_and_run(conn, *, offering_id: int, created_by: int, name: str, rules: dict) -> int:
     """Create a scenario (missing rule values default to the base config) and run it."""
-    with conn.transaction():
+    conn = conn.cursor(row_factory=tuple_row)     # positional rows whatever the connection's factory
+    with conn.connection.transaction():
         base = conn.execute(
             "SELECT c.config_id, " + ", ".join(f"c.{f}" for f in RULE_FIELDS) +
             " FROM v_offering_config oc JOIN attainment_config c USING (config_id) WHERE oc.offering_id = %s",
@@ -31,6 +34,7 @@ def create_and_run(conn, *, offering_id: int, created_by: int, name: str, rules:
 
 def compare(conn, scenario_id: int) -> dict:
     """Baseline (official) vs scenario, per CO and per PO, with each side's target."""
+    conn = conn.cursor(row_factory=tuple_row)
     s = conn.execute(
         "SELECT offering_id, co_target_level, po_target_level FROM whatif_scenario WHERE scenario_id = %s",
         (scenario_id,),
