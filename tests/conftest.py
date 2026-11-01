@@ -37,6 +37,15 @@ def db(migrated):
 
 
 @pytest.fixture
+def empty_db(migrated):
+    """Owner connection (autocommit) on an empty, migrated database."""
+    conn = psycopg.connect(config.owner_dsn(TEST_DB), autocommit=True)
+    truncate_all(conn)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
 def mongo():
     """Empty MongoDB test database with its indexes."""
     from api.mongo import ensure_indexes, get_db
