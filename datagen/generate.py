@@ -26,6 +26,16 @@ from api.survey_hash import respondent_hash
 from datagen import catalog as cat
 from scripts.migrate import truncate_all
 
+# Latent skill per (student, CO) = SHARED_ABILITY x general ability + UNIQUE x CO-specific noise,
+# with unit variance. The shared part correlates every pair of COs (latent r = SHARED_ABILITY^2),
+# so it is kept small: at 0.35 (r = 0.12), sampling at n = 60 per section pushed three unrelated
+# declared dependencies and the decoy to the root-cause threshold rc_min_r = 0.40. At 0.15
+# (r = 0.02), seed 2026 gives the planted pair r = 0.75-0.82 in every weak-batch section, the
+# decoy at most 0.38, and one unrelated pair above 0.40 (IS363 CO3 <- IS233 CO2, 2024-25 even B,
+# r = 0.46), which is sampling noise: it stays at 0.45 with no shared ability at all.
+SHARED_ABILITY = 0.15
+UNIQUE = float(np.sqrt(1 - SHARED_ABILITY ** 2))
+
 TABLES_IN_LOAD_ORDER = [
     "department", "program", "faculty", "student", "course", "course_prerequisite",
     "program_outcome", "course_outcome", "co_po_map", "co_dependency",
@@ -146,7 +156,7 @@ class Builder:
                 self.rows["student"].append((usn, self.fake.name(), 1, batch, section))
                 row = self.skill_row[usn] = len(self.skill_row)
                 theta = self.rng.normal()
-                self.skill[row] = 0.35 * theta + 0.937 * self.rng.normal(size=len(self.co_id))
+                self.skill[row] = SHARED_ABILITY * theta + UNIQUE * self.rng.normal(size=len(self.co_id))
             if batch == cat.WEAK_BATCH:
                 self.plant(out[batch])
         return out
