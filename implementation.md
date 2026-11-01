@@ -50,11 +50,17 @@ Output: approved ER diagram and DDL.
 1. ER diagram in `docs/` covering the 25 PRD tables plus the additions below.
 2. `db/migrations/001_schema.sql` — all tables with PKs and FKs (FR-1.x, FR-2.x, FR-3.1, FR-4.1).
 3. `002_constraints.sql` — CHECKs: CO-PO and dependency strength 1–3; marks between 0 and max;
-   weight sum per S1 decision (NFR-1).
+   `direct_weight + indirect_weight = 100` (NFR-1, S1).
 4. Schema additions from the PRD:
-   - `attainment_config`: `co_target_level`, `po_target_level` (S2); CIE/SEE weights if S5 = yes;
-     absent-handling flag (S6); PO aggregation mode (S10).
-   - `student_question_mark`: nullable `marks_obtained`, `is_absent` (S6).
+   - `attainment_config`: `co_target_level`, `po_target_level` (S2).
+   - `config_component_weight (config_id FK, component, weight_pct)` with a deferred trigger that the
+     weights of one config sum to 100. v1 seed: `CIE_THEORY` 20, `CIE_QUIZ` 10, `EL` 20, `SEE` 50 (S5).
+     A nullable `course_id` can be added later for per-course schemes.
+   - `assessment.type` restricted to those four components; several assessments of one type (e.g. two
+     CIE theory tests) are pooled within the component.
+   - `student_question_mark`: `is_absent` flag, `marks_obtained` nullable when absent; scored as 0 (S6).
+   - `app_user`: nullable `usn` FK for student logins; CHECK that faculty users have `faculty_id` and
+     student users have `usn` (S11).
    - `whatif_scenario`: split `direct_weight` / `indirect_weight`, add `co_target_level` (S4).
    - `whatif_po_result (scenario_id, po_id, attainment)` (S3).
    - `unlock_request (request_id, assessment_id, requested_by, approved_by, reason, ts)` (S7).
@@ -66,7 +72,8 @@ Output: approved ER diagram and DDL.
 Output: database with 500k+ mark rows.
 
 1. `datagen/` produces departments → programmes → courses (with prerequisites) → offerings over
-   3+ academic years → students, enrolments, assessments, questions, marks.
+   3+ academic years → students, enrolments, assessments, questions, marks. Each offering gets CIE
+   theory tests, quizzes, an EL assessment and a SEE; a small share of absences.
 2. Planted weakness: one upstream CO lowered for a cohort, the dependent CO lowered for the same
    students, plus an unrelated decoy CO (for the FR-6.2 tests).
 3. Survey documents into MongoDB with `respondent_hash`, one per (respondent, offering, survey_type) (S12).
