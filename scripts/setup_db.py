@@ -63,9 +63,18 @@ def main() -> None:
             cur.execute(sql.SQL("ALTER DATABASE {} OWNER TO copo_owner").format(sql.Identifier(args.database)))
             print(f"database {args.database} was owned by {row[0]}; now owned by copo_owner")
 
-    # Extensions need superuser on some installs; create them up front.
+    # Extensions need superuser on some installs; create them up front. They live in their own
+    # schema so that `migrate --reset`, which drops public, leaves them in place.
     with psycopg.connect(config.superuser_dsn(args.database), autocommit=True) as conn:
-        conn.execute("CREATE EXTENSION IF NOT EXISTS btree_gist")
+        conn.execute("CREATE SCHEMA IF NOT EXISTS extensions AUTHORIZATION copo_owner")
+        row = conn.execute(
+            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'btree_gist'"
+        ).fetchone()
+        if row is None:
+            conn.execute("CREATE EXTENSION btree_gist SCHEMA extensions")
+        elif row[0] != "extensions":
+            conn.execute("ALTER EXTENSION btree_gist SET SCHEMA extensions")
+            print(f"moved btree_gist from schema {row[0]} to extensions")
 
     print("roles and database ready")
 

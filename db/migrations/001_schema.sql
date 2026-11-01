@@ -3,7 +3,11 @@
 -- 25 tables from the source design + the additions agreed in PRD Section 9/10:
 -- config_component_weight, whatif_po_result, unlock_request, audit_outbox.
 
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+-- btree_gist backs the attainment_config EXCLUDE constraint. scripts/setup_db.py installs it as
+-- superuser into its own schema, which `migrate --reset` (DROP SCHEMA public) does not touch.
+-- These lines cover databases set up before that; btree_gist is a trusted extension.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS btree_gist SCHEMA extensions;
 
 -- ---------------------------------------------------------------- academic structure
 
