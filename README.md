@@ -52,6 +52,19 @@ CALL sp_compute_all();               -- every offering whose assessments are all
 Results land in `co_attainment` / `po_attainment` with the `config_id` used; COs below target get
 an `improvement_action`. Errors use SQLSTATE class `CP` (listed at the top of each migration).
 
+## Background jobs (surveys and audit)
+
+```powershell
+.\.venv\Scripts\python.exe -m api.jobs etl        # surveys (MongoDB) -> indirect_attainment
+.\.venv\Scripts\python.exe -m api.jobs audit      # audit_outbox -> hash-chained MongoDB audit_log
+.\.venv\Scripts\python.exe -m api.jobs anchor     # copy the chain head into audit_anchor
+.\.venv\Scripts\python.exe -m api.jobs verify     # recompute the chain; reports the first broken seq
+.\.venv\Scripts\python.exe -m api.jobs schedule   # all of the above on their schedules
+```
+
+Audited changes are written to `audit_outbox` in the same transaction as the change, so the
+MongoDB chain can lag but never miss a change.
+
 ## Tests
 
 ```powershell
