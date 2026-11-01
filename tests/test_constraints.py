@@ -185,6 +185,12 @@ def test_lock_needs_question_maxima_to_match(db):
         db.execute("UPDATE assessment SET locked = true WHERE assessment_id = 3")
 
 
+def test_assessment_cannot_be_inserted_locked(db):
+    with raises_sqlstate("CP006"):
+        db.execute("INSERT INTO assessment (offering_id, type, name, max_marks, locked, locked_at) "
+                   "VALUES (1, 'SEE', 'SEE 2', 100, true, now())")
+
+
 def test_unlock_needs_approved_request(db):
     with raises_sqlstate("CP007"):
         db.execute("UPDATE assessment SET locked = false WHERE assessment_id = 1")

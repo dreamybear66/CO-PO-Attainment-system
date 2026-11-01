@@ -230,9 +230,10 @@ FOR EACH ROW EXECUTE FUNCTION trg_co_dependency_check();
 
 -- ---------------------------------------------------------------- assessment lock / unlock
 
--- Locking stamps locked_at and requires a mark (or absence) for every enrolled student on
--- every question, each question tagged to at least one CO. Unlocking needs an approved
--- unlock_request, which is then marked used (S7). A locked assessment cannot be edited or deleted.
+-- An assessment is created unlocked; locking stamps locked_at and requires a mark (or absence) for
+-- every enrolled student on every question, each question tagged to at least one CO. Unlocking
+-- needs an approved unlock_request, which is then marked used (S7). A locked assessment cannot be
+-- edited or deleted.
 -- Runs as owner: it counts every mark and consumes the unlock request, whoever locks.
 CREATE FUNCTION trg_assessment_lock() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -247,6 +248,14 @@ BEGIN
             RAISE EXCEPTION 'Assessment is locked; it cannot be deleted' USING ERRCODE = 'CP001';
         END IF;
         RETURN OLD;
+    END IF;
+    IF TG_OP = 'INSERT' THEN
+        -- Inserted locked, it would skip every check below (and questions could never be added).
+        IF NEW.locked THEN
+            RAISE EXCEPTION 'An assessment is created unlocked and locked once its marks are in'
+                USING ERRCODE = 'CP006';
+        END IF;
+        RETURN NEW;
     END IF;
 
     IF NEW.locked AND NOT OLD.locked THEN
@@ -285,7 +294,7 @@ BEGIN
     RETURN NEW;
 END $$;
 
-CREATE TRIGGER assessment_lock BEFORE UPDATE OR DELETE ON assessment
+CREATE TRIGGER assessment_lock BEFORE INSERT OR UPDATE OR DELETE ON assessment
 FOR EACH ROW EXECUTE FUNCTION trg_assessment_lock();
 
 -- A locked assessment keeps a mark (or absence) for every enrolled student, so nobody can be
