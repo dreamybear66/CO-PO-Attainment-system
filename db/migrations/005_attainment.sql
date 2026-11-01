@@ -170,14 +170,16 @@ DECLARE
     v_unlocked  int;
     v_rules     attainment_rules;
 BEGIN
-    -- 0. one run per offering at a time
-    SELECT * INTO v_off FROM course_offering WHERE offering_id = p_offering_id FOR UPDATE;
-    IF NOT FOUND THEN
+    -- 0. permission first, so a caller who may not compute never holds the offering's lock
+    IF NOT EXISTS (SELECT 1 FROM course_offering WHERE offering_id = p_offering_id) THEN
         RAISE EXCEPTION 'Offering % not found', p_offering_id USING ERRCODE = 'CP010';
     END IF;
     IF NOT fn_can_manage_offering(p_offering_id) THEN
         RAISE EXCEPTION 'Not allowed to compute offering %', p_offering_id USING ERRCODE = '42501';
     END IF;
+    -- One run per offering at a time. NO KEY UPDATE conflicts with itself but not with the
+    -- FOR KEY SHARE taken by foreign-key checks, so inserts that reference the offering do not wait.
+    SELECT * INTO v_off FROM course_offering WHERE offering_id = p_offering_id FOR NO KEY UPDATE;
     SELECT program_id INTO v_program FROM course WHERE course_id = v_off.course_id;
 
     -- rules: the official config, or a what-if scenario on top of its base config
@@ -210,9 +212,10 @@ BEGIN
                        v_scn.direct_weight, v_scn.indirect_weight, v_scn.co_target_level);
     END IF;
 
-    -- 1. every assessment of the offering must be locked
-    SELECT count(*), count(*) FILTER (WHERE NOT locked) INTO v_total, v_unlocked
-    FROM assessment WHERE offering_id = p_offering_id;
+    -- 1. every assessment of the offering must be locked. FOR SHARE keeps them so until commit: an
+    -- unlock (an UPDATE) waits for this run instead of slipping in before the scores are read.
+    SELECT count(*), count(*) FILTER (WHERE NOT a.locked) INTO v_total, v_unlocked
+    FROM (SELECT locked FROM assessment WHERE offering_id = p_offering_id FOR SHARE) a;
     IF v_total = 0 THEN
         RAISE EXCEPTION 'Offering % has no assessments', p_offering_id USING ERRCODE = 'CP012';
     END IF;
@@ -236,6 +239,10 @@ DECLARE
     v_missing  text;
     v_denied   text;
 BEGIN
+    -- Hold every assessment FOR SHARE so none is locked or unlocked during the run. Eligibility is
+    -- read in the next statement, which sees any change that committed while this one waited.
+    PERFORM 1 FROM assessment ORDER BY assessment_id FOR SHARE;
+
     SELECT array_agg(ROW(o.offering_id, c.config_id, c.target_pct, c.l3_pct, c.l2_pct, c.l1_pct,
                          c.direct_weight, c.indirect_weight, c.co_target_level)::attainment_rules
                      ORDER BY o.offering_id) FILTER (WHERE c.config_id IS NOT NULL),
@@ -259,7 +266,7 @@ BEGIN
     -- one run per offering at a time; id order so concurrent runs cannot deadlock
     PERFORM 1 FROM course_offering
     WHERE offering_id IN (SELECT r.offering_id FROM unnest(v_rules) r)
-    ORDER BY offering_id FOR UPDATE;
+    ORDER BY offering_id FOR NO KEY UPDATE;
 
     IF v_rules IS NOT NULL THEN
         CALL sp_store_attainment(v_rules);

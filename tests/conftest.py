@@ -8,6 +8,7 @@ import pytest
 
 from api import config
 from scripts import migrate
+from scripts.migrate import truncate_all  # also refreshes materialized views, so none stay stale
 
 TEST_DB = "copo_test"
 SEED = config.ROOT / "db" / "seed" / "worked_example.sql"
@@ -16,14 +17,9 @@ SEED = config.ROOT / "db" / "seed" / "worked_example.sql"
 @pytest.fixture(scope="session")
 def migrated():
     migrate.apply(TEST_DB, reset=True)
-
-
-def truncate_all(conn) -> None:
-    tables = conn.execute(
-        "SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
-        "WHERE schemaname = 'public' AND tablename <> 'schema_migrations'"
-    ).fetchone()[0]
-    conn.execute(f"TRUNCATE {tables} RESTART IDENTITY CASCADE")
+    # The API's group roles reach the routines granted to them through the schema.
+    with psycopg.connect(config.owner_dsn(TEST_DB), autocommit=True) as conn:
+        conn.execute("GRANT USAGE ON SCHEMA public TO copo_admin, copo_faculty, copo_coordinator, copo_student")
 
 
 @pytest.fixture
@@ -44,6 +40,25 @@ def connect(migrated):
     def _connect(autocommit=True):
         conn = psycopg.connect(config.owner_dsn(TEST_DB), autocommit=autocommit)
         opened.append(conn)
+        return conn
+
+    yield _connect
+    for conn in opened:
+        conn.close()
+
+
+@pytest.fixture
+def api_connect(migrated):
+    """Factory for API-login connections acting as an application role, as api/db.py does:
+    SET ROLE copo_<role> plus app.role / app.faculty_id. app_role overrides the app.role setting."""
+    opened = []
+
+    def _connect(role, faculty_id=None, autocommit=True, app_role=None):
+        conn = psycopg.connect(config.api_dsn(TEST_DB), autocommit=autocommit)
+        opened.append(conn)
+        conn.execute(f"SET ROLE copo_{role}")
+        conn.execute("SELECT set_config('app.role', %s, false), set_config('app.faculty_id', %s, false)",
+                     (app_role or role, str(faculty_id or "")))
         return conn
 
     yield _connect
