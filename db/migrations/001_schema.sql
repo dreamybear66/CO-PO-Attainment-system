@@ -144,7 +144,9 @@ CREATE TABLE student_question_mark (
 
 -- ---------------------------------------------------------------- results and configuration
 
--- Weights are percentages (S1). Validity ranges of one programme may not overlap.
+-- Weights are percentages (S1). Validity ranges of one programme may not overlap; checked at
+-- commit, so re-versioning (moving a shared boundary, inserting the next version before closing
+-- the current one) works in any row or statement order.
 CREATE TABLE attainment_config (
     config_id       serial PRIMARY KEY,
     program_id      int  NOT NULL REFERENCES program,
@@ -164,6 +166,7 @@ CREATE TABLE attainment_config (
     CHECK (direct_weight + indirect_weight = 100),
     CHECK (valid_to IS NULL OR valid_to > valid_from),
     EXCLUDE USING gist (program_id WITH =, daterange(valid_from, valid_to) WITH &&)
+        DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE TABLE config_component_weight (
