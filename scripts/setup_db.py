@@ -20,6 +20,7 @@ GROUP_ROLES = ("copo_admin", "copo_faculty", "copo_coordinator", "copo_student")
 
 
 def ensure_login_role(cur, name: str, password: str, *, inherit: bool) -> None:
+    """An empty password means none (PASSWORD NULL), for trust or SSPI authentication."""
     cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (name,))
     verb = "ALTER" if cur.fetchone() else "CREATE"
     cur.execute(
@@ -27,7 +28,7 @@ def ensure_login_role(cur, name: str, password: str, *, inherit: bool) -> None:
             sql.SQL(verb),
             sql.Identifier(name),
             sql.SQL("INHERIT" if inherit else "NOINHERIT"),
-            sql.Literal(password),
+            sql.Literal(password) if password else sql.SQL("NULL"),
         )
     )
 
@@ -38,8 +39,8 @@ def main() -> None:
     args = parser.parse_args()
 
     with psycopg.connect(config.superuser_dsn(), autocommit=True) as conn, conn.cursor() as cur:
-        ensure_login_role(cur, "copo_owner", config._env("PG_OWNER_PASSWORD"), inherit=True)
-        ensure_login_role(cur, "copo_api", config._env("PG_API_PASSWORD"), inherit=False)
+        ensure_login_role(cur, "copo_owner", config._env("PG_OWNER_PASSWORD", allow_empty=True), inherit=True)
+        ensure_login_role(cur, "copo_api", config._env("PG_API_PASSWORD", allow_empty=True), inherit=False)
         for role in GROUP_ROLES:
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
             if not cur.fetchone():
