@@ -63,10 +63,14 @@ JOIN course cr          ON cr.course_id = o.course_id
 JOIN program_outcome po ON po.po_id = pa.po_id
 GROUP BY cr.program_id, po.po_id, po.code, o.academic_year;
 
--- Refresh runs as the owner so any caller of the compute procedure can trigger it.
+-- Refresh runs as the owner so the compute procedures can trigger it for any caller. Directly,
+-- only admin may call it: a full refresh is expensive.
 CREATE FUNCTION fn_refresh_dashboards() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW mv_co_po_heatmap;
     REFRESH MATERIALIZED VIEW mv_co_trend;
 END $$;
+
+REVOKE EXECUTE ON FUNCTION fn_refresh_dashboards() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION fn_refresh_dashboards() TO copo_admin;

@@ -2,19 +2,38 @@
 -- The attainment engine (PRD FR-4.2 - FR-4.4, Section 5): sp_compute_attainment, sp_compute_all.
 --   CP010 offering not found   CP011 no rule version   CP012 assessments missing or unlocked
 --   CP013 CO not assessed      CP014 bad scenario      42501 not allowed
+--
+-- Privileges: every routine here loses the default EXECUTE for PUBLIC (end of file). Faculty and
+-- admin may call sp_compute_attainment, only admin sp_compute_all; the rest run inside them.
 
--- Who may compute an offering: admin, or the faculty member teaching it. The API sets
--- app.role / app.faculty_id per request; maintenance logins (owner, superuser) set no role.
+-- The caller's application role. The API runs SET LOCAL ROLE copo_<role> and sets app.role (and
+-- app.faculty_id) per request. app.role is trusted only when the active role matches it, so a
+-- session cannot become admin by setting app.role alone. Maintenance logins (owner, superuser) set
+-- neither and get ''; any other mismatch gives NULL. current_setting('role') is the session's
+-- SET ROLE, also inside SECURITY DEFINER routines.
+CREATE FUNCTION fn_app_role() RETURNS text
+LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+    SELECT CASE
+        WHEN coalesce(current_setting('app.role', true), '') = '' THEN
+            CASE WHEN current_setting('role') = 'none'
+                  AND (session_user::text = 'copo_owner'
+                       OR (SELECT rolsuper FROM pg_roles WHERE rolname = session_user))
+                 THEN '' END
+        WHEN current_setting('role') = 'copo_' || current_setting('app.role', true)
+            THEN current_setting('app.role', true)
+    END
+$$;
+
+-- Who may compute an offering: admin, a maintenance login, or the faculty member teaching it.
 CREATE FUNCTION fn_can_manage_offering(p_offering_id int) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT CASE coalesce(current_setting('app.role', true), '')
+    SELECT CASE fn_app_role()
         WHEN 'admin'   THEN true
+        WHEN ''        THEN true
         WHEN 'faculty' THEN EXISTS (
             SELECT 1 FROM course_offering
             WHERE offering_id = p_offering_id
               AND faculty_id = nullif(current_setting('app.faculty_id', true), '')::int)
-        WHEN ''        THEN session_user::text = 'copo_owner'
-                            OR (SELECT rolsuper FROM pg_roles WHERE rolname = session_user)
         ELSE false
     END
 $$;
@@ -231,14 +250,16 @@ BEGIN
 END $$;
 
 -- Compute every offering whose assessments are all locked, in one set-based pass, and refresh the
--- dashboards once.
+-- dashboards once. Admin and maintenance logins only.
 CREATE PROCEDURE sp_compute_all()
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     v_rules    attainment_rules[];
     v_missing  text;
-    v_denied   text;
 BEGIN
+    IF fn_app_role() IS DISTINCT FROM 'admin' AND fn_app_role() IS DISTINCT FROM '' THEN
+        RAISE EXCEPTION 'Only an admin can compute every offering' USING ERRCODE = '42501';
+    END IF;
     -- Hold every assessment FOR SHARE so none is locked or unlocked during the run. Eligibility is
     -- read in the next statement, which sees any change that committed while this one waited.
     PERFORM 1 FROM assessment ORDER BY assessment_id FOR SHARE;
@@ -255,12 +276,6 @@ BEGIN
       AND NOT EXISTS (SELECT 1 FROM assessment a WHERE a.offering_id = o.offering_id AND NOT a.locked);
     IF v_missing IS NOT NULL THEN
         RAISE EXCEPTION 'No attainment configuration applies to offering(s) %', v_missing USING ERRCODE = 'CP011';
-    END IF;
-
-    SELECT string_agg(r.offering_id::text, ', ') INTO v_denied
-    FROM unnest(v_rules) r WHERE NOT fn_can_manage_offering(r.offering_id);
-    IF v_denied IS NOT NULL THEN
-        RAISE EXCEPTION 'Not allowed to compute offering(s) %', v_denied USING ERRCODE = '42501';
     END IF;
 
     -- one run per offering at a time; id order so concurrent runs cannot deadlock
@@ -284,3 +299,12 @@ SELECT ia.action_id, ia.co_id, ia.offering_id, ia.status, ia.source, ia.descript
 FROM improvement_action ia
 LEFT JOIN co_attainment before ON before.offering_id = ia.offering_id AND before.co_id = ia.co_id
 LEFT JOIN co_attainment after  ON after.offering_id = ia.follow_up_offering_id AND after.co_id = ia.co_id;
+
+-- ---------------------------------------------------------------- privileges
+
+REVOKE EXECUTE ON FUNCTION fn_app_role(), fn_can_manage_offering(int),
+    fn_co_attainment_calc(attainment_rules[]) FROM PUBLIC;
+REVOKE EXECUTE ON PROCEDURE sp_store_attainment(attainment_rules[], int),
+    sp_compute_attainment(int, int, boolean, int, boolean), sp_compute_all() FROM PUBLIC;
+GRANT EXECUTE ON PROCEDURE sp_compute_attainment(int, int, boolean, int, boolean) TO copo_admin, copo_faculty;
+GRANT EXECUTE ON PROCEDURE sp_compute_all() TO copo_admin;
