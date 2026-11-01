@@ -73,7 +73,8 @@ BEGIN
     direct AS (
         SELECT s.offering_id, s.co_id,
                count(*)::int AS students,
-               100.0 * count(*) FILTER (WHERE s.pct >= r.target_pct) / count(*) AS pct_attained
+               -- rounded here, as stored, so the level always agrees with the stored percentage
+               round(100.0 * count(*) FILTER (WHERE s.pct >= r.target_pct) / count(*), 2) AS pct_attained
         FROM rules r
         JOIN student_co_score_by_config s ON s.offering_id = r.offering_id AND s.config_id = r.config_id
         WHERE s.offering_id = ANY (v_offerings) AND s.config_id = ANY (v_configs)
@@ -82,7 +83,7 @@ BEGIN
     levels AS (
         SELECT r.offering_id, co.co_id, co.co_number,
                coalesce(d.students, 0)                                AS students,
-               round(d.pct_attained, 2)                               AS pct_attained,
+               d.pct_attained,
                fn_level(d.pct_attained, r.l3_pct, r.l2_pct, r.l1_pct) AS direct_level,
                coalesce(ia.level, 0)::smallint                        AS indirect_level,
                r.direct_weight, r.indirect_weight

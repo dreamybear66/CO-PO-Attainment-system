@@ -2,7 +2,7 @@
 
 from decimal import Decimal as D
 
-from tests.conftest import raises_sqlstate
+from tests.conftest import add_offering, raises_sqlstate
 
 
 def co_rows(db):
@@ -84,3 +84,11 @@ def test_dashboards_refreshed_after_compute(db):
     db.execute("CALL sp_compute_attainment(1)")
     assert db.execute("SELECT count(*) FROM mv_co_po_heatmap WHERE offering_id = 1").fetchone()[0] == 5
     assert db.execute("SELECT count(*) FROM mv_co_trend").fetchone()[0] == 3
+
+
+def test_level_follows_the_stored_percentage(db):
+    db.execute("UPDATE attainment_config SET l2_pct = 66.67 WHERE config_id = 1")
+    add_offering(db, 2, "2025-26", "even", [(8, 8, 8), (8, 8, 8), (2, 2, 2)], section="B")
+    db.execute("CALL sp_compute_attainment(2)")
+    row = db.execute("SELECT pct_attained, direct_level FROM co_attainment WHERE offering_id = 2 AND co_id = 1").fetchone()
+    assert row == (D("66.67"), 2)     # 2 of 3 = 66.666...%, stored as 66.67, which meets l2 = 66.67

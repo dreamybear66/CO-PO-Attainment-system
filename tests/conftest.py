@@ -72,3 +72,23 @@ def raises_sqlstate(sqlstate: str):
     with pytest.raises(psycopg.Error) as info:
         yield info
     assert info.value.sqlstate == sqlstate, f"expected {sqlstate}, got {info.value.sqlstate}: {info.value}"
+
+
+def add_offering(db, offering_id, academic_year, term, marks, section="A"):
+    """A locked offering of the worked-example course: one SEE with a 10-mark question per CO 1-3,
+    and one new student per entry of `marks`, each a (CO1, CO2, CO3) tuple of marks out of 10."""
+    aid = offering_id * 10
+    db.execute("INSERT INTO course_offering VALUES (%s, 1, %s, %s, 1, %s)", (offering_id, academic_year, term, section))
+    db.execute("INSERT INTO assessment (assessment_id, offering_id, type, name, max_marks) "
+               "VALUES (%s, %s, 'SEE', 'SEE', 30)", (aid, offering_id))
+    for co in (1, 2, 3):
+        db.execute("INSERT INTO assessment_question VALUES (%s, %s, %s, 10)", (aid * 10 + co, aid, f"Q{co}"))
+        db.execute("INSERT INTO question_co_map VALUES (%s, %s, 1)", (aid * 10 + co, co))
+    for i, row in enumerate(marks, start=1):
+        usn, eid = f"1RV{offering_id:02d}WX{i:03d}", offering_id * 1000 + i
+        db.execute("INSERT INTO student (usn, name, program_id, admission_year, section) "
+                   "VALUES (%s, %s, 1, 2025, %s)", (usn, usn, section))
+        db.execute("INSERT INTO enrollment VALUES (%s, %s, %s)", (eid, offering_id, usn))
+        for co, mark in zip((1, 2, 3), row):
+            db.execute("INSERT INTO student_question_mark VALUES (%s, %s, %s, false)", (eid, aid * 10 + co, mark))
+    db.execute("UPDATE assessment SET locked = true WHERE assessment_id = %s", (aid,))
