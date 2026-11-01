@@ -30,15 +30,18 @@ tests/               pytest suites, grouped by PRD test
 docs/                ER diagram, EXPLAIN ANALYZE reports
 ```
 
-## Decisions needed before Phase 3
+## Decisions (2 Nov 2026)
 
-These come from PRD Section 10 and change the schema, so they must be settled first.
+Settled in PRD Section 10; the phases below already apply them.
 
-- [ ] S1 — weights stored as fractions (sum = 1.0) or percentages (sum = 100)?
-- [ ] S5 — separate CIE / SEE weights? If yes, the split.
-- [ ] S6 — absent students: exclude or count as zero?
-- [ ] S10 — programme-level PO: plain average or credit-weighted?
-- [ ] S11 — keep the student role in v1?
+| # | Decision |
+| --- | --- |
+| S1 | Weights stored as percentages: `direct_weight + indirect_weight = 100`; final = `(dw × direct + iw × indirect) / 100` |
+| S5 | CIE/SEE by weighted marks, one direct level per CO. Final mark = (CIE 100 + SEE 100) / 2, so component weights are CIE theory 20, CIE quiz 10, EL 20, SEE 50 |
+| S5 | Same scheme for every course in v1; per-course schemes later (keep the weights in data so this is a data change, not a code change) |
+| S6 | Absent student scores 0 |
+| S10 | Programme-level PO = plain average of offering-level PO values |
+| S11 | Student role included, limited to own rows by RLS |
 
 ## Phase 1 — Schema and constraints (week 1) · Member A
 
