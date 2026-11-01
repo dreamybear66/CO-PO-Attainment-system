@@ -76,6 +76,29 @@ to `docs/root-cause-evaluation.md`.
 Audited changes are written to `audit_outbox` in the same transaction as the change, so the
 MongoDB chain can lag but never miss a change.
 
+## Web app and API
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.demo          # full demo database: data, ETL, compute, audit chain
+cd web; npm install; npm run build; cd ..
+.\.venv\Scripts\uvicorn.exe api.main:app --port 8000  # API + built UI on http://localhost:8000
+```
+
+For UI development run `npm run dev` in `web/` (Vite on :5173, `/api` proxied to :8000).
+Sign in as `hod` (HoD), `coordinator`, `fac01`–`fac14` (faculty) or a student USN such as
+`1rv23is001`, with `DEMO_PASSWORD` from `.env`. API docs are at `/docs`.
+
+| Role | Sees |
+| --- | --- |
+| HoD (`admin`) | Every offering, unlock approvals, rule versions, audit verification |
+| Faculty | Own offerings only (row-level security): marks upload, lock, compute, root cause, what-if |
+| Coordinator | Everything, read-only, plus audit verification |
+| Student | Own CO scores and course-exit surveys |
+
+The UI follows the taste-skill app-screen rules (style `framed-sheet`, IBM Plex Sans with Plex Mono for
+USNs and codes). `npx vite build --mode inspect --outDir dist-inspect` builds a local-only variant that
+accepts `#token=` so the screen inspector can open signed-in screens; the shipped build does not.
+
 ## Tests
 
 ```powershell
