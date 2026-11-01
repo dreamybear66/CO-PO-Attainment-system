@@ -149,6 +149,22 @@ Output: demo-ready system.
 4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`.
 5. Demo script and final report.
 
+## Built (2 Nov 2026)
+
+All six phases are implemented; 84 tests pass. Where the build differs from the plan above:
+
+| Area | Plan | As built | Why |
+| --- | --- | --- | --- |
+| Rule-version lookup | join configs by date range | `LATERAL … LIMIT 1` in `v_offering_config` | the planner misestimated the range join and chose nested loops (root-cause query 855 ms → 26 ms) |
+| Indexes | include `enrollment(offering_id)` | dropped | already covered by UNIQUE `(offering_id, usn)`; see `docs/explain/report.md` |
+| RLS policies | per-row ownership functions | `col IN (SELECT fn_my_x())` set-returning helpers | evaluated once per query; student surveys 7.5 s → 0.05 s |
+| Audit capture | `pg_notify` listener | transactional outbox (S8) + `pg_notify` wake-up | no change is lost when MongoDB or the writer is down |
+| Course prerequisites | — | acyclic-graph trigger | keeps the CO-dependency check meaningful |
+| UI | React + charting library | React + taste-skill `charts.js`, style `framed-sheet` | follows the taste-skill app-screen rules |
+
+Open decision: root-cause ranking does not penalise depth when link strengths are 3
+(`docs/root-cause-evaluation.md`).
+
 ## Test map
 
 | PRD test | Location |
