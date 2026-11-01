@@ -58,8 +58,9 @@ class Builder:
         self.locks: list[int] = []        # assessment ids to lock after marks are loaded
         self.course_id: dict[str, int] = {}
         self.co_id: dict[tuple[str, int], int] = {}
-        self.skill: dict[tuple[str, int], float] = {}   # (usn, co_id) -> latent skill
-        self.ability: dict[str, float] = {}
+        # Latent skill: one row per student (skill_row[usn]), one column per CO (co_id - 1).
+        self.skill = np.empty((0, 0))
+        self.skill_row: dict[str, int] = {}
 
     # ------------------------------------------------------------------ master data
 
@@ -134,7 +135,8 @@ class Builder:
     def students(self) -> dict[int, dict[str, list[str]]]:
         """Returns batch -> section -> [usn]."""
         out: dict[int, dict[str, list[str]]] = {}
-        all_cos = list(self.co_id.values())
+        n_students = len(cat.BATCHES) * len(cat.SECTIONS) * cat.STUDENTS_PER_SECTION
+        self.skill = np.empty((n_students, len(self.co_id)))
         for batch in cat.BATCHES:
             out[batch] = {s: [] for s in cat.SECTIONS}
             for i in range(len(cat.SECTIONS) * cat.STUDENTS_PER_SECTION):
@@ -142,23 +144,22 @@ class Builder:
                 section = cat.SECTIONS[i // cat.STUDENTS_PER_SECTION]
                 out[batch][section].append(usn)
                 self.rows["student"].append((usn, self.fake.name(), 1, batch, section))
+                row = self.skill_row[usn] = len(self.skill_row)
                 theta = self.rng.normal()
-                self.ability[usn] = theta
-                noise = self.rng.normal(size=len(all_cos))
-                for co, e in zip(all_cos, noise):
-                    self.skill[(usn, co)] = 0.35 * theta + 0.937 * e
+                self.skill[row] = 0.35 * theta + 0.937 * self.rng.normal(size=len(self.co_id))
             if batch == cat.WEAK_BATCH:
                 self.plant(out[batch])
         return out
 
     def plant(self, sections: dict[str, list[str]]) -> None:
-        cause = self.co_id[cat.PLANTED["cause_co"]]
-        weak = self.co_id[cat.PLANTED["weak_co"]]
+        cause = self.co_id[cat.PLANTED["cause_co"]] - 1
+        weak = self.co_id[cat.PLANTED["weak_co"]] - 1
         for usns in sections.values():
             for usn in usns:
+                row = self.skill_row[usn]
                 if self.rng.random() < 0.5:
-                    self.skill[(usn, cause)] -= 1.2
-                self.skill[(usn, weak)] = 0.8 * self.skill[(usn, cause)] + 0.6 * self.rng.normal()
+                    self.skill[row, cause] -= 1.2
+                self.skill[row, weak] = 0.8 * self.skill[row, cause] + 0.6 * self.rng.normal()
 
     # ------------------------------------------------------------------ offerings and marks
 
@@ -172,6 +173,7 @@ class Builder:
 
         for batch, sections in batches.items():
             for code, _, _, sem, _ in cat.COURSES:
+                course_cos = [self.co_id[(code, n)] for n in range(1, cat.CO_COUNT + 1)]
                 year = batch + (sem - 1) // 2
                 term = "odd" if sem % 2 else "even"
                 if (year, term == "even") > (current[0], current[1] == "even"):
@@ -187,6 +189,9 @@ class Builder:
                         ids["enrollment"] += 1
                         enrol.append((ids["enrollment"], usn))
                         r["enrollment"].append((ids["enrollment"], oid, usn))
+                    # students x this course's COs, built once per offering
+                    skills = self.skill[np.ix_([self.skill_row[u] for u in usns],
+                                               [co - 1 for co in course_cos])]
                     for name, comp, qmarks, cos in cat.ASSESSMENTS:
                         if is_current and name not in cat.CURRENT_TERM_ASSESSMENTS:
                             continue
@@ -204,34 +209,34 @@ class Builder:
                                 tags = [(cos[0], 0.5), (cos[-1], 0.5)]
                             else:
                                 tags = [(cos[qi % len(cos)], 1.0)]
-                            tag_ids = [(self.co_id[(code, n)], w) for n, w in tags]
-                            for co, w in tag_ids:
-                                r["question_co_map"].append((qid, co, w))
-                            questions.append((qid, qmax, tag_ids))
-                        self.marks(enrol, comp, questions)
+                            weights = np.zeros(cat.CO_COUNT)      # question's weight per course CO
+                            for n, w in tags:
+                                r["question_co_map"].append((qid, self.co_id[(code, n)], w))
+                                weights[n - 1] = w
+                            questions.append((qid, qmax, weights))
+                        self.marks(enrol, comp, questions, skills)
                     if not is_current:
-                        self.survey(oid, code, enrol, year, term)
+                        self.survey(oid, course_cos, enrol, skills, year, term)
 
-    def marks(self, enrol, comp, questions) -> None:
+    def marks(self, enrol, comp, questions, skills) -> None:
         n = len(enrol)
         absent = self.rng.random(n) < cat.ABSENCE_RATE[comp]
         rows = self.rows["student_question_mark"]
-        for qid, qmax, tags in questions:
-            z = np.array([sum(w * self.skill[(usn, co)] for co, w in tags) for _, usn in enrol])
+        for qid, qmax, weights in questions:
+            z = skills @ weights
             frac = sigmoid(cat.COMPONENT_EASE[comp] + 1.1 * z + self.rng.normal(0, 0.6, n))
             got = np.clip(np.round(frac * qmax * 2) / 2, 0, qmax)
             for (eid, _), a, m in zip(enrol, absent, got):
                 rows.append((eid, qid, None, True) if a else (eid, qid, float(m), False))
 
-    def survey(self, oid, code, enrol, year, term) -> None:
+    def survey(self, oid, cos, enrol, skills, year, term) -> None:
         submitted = term_end(year, term)
-        cos = [self.co_id[(code, n)] for n in range(1, cat.CO_COUNT + 1)]
-        for _, usn in enrol:
+        for i, (_, usn) in enumerate(enrol):
             if self.rng.random() >= 0.8:
                 continue
-            answers = [{"co_id": co, "rating": int(np.clip(round(4.0 + 0.7 * self.skill[(usn, co)]
+            answers = [{"co_id": co, "rating": int(np.clip(round(4.0 + 0.7 * skills[i, j]
                                                                   + self.rng.normal(0, 0.7)), 1, 5))}
-                       for co in cos]
+                       for j, co in enumerate(cos)]
             self.surveys.append({
                 "survey_type": "course_exit",
                 "offering_id": oid,
