@@ -94,7 +94,6 @@ class Builder:
 
         for pid, (code, kind, statement) in enumerate(cat.PROGRAM_OUTCOMES, start=1):
             r["program_outcome"].append((pid, 1, code, kind, statement))
-        po_ids = list(range(1, len(cat.PROGRAM_OUTCOMES) + 1))
 
         co = 0
         for code, title, *_ in cat.COURSES:
@@ -110,7 +109,7 @@ class Builder:
                 r["co_po_map"].append((co, 1, int(self.rng.integers(2, 4))))
                 extra = self.rng.choice([2, 3, 4, 5, 12, 13, 14], size=int(self.rng.integers(1, 4)), replace=False)
                 for po in sorted(int(p) for p in extra):
-                    r["co_po_map"].append((co, po_ids[po - 1], int(self.rng.integers(1, 4))))
+                    r["co_po_map"].append((co, po, int(self.rng.integers(1, 4))))
                 if self.soft_po_rng.random() < cat.SOFT_PO_SHARE:
                     r["co_po_map"].append((co, int(self.soft_po_rng.choice(cat.SOFT_POS)), 1))
 
@@ -121,7 +120,7 @@ class Builder:
             r["attainment_config"].append((
                 cfg_id, 1, cfg["target_pct"], c["l3_pct"], c["l2_pct"], c["l1_pct"],
                 c["direct_weight"], c["indirect_weight"], c["co_target_level"], c["po_target_level"],
-                20, 0.40, cfg["valid_from"], cfg["valid_to"],
+                c["rc_min_n"], c["rc_min_r"], cfg["valid_from"], cfg["valid_to"],
             ))
             for comp, w in cat.COMPONENT_WEIGHTS.items():
                 r["config_component_weight"].append((cfg_id, comp, w))
