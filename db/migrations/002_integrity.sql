@@ -112,40 +112,46 @@ END $$;
 CREATE TRIGGER question_co_scope BEFORE INSERT OR UPDATE ON question_co_map
 FOR EACH ROW EXECUTE FUNCTION trg_question_co_scope();
 
--- The CO weights of one question sum to 1 (checked at commit, so rows can be added one by one).
-CREATE FUNCTION trg_question_weight_sum() RETURNS trigger LANGUAGE plpgsql AS $$
+-- ---------------------------------------------------------------- weight sums
+
+-- The weights under one parent must add up to a total: a question's CO weights to 1 (FR-3.2), a
+-- config's component weights to 100 (S5). Checked at commit, so rows can be added one by one. On
+-- UPDATE both the old and the new parent are checked, since a row can move between parents.
+-- Arguments: parent key column, weight column, total, tolerance, label for the message.
+-- The tolerance of 0.001 for question weights (numeric(4,3)) lets three equal thirds of 0.333 pass.
+CREATE FUNCTION trg_weight_sum() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
-    v_question int := CASE WHEN TG_OP = 'DELETE' THEN OLD.question_id ELSE NEW.question_id END;
-    v_sum numeric;
+    v_key_col    text    := TG_ARGV[0];
+    v_weight_col text    := TG_ARGV[1];
+    v_total      numeric := TG_ARGV[2];
+    v_tolerance  numeric := TG_ARGV[3];
+    v_key        int;
+    v_sum        numeric;
 BEGIN
-    SELECT sum(weight) INTO v_sum FROM question_co_map WHERE question_id = v_question;
-    IF v_sum IS NOT NULL AND v_sum <> 1 THEN
-        RAISE EXCEPTION 'CO weights of question % sum to %, not 1', v_question, v_sum
-            USING ERRCODE = 'CP004';
-    END IF;
+    FOR v_key IN
+        SELECT DISTINCT k FROM unnest(ARRAY[
+            CASE WHEN TG_OP <> 'INSERT' THEN (to_jsonb(OLD) ->> v_key_col)::int END,
+            CASE WHEN TG_OP <> 'DELETE' THEN (to_jsonb(NEW) ->> v_key_col)::int END]) AS k
+        WHERE k IS NOT NULL
+    LOOP
+        EXECUTE format('SELECT sum(%I) FROM %I.%I WHERE %I = $1',
+                       v_weight_col, TG_TABLE_SCHEMA, TG_TABLE_NAME, v_key_col)
+            INTO v_sum USING v_key;
+        IF v_sum IS NOT NULL AND abs(v_sum - v_total) > v_tolerance THEN
+            RAISE EXCEPTION '% % sum to %, not %', TG_ARGV[4], v_key, v_sum, v_total
+                USING ERRCODE = 'CP004';
+        END IF;
+    END LOOP;
     RETURN NULL;
 END $$;
 
 CREATE CONSTRAINT TRIGGER question_weight_sum AFTER INSERT OR UPDATE OR DELETE ON question_co_map
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION trg_question_weight_sum();
-
--- ---------------------------------------------------------------- component weights
-
-CREATE FUNCTION trg_component_weight_sum() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE
-    v_config int := CASE WHEN TG_OP = 'DELETE' THEN OLD.config_id ELSE NEW.config_id END;
-    v_sum numeric;
-BEGIN
-    SELECT sum(weight_pct) INTO v_sum FROM config_component_weight WHERE config_id = v_config;
-    IF v_sum IS NOT NULL AND v_sum <> 100 THEN
-        RAISE EXCEPTION 'Component weights of config % sum to %, not 100', v_config, v_sum
-            USING ERRCODE = 'CP004';
-    END IF;
-    RETURN NULL;
-END $$;
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+EXECUTE FUNCTION trg_weight_sum('question_id', 'weight', '1', '0.001', 'CO weights of question');
 
 CREATE CONSTRAINT TRIGGER component_weight_sum AFTER INSERT OR UPDATE OR DELETE ON config_component_weight
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION trg_component_weight_sum();
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+EXECUTE FUNCTION trg_weight_sum('config_id', 'weight_pct', '100', '0', 'Component weights of config');
 
 -- ---------------------------------------------------------------- CO-PO map scope
 

@@ -105,6 +105,26 @@ def test_question_weights_split_across_cos(open_assessment):
     assert open_assessment.execute("SELECT sum(weight) FROM question_co_map WHERE question_id = 21").fetchone()[0] == 1
 
 
+def test_question_weights_in_equal_thirds(open_assessment):
+    with open_assessment.transaction():   # 3 x 0.333 = 0.999, within the 0.001 tolerance
+        open_assessment.execute("UPDATE question_co_map SET weight = 0.333 WHERE question_id = 21")
+        open_assessment.execute("INSERT INTO question_co_map VALUES (21, 2, 0.333), (21, 3, 0.333)")
+
+
+def test_moving_a_co_tag_rechecks_the_question_it_left(open_assessment):
+    with open_assessment.transaction():
+        open_assessment.execute("""
+            UPDATE question_co_map SET weight = 0.5 WHERE question_id = 21;
+            INSERT INTO question_co_map VALUES (21, 2, 0.5);
+            INSERT INTO assessment_question (question_id, assessment_id, q_no, max_marks) VALUES (22, 2, 'Q2', 10);
+            INSERT INTO question_co_map VALUES (22, 1, 0.5), (22, 3, 0.5);
+        """)
+    with raises_sqlstate("CP004"):        # question 21 would be left with weights summing to 0.5
+        with open_assessment.transaction():
+            open_assessment.execute("DELETE FROM question_co_map WHERE question_id = 22 AND co_id = 3")
+            open_assessment.execute("UPDATE question_co_map SET question_id = 22 WHERE question_id = 21 AND co_id = 2")
+
+
 def test_component_weights_must_sum_to_100(db):
     with raises_sqlstate("CP004"):
         with db.transaction():
