@@ -37,6 +37,18 @@ def db(migrated):
 
 
 @pytest.fixture
+def mongo():
+    """Empty MongoDB test database with its indexes."""
+    from api.mongo import ensure_indexes, get_db
+
+    mdb = get_db(TEST_DB)
+    mdb.survey_responses.drop()
+    mdb.audit_log.drop()
+    ensure_indexes(mdb)
+    return mdb
+
+
+@pytest.fixture
 def connect(migrated):
     """Factory for extra owner connections (concurrency tests)."""
     opened = []
