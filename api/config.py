@@ -4,14 +4,19 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from psycopg.conninfo import make_conninfo
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
 
-def _env(name: str, default: str | None = None) -> str:
-    value = os.getenv(name, default)
-    if value is None or value == "":
+def _env(name: str, default: str | None = None, *, allow_empty: bool = False) -> str:
+    """A setting from the environment. A variable that is unset or empty falls back to the default.
+    allow_empty accepts a missing value as "" (passwords under trust or SSPI authentication)."""
+    value = os.getenv(name) or default
+    if value is None:
+        if allow_empty:
+            return ""
         raise RuntimeError(f"Missing setting {name}; copy .env.example to .env and fill it in")
     return value
 
@@ -24,27 +29,27 @@ MONGO_URI = _env("MONGO_URI", "mongodb://localhost:27017")
 MONGO_DATABASE = _env("MONGO_DATABASE", "copo")
 
 
+def _dsn(dbname: str, user: str, password: str) -> str:
+    """libpq connection string. make_conninfo quotes every value, so passwords may contain
+    spaces, quotes or backslashes."""
+    params = {"host": PG_HOST, "port": PG_PORT, "dbname": dbname, "user": user}
+    if password:
+        params["password"] = password
+    return make_conninfo(**params)
+
+
 def superuser_dsn(dbname: str = "postgres") -> str:
-    return (
-        f"host={PG_HOST} port={PG_PORT} dbname={dbname} "
-        f"user={_env('PG_SUPERUSER', 'postgres')} password={_env('PG_SUPERUSER_PASSWORD')}"
-    )
+    return _dsn(dbname, _env("PG_SUPERUSER", "postgres"), _env("PG_SUPERUSER_PASSWORD", allow_empty=True))
 
 
 def owner_dsn(dbname: str | None = None) -> str:
     """Schema owner: runs migrations, ETL and background jobs."""
-    return (
-        f"host={PG_HOST} port={PG_PORT} dbname={dbname or PG_DATABASE} "
-        f"user=copo_owner password={_env('PG_OWNER_PASSWORD')}"
-    )
+    return _dsn(dbname or PG_DATABASE, "copo_owner", _env("PG_OWNER_PASSWORD", allow_empty=True))
 
 
 def api_dsn(dbname: str | None = None) -> str:
     """Request-serving login; switches to a role per request (SET LOCAL ROLE)."""
-    return (
-        f"host={PG_HOST} port={PG_PORT} dbname={dbname or PG_DATABASE} "
-        f"user=copo_api password={_env('PG_API_PASSWORD')}"
-    )
+    return _dsn(dbname or PG_DATABASE, "copo_api", _env("PG_API_PASSWORD", allow_empty=True))
 
 
 def jwt_secret() -> str:
