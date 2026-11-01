@@ -288,6 +288,23 @@ END $$;
 CREATE TRIGGER assessment_lock BEFORE UPDATE OR DELETE ON assessment
 FOR EACH ROW EXECUTE FUNCTION trg_assessment_lock();
 
+-- A locked assessment keeps a mark (or absence) for every enrolled student, so nobody can be
+-- enrolled into, or moved into, an offering with a locked assessment; unlock it first. FOR SHARE on
+-- the offering's assessments orders this against a concurrent lock: either the lock waits and then
+-- counts the new enrollment (and fails CP006), or this waits and then sees the lock.
+CREATE FUNCTION trg_enrollment_open() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    PERFORM 1 FROM assessment WHERE offering_id = NEW.offering_id FOR SHARE;
+    IF EXISTS (SELECT 1 FROM assessment WHERE offering_id = NEW.offering_id AND locked) THEN
+        RAISE EXCEPTION 'Offering % has a locked assessment; unlock it before enrolling students',
+            NEW.offering_id USING ERRCODE = 'CP001';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE TRIGGER enrollment_open BEFORE INSERT OR UPDATE OF offering_id ON enrollment
+FOR EACH ROW EXECUTE FUNCTION trg_enrollment_open();
+
 -- An assessment's question maxima must add up to its max_marks; checked when locking.
 CREATE FUNCTION trg_assessment_max_matches() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE

@@ -48,11 +48,20 @@ def test_delete_after_lock(db):
         db.execute("DELETE FROM student_question_mark WHERE enrollment_id = 1 AND question_id = 1")
 
 
-def test_insert_into_locked_assessment(db):
+def test_late_enrollment_into_locked_offering(db):
     db.execute("INSERT INTO student (usn, name, program_id, admission_year, section) VALUES ('1RV25WX099', 'Late', 1, 2025, 'A')")
-    db.execute("INSERT INTO enrollment VALUES (99, 1, '1RV25WX099')")
+    with raises_sqlstate("CP001"):     # the student could never get marks in the locked SEE
+        db.execute("INSERT INTO enrollment VALUES (99, 1, '1RV25WX099')")
+
+
+def test_move_enrollment_into_locked_offering(db):
+    db.execute("""
+        INSERT INTO course_offering VALUES (2, 1, '2025-26', 'even', 1, 'B');
+        INSERT INTO student (usn, name, program_id, admission_year, section) VALUES ('1RV25WX099', 'Late', 1, 2025, 'B');
+        INSERT INTO enrollment VALUES (99, 2, '1RV25WX099');
+    """)
     with raises_sqlstate("CP001"):
-        db.execute("INSERT INTO student_question_mark VALUES (99, 1, 5, false)")
+        db.execute("UPDATE enrollment SET offering_id = 1 WHERE enrollment_id = 99")
 
 
 def test_question_changes_after_lock(db):
@@ -72,8 +81,10 @@ def test_locked_assessment_cannot_be_edited_or_deleted(db):
 # ---------------------------------------------------------------- enrolment and mappings
 
 def test_duplicate_enrollment(db):
+    db.execute("INSERT INTO course_offering VALUES (2, 1, '2025-26', 'even', 1, 'B')")   # no locked assessment
+    db.execute("INSERT INTO enrollment (offering_id, usn) VALUES (2, '1RV25WX001')")
     with raises_sqlstate("23505"):
-        db.execute("INSERT INTO enrollment (offering_id, usn) VALUES (1, '1RV25WX001')")
+        db.execute("INSERT INTO enrollment (offering_id, usn) VALUES (2, '1RV25WX001')")
 
 
 def test_invalid_strength(db):
