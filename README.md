@@ -12,7 +12,7 @@ attainment from question-wise marks and course-exit surveys.
 
 - PostgreSQL 16 (Windows: `winget install PostgreSQL.PostgreSQL.16`)
 - MongoDB 8 running on `localhost:27017`
-- Python 3.11+
+- Python 3.11–3.13 (the pinned psycopg-binary, numpy and pydantic have no wheels for 3.14 yet)
 
 ## Setup
 
