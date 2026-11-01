@@ -245,7 +245,9 @@ class Builder:
     def users(self, batches, password: str) -> None:
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         r = self.rows["app_user"]
-        r.append((1, "hod", pw_hash, "admin", 1, None))
+        # The HoD login is not linked to a faculty row: fac01 is faculty 1's login, and
+        # app_user.faculty_id is unique (one login per faculty member).
+        r.append((1, "hod", pw_hash, "admin", None, None))
         r.append((2, "coordinator", pw_hash, "coordinator", None, None))
         uid = 2
         for fid in range(1, cat.FACULTY_COUNT + 1):
