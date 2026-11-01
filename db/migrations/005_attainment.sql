@@ -172,18 +172,25 @@ BEGIN
     WHERE ia.source = 'auto' AND ia.offering_id = c.offering_id AND ia.co_id = c.co_id
       AND c.final_level >= c.co_target_level AND ia.status <> 'done';
 
-    -- close the loop: each computed offering is the follow-up for last year's actions on the same
-    -- course and section
+    -- Close the loop: an action's follow-up is the next computed offering of the same course and
+    -- section within 18 months. Linked from whichever of the two is computed second, so the order
+    -- in which offerings are computed (or recomputed after an unlock) does not matter.
     UPDATE improvement_action ia
-    SET follow_up_offering_id = cur.offering_id
-    FROM course_offering cur, course_offering prev
-    WHERE cur.offering_id = ANY (v_offerings)
-      AND ia.offering_id = prev.offering_id
-      AND ia.follow_up_offering_id IS NULL
-      AND prev.course_id = cur.course_id
-      AND prev.section = cur.section
-      AND fn_term_start(prev.academic_year, prev.term) < fn_term_start(cur.academic_year, cur.term)
-      AND fn_term_start(prev.academic_year, prev.term) >= fn_term_start(cur.academic_year, cur.term) - interval '18 months';
+    SET follow_up_offering_id = link.next_offering
+    FROM (
+        SELECT DISTINCT ON (a.action_id) a.action_id, nxt.offering_id AS next_offering
+        FROM improvement_action a
+        JOIN course_offering prev ON prev.offering_id = a.offering_id
+        JOIN course_offering nxt  ON nxt.course_id = prev.course_id AND nxt.section = prev.section
+        WHERE a.follow_up_offering_id IS NULL
+          AND (prev.offering_id = ANY (v_offerings) OR nxt.offering_id = ANY (v_offerings))
+          AND fn_term_start(nxt.academic_year, nxt.term) > fn_term_start(prev.academic_year, prev.term)
+          AND fn_term_start(nxt.academic_year, nxt.term)
+              <= fn_term_start(prev.academic_year, prev.term) + interval '18 months'
+          AND EXISTS (SELECT 1 FROM co_attainment ca WHERE ca.offering_id = nxt.offering_id)
+        ORDER BY a.action_id, fn_term_start(nxt.academic_year, nxt.term)
+    ) link
+    WHERE ia.action_id = link.action_id;
 END $$;
 
 CREATE PROCEDURE sp_compute_attainment(
