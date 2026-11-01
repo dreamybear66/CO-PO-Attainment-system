@@ -12,7 +12,7 @@ attainment from question-wise marks and course-exit surveys.
 
 - PostgreSQL 16 (Windows: `winget install PostgreSQL.PostgreSQL.16`)
 - MongoDB 8 running on `localhost:27017`
-- Python 3.11+
+- Python 3.11–3.13 (the pinned psycopg-binary, numpy and pydantic have no wheels for 3.14 yet)
 
 ## Setup
 
@@ -38,7 +38,13 @@ term (2026-27 odd), ~557k question-wise marks and ~12k course-exit surveys in Mo
 offerings have only CIE Test 1 and Quiz 1 and stay unlocked. The 2023 batch carries the planted
 root-cause story (Data Structures CO2 → DBMS CO4, with Programming in C CO5 as a decoy); see
 `datagen/catalog.py`. Demo logins (`hod`, `coordinator`, `fac01`–`fac14`, four student USNs) use
-`DEMO_PASSWORD` from `.env`.
+`DEMO_PASSWORD` from `.env`. Survey respondents are stored as an HMAC of the USN keyed by
+`SURVEY_HASH_SECRET`, so set both before generating.
+
+`--reset` empties PostgreSQL and the MongoDB `survey_responses` and `audit_log` together, and the
+PostgreSQL load commits only once the surveys are in MongoDB. `--database NAME` targets the
+PostgreSQL and MongoDB databases of that name (e.g. `copo_test`). `pytest tests/test_datagen.py`
+checks the generator without a database.
 
 `db/seed/worked_example.sql` is the PRD Section 5 example, loaded into an empty database by the tests.
 
