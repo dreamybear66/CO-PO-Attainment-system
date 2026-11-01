@@ -20,51 +20,49 @@ CREATE FUNCTION fn_my_usn() RETURNS text LANGUAGE sql STABLE AS $$
     SELECT nullif(current_setting('app.usn', true), '')
 $$;
 
--- Ownership lookups run as owner so policies do not recurse through other policies.
-CREATE FUNCTION fn_teaches_offering(p_offering_id int) RETURNS boolean
+-- The caller's own rows, as sets. Policies use them as `col IN (SELECT fn_my_x())`, which the
+-- planner runs once per query as a hashed subplan; a per-row function call made a student's score
+-- query check every mark in the database (seconds instead of milliseconds). They run as owner so a
+-- policy never recurses through another table's policy. A faculty session has no usn and a student
+-- session no faculty_id, so each union contributes one side only.
+CREATE FUNCTION fn_my_offerings() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT EXISTS (SELECT 1 FROM course_offering WHERE offering_id = p_offering_id AND faculty_id = fn_my_faculty())
+    SELECT offering_id FROM course_offering WHERE faculty_id = fn_my_faculty()
+    UNION
+    SELECT offering_id FROM enrollment WHERE usn = fn_my_usn()
 $$;
 
-CREATE FUNCTION fn_teaches_course(p_course_id int) RETURNS boolean
+CREATE FUNCTION fn_my_enrollments() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT EXISTS (SELECT 1 FROM course_offering WHERE course_id = p_course_id AND faculty_id = fn_my_faculty())
+    SELECT e.enrollment_id FROM enrollment e JOIN course_offering o ON o.offering_id = e.offering_id
+    WHERE o.faculty_id = fn_my_faculty()
+    UNION
+    SELECT enrollment_id FROM enrollment WHERE usn = fn_my_usn()
 $$;
 
-CREATE FUNCTION fn_enrolled_in(p_offering_id int) RETURNS boolean
+CREATE FUNCTION fn_my_assessments() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT EXISTS (SELECT 1 FROM enrollment WHERE offering_id = p_offering_id AND usn = fn_my_usn())
+    SELECT assessment_id FROM assessment WHERE offering_id IN (SELECT fn_my_offerings())
 $$;
 
-CREATE FUNCTION fn_enrollment_offering(p_enrollment_id int) RETURNS int
+CREATE FUNCTION fn_my_questions() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT offering_id FROM enrollment WHERE enrollment_id = p_enrollment_id
+    SELECT question_id FROM assessment_question WHERE assessment_id IN (SELECT fn_my_assessments())
 $$;
 
-CREATE FUNCTION fn_enrollment_is_mine(p_enrollment_id int) RETURNS boolean
+CREATE FUNCTION fn_my_courses() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT EXISTS (SELECT 1 FROM enrollment WHERE enrollment_id = p_enrollment_id AND usn = fn_my_usn())
+    SELECT DISTINCT course_id FROM course_offering WHERE faculty_id = fn_my_faculty()
 $$;
 
-CREATE FUNCTION fn_assessment_offering(p_assessment_id int) RETURNS int
+CREATE FUNCTION fn_my_cos() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT offering_id FROM assessment WHERE assessment_id = p_assessment_id
+    SELECT co_id FROM course_outcome WHERE course_id IN (SELECT fn_my_courses())
 $$;
 
-CREATE FUNCTION fn_question_offering(p_question_id int) RETURNS int
+CREATE FUNCTION fn_my_scenarios() RETURNS SETOF int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT a.offering_id FROM assessment_question q JOIN assessment a USING (assessment_id)
-    WHERE q.question_id = p_question_id
-$$;
-
-CREATE FUNCTION fn_co_course(p_co_id int) RETURNS int
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT course_id FROM course_outcome WHERE co_id = p_co_id
-$$;
-
-CREATE FUNCTION fn_scenario_offering(p_scenario_id int) RETURNS int
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-    SELECT offering_id FROM whatif_scenario WHERE scenario_id = p_scenario_id
+    SELECT scenario_id FROM whatif_scenario WHERE offering_id IN (SELECT fn_my_offerings())
 $$;
 
 -- Login: the only way to read password hashes, granted to the API login alone.
@@ -147,67 +145,61 @@ CREATE POLICY faculty_read ON student FOR SELECT TO copo_faculty USING (true);
 CREATE POLICY student_self ON student FOR SELECT TO copo_student USING (usn = fn_my_usn());
 
 -- enrolments
-CREATE POLICY faculty_own ON enrollment FOR SELECT TO copo_faculty USING (fn_teaches_offering(offering_id));
+CREATE POLICY faculty_own ON enrollment FOR SELECT TO copo_faculty USING (offering_id IN (SELECT fn_my_offerings()));
 CREATE POLICY student_own ON enrollment FOR SELECT TO copo_student USING (usn = fn_my_usn());
 
 -- assessments, questions, tags: faculty manage their offerings; students read their offerings'
 CREATE POLICY faculty_own ON assessment TO copo_faculty
-    USING (fn_teaches_offering(offering_id)) WITH CHECK (fn_teaches_offering(offering_id));
-CREATE POLICY student_enrolled ON assessment FOR SELECT TO copo_student USING (fn_enrolled_in(offering_id));
+    USING (offering_id IN (SELECT fn_my_offerings())) WITH CHECK (offering_id IN (SELECT fn_my_offerings()));
+CREATE POLICY student_enrolled ON assessment FOR SELECT TO copo_student USING (offering_id IN (SELECT fn_my_offerings()));
 
 CREATE POLICY faculty_own ON assessment_question TO copo_faculty
-    USING (fn_teaches_offering(fn_assessment_offering(assessment_id)))
-    WITH CHECK (fn_teaches_offering(fn_assessment_offering(assessment_id)));
+    USING (assessment_id IN (SELECT fn_my_assessments())) WITH CHECK (assessment_id IN (SELECT fn_my_assessments()));
 CREATE POLICY student_enrolled ON assessment_question FOR SELECT TO copo_student
-    USING (fn_enrolled_in(fn_assessment_offering(assessment_id)));
+    USING (assessment_id IN (SELECT fn_my_assessments()));
 
 CREATE POLICY faculty_own ON question_co_map TO copo_faculty
-    USING (fn_teaches_offering(fn_question_offering(question_id)))
-    WITH CHECK (fn_teaches_offering(fn_question_offering(question_id)));
+    USING (question_id IN (SELECT fn_my_questions())) WITH CHECK (question_id IN (SELECT fn_my_questions()));
 CREATE POLICY student_enrolled ON question_co_map FOR SELECT TO copo_student
-    USING (fn_enrolled_in(fn_question_offering(question_id)));
+    USING (question_id IN (SELECT fn_my_questions()));
 
--- marks (PRD Section 10: faculty see only their own offerings)
+-- marks (PRD Section 10: faculty see only their own offerings; a student only their own marks)
 CREATE POLICY faculty_own_offerings ON student_question_mark TO copo_faculty
-    USING (fn_teaches_offering(fn_enrollment_offering(enrollment_id)))
-    WITH CHECK (fn_teaches_offering(fn_enrollment_offering(enrollment_id)));
+    USING (enrollment_id IN (SELECT fn_my_enrollments())) WITH CHECK (enrollment_id IN (SELECT fn_my_enrollments()));
 CREATE POLICY student_own ON student_question_mark FOR SELECT TO copo_student
-    USING (fn_enrollment_is_mine(enrollment_id));
+    USING (enrollment_id IN (SELECT fn_my_enrollments()));
 
 -- outcome definitions: everyone reads; faculty edit those of courses they teach
 CREATE POLICY everyone_reads ON course_outcome FOR SELECT TO copo_faculty, copo_student USING (true);
-CREATE POLICY faculty_insert ON course_outcome FOR INSERT TO copo_faculty WITH CHECK (fn_teaches_course(course_id));
+CREATE POLICY faculty_insert ON course_outcome FOR INSERT TO copo_faculty WITH CHECK (course_id IN (SELECT fn_my_courses()));
 CREATE POLICY faculty_update ON course_outcome FOR UPDATE TO copo_faculty
-    USING (fn_teaches_course(course_id)) WITH CHECK (fn_teaches_course(course_id));
-CREATE POLICY faculty_delete ON course_outcome FOR DELETE TO copo_faculty USING (fn_teaches_course(course_id));
+    USING (course_id IN (SELECT fn_my_courses())) WITH CHECK (course_id IN (SELECT fn_my_courses()));
+CREATE POLICY faculty_delete ON course_outcome FOR DELETE TO copo_faculty USING (course_id IN (SELECT fn_my_courses()));
 
 CREATE POLICY everyone_reads ON co_po_map FOR SELECT TO copo_faculty, copo_student USING (true);
-CREATE POLICY faculty_insert ON co_po_map FOR INSERT TO copo_faculty WITH CHECK (fn_teaches_course(fn_co_course(co_id)));
+CREATE POLICY faculty_insert ON co_po_map FOR INSERT TO copo_faculty WITH CHECK (co_id IN (SELECT fn_my_cos()));
 CREATE POLICY faculty_update ON co_po_map FOR UPDATE TO copo_faculty
-    USING (fn_teaches_course(fn_co_course(co_id))) WITH CHECK (fn_teaches_course(fn_co_course(co_id)));
-CREATE POLICY faculty_delete ON co_po_map FOR DELETE TO copo_faculty USING (fn_teaches_course(fn_co_course(co_id)));
+    USING (co_id IN (SELECT fn_my_cos())) WITH CHECK (co_id IN (SELECT fn_my_cos()));
+CREATE POLICY faculty_delete ON co_po_map FOR DELETE TO copo_faculty USING (co_id IN (SELECT fn_my_cos()));
 
 CREATE POLICY everyone_reads ON co_dependency FOR SELECT TO copo_faculty USING (true);
-CREATE POLICY faculty_insert ON co_dependency FOR INSERT TO copo_faculty WITH CHECK (fn_teaches_course(fn_co_course(co_id)));
+CREATE POLICY faculty_insert ON co_dependency FOR INSERT TO copo_faculty WITH CHECK (co_id IN (SELECT fn_my_cos()));
 CREATE POLICY faculty_update ON co_dependency FOR UPDATE TO copo_faculty
-    USING (fn_teaches_course(fn_co_course(co_id))) WITH CHECK (fn_teaches_course(fn_co_course(co_id)));
-CREATE POLICY faculty_delete ON co_dependency FOR DELETE TO copo_faculty USING (fn_teaches_course(fn_co_course(co_id)));
+    USING (co_id IN (SELECT fn_my_cos())) WITH CHECK (co_id IN (SELECT fn_my_cos()));
+CREATE POLICY faculty_delete ON co_dependency FOR DELETE TO copo_faculty USING (co_id IN (SELECT fn_my_cos()));
 
 -- results: faculty read their offerings (written only by the definer procedure)
-CREATE POLICY faculty_own ON co_attainment FOR SELECT TO copo_faculty USING (fn_teaches_offering(offering_id));
-CREATE POLICY faculty_own ON po_attainment FOR SELECT TO copo_faculty USING (fn_teaches_offering(offering_id));
-CREATE POLICY faculty_own ON indirect_attainment FOR SELECT TO copo_faculty USING (fn_teaches_offering(offering_id));
+CREATE POLICY faculty_own ON co_attainment FOR SELECT TO copo_faculty USING (offering_id IN (SELECT fn_my_offerings()));
+CREATE POLICY faculty_own ON po_attainment FOR SELECT TO copo_faculty USING (offering_id IN (SELECT fn_my_offerings()));
+CREATE POLICY faculty_own ON indirect_attainment FOR SELECT TO copo_faculty USING (offering_id IN (SELECT fn_my_offerings()));
 
 CREATE POLICY faculty_own ON improvement_action TO copo_faculty
-    USING (fn_teaches_offering(offering_id)) WITH CHECK (fn_teaches_offering(offering_id));
+    USING (offering_id IN (SELECT fn_my_offerings())) WITH CHECK (offering_id IN (SELECT fn_my_offerings()));
 
 CREATE POLICY faculty_own ON whatif_scenario TO copo_faculty
-    USING (fn_teaches_offering(offering_id)) WITH CHECK (fn_teaches_offering(offering_id));
-CREATE POLICY faculty_own ON whatif_result FOR SELECT TO copo_faculty
-    USING (fn_teaches_offering(fn_scenario_offering(scenario_id)));
-CREATE POLICY faculty_own ON whatif_po_result FOR SELECT TO copo_faculty
-    USING (fn_teaches_offering(fn_scenario_offering(scenario_id)));
+    USING (offering_id IN (SELECT fn_my_offerings())) WITH CHECK (offering_id IN (SELECT fn_my_offerings()));
+CREATE POLICY faculty_own ON whatif_result FOR SELECT TO copo_faculty USING (scenario_id IN (SELECT fn_my_scenarios()));
+CREATE POLICY faculty_own ON whatif_po_result FOR SELECT TO copo_faculty USING (scenario_id IN (SELECT fn_my_scenarios()));
 
 CREATE POLICY faculty_own ON unlock_request TO copo_faculty
-    USING (fn_teaches_offering(fn_assessment_offering(assessment_id)))
-    WITH CHECK (fn_teaches_offering(fn_assessment_offering(assessment_id)));
+    USING (assessment_id IN (SELECT fn_my_assessments())) WITH CHECK (assessment_id IN (SELECT fn_my_assessments()));
