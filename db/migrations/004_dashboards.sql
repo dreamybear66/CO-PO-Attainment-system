@@ -68,8 +68,10 @@ GROUP BY cr.program_id, po.po_id, po.code, o.academic_year;
 CREATE FUNCTION fn_refresh_dashboards() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW mv_co_po_heatmap;
-    REFRESH MATERIALIZED VIEW mv_co_trend;
+    -- CONCURRENTLY (the unique indexes allow it) takes an EXCLUSIVE lock instead of ACCESS
+    -- EXCLUSIVE, so dashboard reads go on during the refresh and until the compute commits.
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_co_po_heatmap;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_co_trend;
 END $$;
 
 REVOKE EXECUTE ON FUNCTION fn_refresh_dashboards() FROM PUBLIC;

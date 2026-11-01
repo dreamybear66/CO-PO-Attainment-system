@@ -108,3 +108,12 @@ def test_refused_caller_does_not_queue_for_the_lock(db, api_connect, connect):
         intruder.execute("CALL sp_compute_attainment(1)")
     running.commit()
 
+
+def test_dashboards_stay_readable_during_a_compute(db, connect):
+    compute = connect(autocommit=False)
+    compute.execute("CALL sp_compute_attainment(1)")                  # refreshes the views
+    reader = connect()
+    reader.execute("SET lock_timeout = '500ms'")
+    assert reader.execute("SELECT count(*) FROM mv_co_po_heatmap").fetchone()[0] == 0   # old contents
+    compute.commit()
+    assert reader.execute("SELECT count(*) FROM mv_co_po_heatmap").fetchone()[0] == 5
