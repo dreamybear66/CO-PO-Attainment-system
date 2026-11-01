@@ -41,3 +41,23 @@ root-cause story (Data Structures CO2 → DBMS CO4, with Programming in C CO5 as
 `DEMO_PASSWORD` from `.env`.
 
 `db/seed/worked_example.sql` is the PRD Section 5 example, loaded into an empty database by the tests.
+
+## Computing attainment
+
+```sql
+CALL sp_compute_attainment(42);      -- one offering (all its assessments must be locked)
+CALL sp_compute_all();               -- every offering whose assessments are all locked
+```
+
+Results land in `co_attainment` / `po_attainment` with the `config_id` used; COs below target get
+an `improvement_action`. Errors use SQLSTATE class `CP` (listed at the top of each migration).
+
+## Tests
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.setup_db --database copo_test   # once
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Tests rebuild `copo_test` and re-seed the worked example before each test.
+`python -m scripts.explain_report` writes the index report to `docs/explain/report.md`.
