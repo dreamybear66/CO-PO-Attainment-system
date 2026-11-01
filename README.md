@@ -52,6 +52,17 @@ CALL sp_compute_all();               -- every offering whose assessments are all
 Results land in `co_attainment` / `po_attainment` with the `config_id` used; COs below target get
 an `improvement_action`. Errors use SQLSTATE class `CP` (listed at the top of each migration).
 
+## Root cause and what-if
+
+```sql
+SELECT * FROM fn_root_cause(42, 196);         -- ranked upstream COs for a weak CO (correlational evidence)
+SELECT fn_root_cause_action(42, 196);         -- pre-fill an improvement action from the top cause
+CALL sp_compute_attainment(42, NULL, false, 7);  -- run what-if scenario 7 (official tables untouched)
+```
+
+`python -m scripts.evaluate_root_cause` writes detection, false-positive and noise-sensitivity results
+to `docs/root-cause-evaluation.md`.
+
 ## Background jobs (surveys and audit)
 
 ```powershell
