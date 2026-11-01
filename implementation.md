@@ -107,8 +107,9 @@ Output: engine that matches the worked example to two decimals.
       `whatif_result` / `whatif_po_result` only (NFR-8).
    8. Insert `improvement_action` for each CO below `co_target_level` (FR-4.4).
 6. Programme-level PO = plain average of offering-level PO values (FR-4.5).
-7. Indexes: `student_question_mark(question_id)`, `enrollment(offering_id)`,
-   `question_co_map(co_id)`; record EXPLAIN ANALYZE before/after in `docs/` (NFR-7).
+7. Indexes: `student_question_mark(question_id)`, `question_co_map(co_id)` and FK-join indexes;
+   `enrollment(offering_id)` is already covered by the UNIQUE `(offering_id, usn)` index. Record
+   EXPLAIN ANALYZE before/after in `docs/explain/report.md` (NFR-7).
 8. Tests: worked example → CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48; component weighting → a student
    at 70 / 80 / 90 / 60 % (theory / quiz / EL / SEE) scores 70.0%, and 68.9% when no quiz question
    tests the CO.

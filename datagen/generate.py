@@ -338,7 +338,10 @@ def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
         for table, col in SERIALS.items():
             cur.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), "
                         f"(SELECT max({col}) FROM {table}))")
-        # Lock completed assessments only after their marks are in.
+        # Lock completed assessments only after their marks are in. The lock trigger counts each
+        # assessment's marks; without statistics on the fresh rows it scans all of them per
+        # assessment (minutes), so analyze first.
+        cur.execute("ANALYZE")
         cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
                     "WHERE assessment_id = ANY(%s)", (b.locks,))
         print(f"  locked {cur.rowcount:,} assessments")

@@ -47,3 +47,34 @@ PostgreSQL and MongoDB databases of that name (e.g. `copo_test`). `pytest tests/
 checks the generator without a database.
 
 `db/seed/worked_example.sql` is the PRD Section 5 example, loaded into an empty database by the tests.
+
+## Computing attainment
+
+```sql
+CALL sp_compute_attainment(42);      -- one offering (all its assessments must be locked)
+CALL sp_compute_all();               -- every offering whose assessments are all locked
+```
+
+Results land in `co_attainment` / `po_attainment` with the offering's own rule version (another
+`config_id` is refused with CP015; try other rules as a what-if scenario). COs below target get an
+automatic `improvement_action`; a recompute updates its text, or closes it once the CO meets the
+target. Errors use SQLSTATE class `CP` (listed at the top of each migration).
+
+Who may run what: `sp_compute_attainment` is granted to `copo_admin` and `copo_faculty` (faculty
+only for offerings they teach), `sp_compute_all` and `fn_refresh_dashboards` to `copo_admin`. The
+role comes from `app.role`, which is trusted only alongside the matching `SET ROLE copo_<role>`;
+owner and superuser logins (migrations, jobs, tests) set neither.
+
+While a compute runs, the offering's assessments cannot be locked or unlocked, and dashboard reads
+continue (views refresh `CONCURRENTLY`). Students cannot be enrolled into an offering with a locked
+assessment.
+
+## Tests
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.setup_db --database copo_test   # once
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Tests rebuild `copo_test` and re-seed the worked example before each test.
+`python -m scripts.explain_report` writes the index report to `docs/explain/report.md`.
