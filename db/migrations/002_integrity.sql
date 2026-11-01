@@ -12,14 +12,17 @@
 -- whose row lock conflicts with FOR SHARE) waits until in-flight writes commit, and a write that
 -- starts after a lock waits for it and then sees locked = true. FOR SHARE locks do not conflict
 -- with each other, so concurrent mark entry is not serialized.
+-- It runs once per mark row (557k in the synthetic load), so callers assign it (q := fn(...)),
+-- which costs about as much as the query inline; SELECT * FROM fn(...) costs ~5x more per row.
 CREATE FUNCTION fn_question_assessment(p_question_id int,
     OUT locked boolean, OUT max_marks numeric, OUT offering_id int)
-LANGUAGE sql VOLATILE AS $$
-    SELECT a.locked, aq.max_marks, a.offering_id
-    FROM assessment_question aq JOIN assessment a USING (assessment_id)
+LANGUAGE plpgsql VOLATILE AS $$
+BEGIN
+    SELECT a.locked, aq.max_marks, a.offering_id INTO locked, max_marks, offering_id
+    FROM assessment_question aq JOIN assessment a ON a.assessment_id = aq.assessment_id
     WHERE aq.question_id = p_question_id
-    FOR SHARE OF a
-$$;
+    FOR SHARE OF a;
+END $$;
 
 CREATE FUNCTION trg_check_mark() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -27,7 +30,7 @@ DECLARE
     v_e_offering int;
 BEGIN
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
-        SELECT * INTO q FROM fn_question_assessment(OLD.question_id);
+        q := fn_question_assessment(OLD.question_id);
         IF q.locked THEN
             RAISE EXCEPTION 'Assessment is locked; marks cannot be changed'
                 USING ERRCODE = 'CP001';
@@ -37,7 +40,7 @@ BEGIN
         END IF;
     END IF;
 
-    SELECT * INTO q FROM fn_question_assessment(NEW.question_id);
+    q := fn_question_assessment(NEW.question_id);
     IF q.locked THEN
         RAISE EXCEPTION 'Assessment is locked; marks cannot be changed'
             USING ERRCODE = 'CP001';
@@ -72,10 +75,10 @@ BEGIN
             SELECT locked INTO v_locked FROM assessment WHERE assessment_id = OLD.assessment_id FOR SHARE;
         END IF;
     ELSE
-        SELECT q.locked INTO v_locked FROM fn_question_assessment(
-            CASE WHEN TG_OP = 'DELETE' THEN OLD.question_id ELSE NEW.question_id END) q;
+        v_locked := (fn_question_assessment(
+            CASE WHEN TG_OP = 'DELETE' THEN OLD.question_id ELSE NEW.question_id END)).locked;
         IF NOT v_locked AND TG_OP = 'UPDATE' THEN
-            SELECT q.locked INTO v_locked FROM fn_question_assessment(OLD.question_id) q;
+            v_locked := (fn_question_assessment(OLD.question_id)).locked;
         END IF;
     END IF;
     IF v_locked THEN
