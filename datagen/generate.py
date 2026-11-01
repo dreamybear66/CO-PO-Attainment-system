@@ -11,7 +11,6 @@ Usage:  python -m datagen.generate [--reset] [--seed 2026] [--database copo]
 """
 
 import argparse
-import hashlib
 import time
 from datetime import datetime, timezone
 
@@ -23,6 +22,7 @@ from pymongo import ASCENDING, MongoClient
 from pymongo.database import Database
 
 from api import config
+from api.survey_hash import respondent_hash
 from datagen import catalog as cat
 from scripts.migrate import truncate_all
 
@@ -48,8 +48,9 @@ def sigmoid(x):
 
 
 class Builder:
-    def __init__(self, seed: int):
+    def __init__(self, seed: int, hash_key: bytes):
         self.rng = np.random.default_rng(seed)
+        self.hash_key = hash_key          # SURVEY_HASH_SECRET, for respondent ids
         self.fake = Faker("en_IN")
         Faker.seed(seed)
         self.rows: dict[str, list[tuple]] = {t: [] for t in TABLES_IN_LOAD_ORDER}
@@ -234,7 +235,7 @@ class Builder:
             self.surveys.append({
                 "survey_type": "course_exit",
                 "offering_id": oid,
-                "respondent_hash": hashlib.sha256(f"{usn}:{oid}:course_exit".encode()).hexdigest(),
+                "respondent_hash": respondent_hash(usn, oid, "course_exit", self.hash_key),
                 "submitted_at": submitted,
                 "answers": answers,
             })
@@ -351,6 +352,7 @@ def main() -> None:
 
     # Check settings and both databases before the 10-40 s of generation.
     demo_password = config._env("DEMO_PASSWORD")
+    hash_key = config.survey_hash_secret().encode()
     dbname = args.database or config.PG_DATABASE
     with psycopg.connect(config.owner_dsn(dbname)) as conn:
         if conn.execute("SELECT to_regclass('public.student_question_mark')").fetchone()[0] is None:
@@ -362,7 +364,7 @@ def main() -> None:
     mongo = client[args.database or config.MONGO_DATABASE]
 
     started = time.perf_counter()
-    b = Builder(args.seed)
+    b = Builder(args.seed, hash_key)
     b.master()
     batches = b.students()
     b.offerings(batches)
