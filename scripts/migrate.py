@@ -61,6 +61,23 @@ def apply(dbname: str | None = None, *, reset: bool = False, until: str | int | 
     return applied
 
 
+def truncate_all(conn) -> None:
+    """Empty every table except schema_migrations and restart their sequences, then refresh the
+    materialized views so they stop showing the removed rows. Used by datagen --reset and tests."""
+    tables = conn.execute(
+        "SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
+        "WHERE schemaname = 'public' AND tablename <> 'schema_migrations'"
+    ).fetchone()[0]
+    if tables is None:
+        raise RuntimeError("The database has no tables yet; run `python -m scripts.migrate` first")
+    conn.execute(f"TRUNCATE {tables} RESTART IDENTITY CASCADE")
+    views = conn.execute(
+        "SELECT quote_ident(matviewname) FROM pg_matviews WHERE schemaname = 'public'"
+    ).fetchall()
+    for (view,) in views:
+        conn.execute(f"REFRESH MATERIALIZED VIEW {view}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true")

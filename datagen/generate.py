@@ -24,6 +24,7 @@ from pymongo import MongoClient
 
 from api import config
 from datagen import catalog as cat
+from scripts.migrate import truncate_all
 
 TABLES_IN_LOAD_ORDER = [
     "department", "program", "faculty", "student", "course", "course_prerequisite",
@@ -291,9 +292,7 @@ def load_postgres(b: Builder, dbname: str | None, reset: bool) -> None:
     with psycopg.connect(config.owner_dsn(dbname)) as conn:
         with conn.cursor() as cur:
             if reset:
-                cur.execute("SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
-                            "WHERE schemaname = 'public' AND tablename <> 'schema_migrations'")
-                cur.execute(f"TRUNCATE {cur.fetchone()[0]} RESTART IDENTITY CASCADE")
+                truncate_all(cur)
             for table in TABLES_IN_LOAD_ORDER:
                 with cur.copy(f"COPY {table} ({COLUMNS[table]}) FROM STDIN") as copy:
                     for row in b.rows[table]:
