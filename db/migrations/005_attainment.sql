@@ -162,7 +162,8 @@ BEGIN
     FROM _co_rows c JOIN course_offering o ON o.offering_id = c.offering_id
     WHERE c.final_level < c.co_target_level
     ON CONFLICT (offering_id, co_id) WHERE source = 'auto'
-    DO UPDATE SET description = EXCLUDED.description;
+    DO UPDATE SET description = EXCLUDED.description
+    WHERE improvement_action.description IS DISTINCT FROM EXCLUDED.description;   -- no no-op writes
 
     UPDATE improvement_action ia
     SET status = 'done',
