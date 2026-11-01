@@ -2,7 +2,8 @@
 
 Roles
   copo_owner        LOGIN, owns every object; used by migrations and background jobs
-  copo_api          LOGIN NOINHERIT; the API switches to one group role per request
+  copo_api          LOGIN NOINHERIT, member of each group role WITH INHERIT FALSE, SET TRUE;
+                    the API switches to one group role per request
   copo_admin, copo_faculty, copo_coordinator, copo_student   NOLOGIN group roles
 
 Usage:  python -m scripts.setup_db [--database NAME]
@@ -43,7 +44,9 @@ def main() -> None:
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
             if not cur.fetchone():
                 cur.execute(sql.SQL("CREATE ROLE {} NOLOGIN").format(sql.Identifier(role)))
-            cur.execute(sql.SQL("GRANT {} TO copo_api").format(sql.Identifier(role)))
+            # Explicit options: on PG16 a plain GRANT copies copo_api's INHERIT flag at grant time
+            # and a repeated plain GRANT never changes an existing membership.
+            cur.execute(sql.SQL("GRANT {} TO copo_api WITH INHERIT FALSE, SET TRUE").format(sql.Identifier(role)))
 
         cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (args.database,))
         if not cur.fetchone():
