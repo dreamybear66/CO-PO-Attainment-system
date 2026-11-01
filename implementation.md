@@ -106,3 +106,40 @@ Output: integrated NoSQL layer.
    `audit_log` with `hash = SHA256(prev_hash + canonical JSON)` and marks them sent (S8).
 5. Daily job copies the chain head into `audit_anchor`; verifier recomputes the chain and reports the
    first broken `seq` (FR-7.2, NFR-6).
+
+## Phase 5 — Innovation features (week 6) · Member A (SQL), Member B (API)
+
+Output: root-cause report, what-if simulator, versioned rules.
+
+1. Root-cause query: recursive CTE over `co_dependency` to depth 3, `corr()` on `student_co_score`
+   for the same students, rank by `path_strength × r`; `n` and `r` thresholds from config (FR-6.2).
+2. Pre-fill an `improvement_action` from the top-ranked cause; UI labels output as correlational.
+3. What-if API: create `whatif_scenario`, call the procedure with `p_persist = false`, return CO and
+   PO baseline vs scenario (FR-6.3).
+4. Versioned rules: lookup of the config valid for an offering's academic year; re-run test (NFR-4).
+
+## Phase 6 — API, UI, security, demo (week 7) · Member B (UI), both (tests)
+
+Output: demo-ready system.
+
+1. Auth: bcrypt hashes in `app_user`; each request sets `app.faculty_id` (FR-7.1).
+2. PostgreSQL roles (admin, faculty, coordinator) with GRANTs; RLS policies on marks, attainment and
+   survey-derived tables (NFR-5).
+3. Screens: CSV marks upload with row errors, lock/unlock request, compute, CO-PO heatmap, CO trend,
+   weakest-CO ranking, root-cause report, what-if side-by-side, audit verification.
+4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`.
+5. Demo script and final report.
+
+## Test map
+
+| PRD test | Location |
+| --- | --- |
+| Correctness | `tests/test_worked_example.py` |
+| Constraints | `tests/test_constraints.py` |
+| Access control | `tests/test_rls.py` |
+| Audit tamper | `tests/test_audit_chain.py` |
+| Performance | `docs/explain/` reports |
+| Root cause | `tests/test_root_cause.py` |
+| Simulator isolation | `tests/test_whatif_isolation.py` |
+| Concurrency | `tests/test_concurrency.py` |
+| Reproducibility | `tests/test_versioned_rules.py` |
