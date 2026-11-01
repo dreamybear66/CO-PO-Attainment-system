@@ -240,6 +240,8 @@ CREATE TABLE app_user (
     role          text NOT NULL CHECK (role IN ('admin', 'faculty', 'coordinator', 'student')),
     faculty_id    int REFERENCES faculty,
     usn           varchar(12) REFERENCES student,
+    UNIQUE (faculty_id),                -- one login per faculty member and per student
+    UNIQUE (usn),                       -- (docs/er-diagram.md: |o--o|); NULLs allowed
     CHECK (role <> 'faculty' OR faculty_id IS NOT NULL),
     CHECK (role <> 'student' OR usn IS NOT NULL),
     CHECK (role IN ('faculty', 'admin') OR faculty_id IS NULL),
