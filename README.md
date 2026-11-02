@@ -6,7 +6,7 @@ A PostgreSQL + MongoDB system that computes Course Outcome (CO) and Program Outc
 from question-wise marks and course-exit surveys. It finds why a CO is weak, simulates rule changes,
 and keeps a tamper-evident audit trail. The rules live in the database, not in code.
 
-**Status:** all six build phases are done and 84 tests pass. What's left is tracked in
+**Status:** all six build phases are done and 166 tests pass. What's left is tracked in
 [implementation.md](implementation.md#pending).
 
 - Requirements: [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard)
@@ -264,7 +264,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 84 tests pass in about a minute. Each test rebuilds `copo_test` and re-seeds the worked example.
+All 166 tests pass in about three minutes. Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
 - **Correctness:** the worked example gives CO 3.00 / 2.20 / 0.40, PO1 2.30 and PO2 1.48.

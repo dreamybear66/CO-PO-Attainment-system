@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (2 Nov 2026)
 
-All six phases are built. 84 tests pass ([docs/test-report.md](docs/test-report.md)).
+All six phases are built. 166 tests pass ([docs/test-report.md](docs/test-report.md)).
 
 | Phase | Status | Branch · PR | Output |
 | --- | --- | --- | --- |
