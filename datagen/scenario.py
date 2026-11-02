@@ -24,6 +24,10 @@ CAUSE = co_id(2, 2)
 DECOY = co_id(2, 5)
 DEEP = co_id(1, 1)
 DN_OFFERING = 3
+SERIALS = [("department", "dept_id"), ("program", "program_id"), ("faculty", "faculty_id"),
+           ("program_outcome", "po_id"), ("attainment_config", "config_id"), ("course", "course_id"),
+           ("course_outcome", "co_id"), ("course_offering", "offering_id"), ("assessment", "assessment_id"),
+           ("assessment_question", "question_id"), ("enrollment", "enrollment_id")]
 
 
 def build(conn, *, n: int = 60, effect: float = 0.8, noise: float = 0.5, seed: int = 1) -> None:
@@ -76,4 +80,7 @@ def build(conn, *, n: int = 60, effect: float = 0.8, noise: float = 0.5, seed: i
             for r in rows:
                 cp.write_row(r)
         conn.execute("UPDATE assessment SET locked = true WHERE assessment_id = %s", (cid,))
+    # Ids above were explicit; move each serial past them so later inserts with default ids work.
+    for table, col in SERIALS:
+        conn.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), (SELECT max({col}) FROM {table}))")
     conn.execute("CALL sp_compute_all()")
