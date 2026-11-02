@@ -15,6 +15,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import psycopg
+from psycopg.rows import tuple_row
 
 from api import config
 
@@ -63,7 +64,10 @@ def apply(dbname: str | None = None, *, reset: bool = False, until: str | int | 
 
 def truncate_all(conn) -> None:
     """Empty every table except schema_migrations and restart their sequences, then refresh the
-    materialized views so they stop showing the removed rows. Used by datagen --reset and tests."""
+    materialized views so they stop showing the removed rows. Used by datagen --reset and tests.
+    `conn` is a connection (any row factory) or a cursor."""
+    if hasattr(conn, "cursor"):
+        conn = conn.cursor(row_factory=tuple_row)
     tables = conn.execute(
         "SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
         "WHERE schemaname = 'public' AND tablename <> 'schema_migrations'"
