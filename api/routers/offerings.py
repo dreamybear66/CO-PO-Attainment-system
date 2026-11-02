@@ -103,9 +103,11 @@ def marks_template(assessment_id: int, user: User = Depends(editors), dbname=Dep
 
 
 @router.post("/assessments/{assessment_id}/marks")
-async def upload_marks(assessment_id: int, file: UploadFile = File(...),
-                       user: User = Depends(editors), dbname=Depends(database)):
-    text = (await file.read()).decode("utf-8", errors="replace")
+def upload_marks(assessment_id: int, file: UploadFile = File(...),
+                 user: User = Depends(editors), dbname=Depends(database)):
+    # A plain def: FastAPI runs it in the threadpool, so parsing a large file, the database work
+    # and any wait on a lock held by a running compute do not stall other requests.
+    text = file.file.read().decode("utf-8", errors="replace")
     locked_msg = "Assessment is locked; marks cannot be changed"
     try:
         with db.session(user, dbname) as conn:
