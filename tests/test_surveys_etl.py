@@ -31,9 +31,32 @@ def test_etl_computes_pct_and_level(db, mongo):
     for i in range(1, 11):
         answer(usn(i), {1: 5 if i <= 8 else 2, 2: 4 if i <= 6 else 3, 3: 4 if i <= 4 else 1}, db, mongo)
     result = run_survey_etl(db, mongo)
-    assert result == {"groups": 3, "loaded": 3, "skipped": 0}
-    rows = db.execute("SELECT co_id, respondents, pct_favourable, level FROM indirect_attainment ORDER BY co_id").fetchall()
-    assert rows == [(1, 10, D("80.00"), 3), (2, 10, D("60.00"), 2), (3, 10, D("40.00"), 0)]
+    assert result == {"groups": 3, "changed": 3, "skipped": 0}
+    rows = db.execute("SELECT co_id, respondents, pct_favourable FROM indirect_attainment ORDER BY co_id").fetchall()
+    assert rows == [(1, 10, D("80.00")), (2, 10, D("60.00")), (3, 10, D("40.00"))]
+    db.execute("CALL sp_compute_attainment(1)")
+    levels = db.execute("SELECT indirect_level FROM co_attainment ORDER BY co_id").fetchall()
+    assert levels == [(3,), (2,), (0,)]
+
+
+def test_favourable_cut_off_comes_from_the_rule_version(db, mongo):
+    db.execute("UPDATE attainment_config SET favourable_rating = 3 WHERE config_id = 1")
+    for i in range(1, 11):          # CO2: 6 rate 4, 4 rate 3 -> 100% favourable at >= 3
+        answer(usn(i), {1: 5, 2: 4 if i <= 6 else 3, 3: 1}, db, mongo)
+    run_survey_etl(db, mongo)
+    assert db.execute("SELECT pct_favourable FROM indirect_attainment WHERE co_id = 2").fetchone()[0] == D("100.00")
+
+
+def test_what_if_thresholds_apply_to_the_survey_level(db, mongo):
+    """CO2 has 74% favourable: level 3 under 70/60/50, 2 under 80/70/60."""
+    db.execute("""
+        INSERT INTO app_user (user_id, username, password_hash, role, faculty_id) VALUES (1, 'fac', 'x', 'faculty', 1);
+        INSERT INTO whatif_scenario (scenario_id, offering_id, base_config_id, created_by, name, target_pct,
+            l3_pct, l2_pct, l1_pct, direct_weight, indirect_weight, co_target_level, po_target_level)
+        VALUES (1, 1, 1, 1, 'stricter', 60, 80, 70, 60, 80, 20, 2.0, 2.0);
+    """)
+    db.execute("CALL sp_compute_attainment(1, p_persist => false, p_scenario_id => 1)")
+    assert db.execute("SELECT indirect_level FROM whatif_result WHERE co_id = 2").fetchone()[0] == 2
 
 
 def test_etl_is_idempotent_and_feeds_the_engine(db, mongo):
