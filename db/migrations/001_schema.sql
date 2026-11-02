@@ -330,7 +330,7 @@ CREATE TABLE audit_outbox (
     ts         timestamptz NOT NULL DEFAULT clock_timestamp(),
     app_user   text,
     table_name text NOT NULL,
-    op         text NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE', 'DENIED')),
+    op         text NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'DENIED')),
     key        jsonb NOT NULL,
     before     jsonb,
     after      jsonb,

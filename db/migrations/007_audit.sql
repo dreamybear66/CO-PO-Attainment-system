@@ -20,6 +20,18 @@ LANGUAGE sql IMMUTABLE AS $$
     SELECT jsonb_object_agg(c, p_row -> c) FROM unnest(p_cols) AS c
 $$;
 
+-- Row image as stored in the chain. Password hashes never leave PostgreSQL: the value is replaced,
+-- and an update that changes it shows '[changed]' (p_before is the old image, for updates).
+CREATE FUNCTION fn_audit_image(p_row jsonb, p_before jsonb DEFAULT NULL) RETURNS jsonb
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE WHEN p_row ? 'password_hash' THEN
+               jsonb_set(p_row, '{password_hash}',
+                         CASE WHEN p_before ? 'password_hash'
+                                   AND p_before -> 'password_hash' IS DISTINCT FROM p_row -> 'password_hash'
+                              THEN '"[changed]"' ELSE '"[redacted]"' END::jsonb)
+           ELSE p_row END
+$$;
+
 -- Row-level, for UPDATE and DELETE. Trigger arguments name the key columns.
 CREATE FUNCTION trg_audit_row() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -31,7 +43,8 @@ BEGIN
         RETURN NULL;
     END IF;
     INSERT INTO audit_outbox (app_user, table_name, op, key, before, after)
-    VALUES (fn_audit_user(), TG_TABLE_NAME, TG_OP, fn_audit_key(coalesce(v_new, v_old), TG_ARGV), v_old, v_new);
+    VALUES (fn_audit_user(), TG_TABLE_NAME, TG_OP, fn_audit_key(coalesce(v_new, v_old), TG_ARGV),
+            fn_audit_image(v_old), fn_audit_image(v_new, v_old));
     RETURN NULL;
 END $$;
 
@@ -40,18 +53,31 @@ CREATE FUNCTION trg_audit_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
     INSERT INTO audit_outbox (app_user, table_name, op, key, before, after)
-    SELECT fn_audit_user(), TG_TABLE_NAME, 'INSERT', fn_audit_key(to_jsonb(n), TG_ARGV), NULL, to_jsonb(n)
+    SELECT fn_audit_user(), TG_TABLE_NAME, 'INSERT', fn_audit_key(to_jsonb(n), TG_ARGV), NULL,
+           fn_audit_image(to_jsonb(n))
     FROM new_rows n;
     RETURN NULL;
 END $$;
 
--- Attach both triggers to every audited table.
+-- TRUNCATE removes rows without row triggers; record that it happened.
+CREATE FUNCTION trg_audit_truncate() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    INSERT INTO audit_outbox (app_user, table_name, op, key)
+    VALUES (fn_audit_user(), TG_TABLE_NAME, 'TRUNCATE', '{}');
+    RETURN NULL;
+END $$;
+
+-- Attach the triggers to every audited table: marks and how they map to outcomes, the rules,
+-- the results and their survey input, the people involved (logins, enrolments) and the workflow.
 DO $$
 DECLARE
     t record;
 BEGIN
     FOR t IN SELECT * FROM (VALUES
         ('student_question_mark',   'enrollment_id, question_id'),
+        ('assessment_question',     'question_id'),
+        ('enrollment',              'enrollment_id'),
         ('question_co_map',         'question_id, co_id'),
         ('co_po_map',               'co_id, po_id'),
         ('co_dependency',           'co_id, prereq_co_id'),
@@ -59,9 +85,11 @@ BEGIN
         ('attainment_config',       'config_id'),
         ('config_component_weight', 'config_id, component'),
         ('co_attainment',           'offering_id, co_id'),
+        ('indirect_attainment',     'offering_id, co_id'),
         ('po_attainment',           'offering_id, po_id'),
         ('improvement_action',      'action_id'),
-        ('unlock_request',          'request_id')
+        ('unlock_request',          'request_id'),
+        ('app_user',                'user_id')
     ) AS v(tbl, keys)
     LOOP
         EXECUTE format(
@@ -72,6 +100,9 @@ BEGIN
             'CREATE TRIGGER audit_insert AFTER INSERT ON %I REFERENCING NEW TABLE AS new_rows '
             'FOR EACH STATEMENT EXECUTE FUNCTION trg_audit_insert(%s)',
             t.tbl, (SELECT string_agg(quote_literal(trim(k)), ', ') FROM unnest(string_to_array(t.keys, ',')) k));
+        EXECUTE format(
+            'CREATE TRIGGER audit_truncate AFTER TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION trg_audit_truncate()',
+            t.tbl);
     END LOOP;
 END $$;
 

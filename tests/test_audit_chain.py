@@ -31,7 +31,7 @@ def test_compute_results_are_audited(db, mongo):
 
 def test_edited_document_is_reported(db, mongo):
     drained(db, mongo)
-    target = mongo.audit_log.find_one({"table": "student_question_mark"}, sort=[("seq", 1)])
+    target = mongo.audit_log.find_one({"table": "student_question_mark", "op": "INSERT"}, sort=[("seq", 1)])
     mongo.audit_log.update_one({"seq": target["seq"]}, {"$set": {"after.marks_obtained": 10}})
     result = audit.verify(db, mongo)
     assert not result["ok"]
@@ -170,3 +170,24 @@ def test_denied_entries_cannot_be_forged(db, api_connect):
     with raises_sqlstate("22023"):
         db.execute("SELECT fn_audit_denied('department', '{}', '{}')")          # not audited
     assert db.execute("SELECT count(*) FROM audit_outbox WHERE op = 'DENIED'").fetchone()[0] == 0
+
+
+def test_password_hashes_never_reach_the_outbox(db):
+    db.execute("INSERT INTO app_user (user_id, username, password_hash, role, faculty_id) "
+               "VALUES (1, 'fac', '$2b$12$secret-one', 'faculty', 1)")
+    db.execute("UPDATE app_user SET password_hash = '$2b$12$secret-two' WHERE user_id = 1")
+    db.execute("UPDATE app_user SET role = 'admin', faculty_id = NULL WHERE user_id = 1")
+    rows = db.execute("SELECT op, before ->> 'password_hash', after ->> 'password_hash', after ->> 'role' "
+                      "FROM audit_outbox WHERE table_name = 'app_user' AND op <> 'TRUNCATE' ORDER BY outbox_id").fetchall()
+    assert rows == [("INSERT", None, "[redacted]", "faculty"),
+                    ("UPDATE", "[redacted]", "[changed]", "faculty"),
+                    ("UPDATE", "[redacted]", "[redacted]", "admin")]
+    assert db.execute("SELECT count(*) FROM audit_outbox WHERE before::text || after::text LIKE '%secret%'").fetchone()[0] == 0
+
+
+def test_survey_input_and_truncate_are_audited(db):
+    db.execute("UPDATE indirect_attainment SET pct_favourable = 10 WHERE co_id = 1")
+    db.execute("TRUNCATE student_question_mark")
+    ops = db.execute("SELECT table_name, op FROM audit_outbox WHERE op IN ('UPDATE', 'TRUNCATE') "
+                     "AND table_name <> 'assessment' ORDER BY outbox_id").fetchall()
+    assert ops[-2:] == [("indirect_attainment", "UPDATE"), ("student_question_mark", "TRUNCATE")]
