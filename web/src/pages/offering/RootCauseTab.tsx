@@ -1,3 +1,5 @@
+import { AnimatePresence } from 'motion/react'
+import { Notice, Segmented } from '../../components/motion'
 import { useState } from 'react'
 import { api } from '../../api'
 import { Empty, ErrorBox, Pill, SkeletonRows } from '../../components/States'
@@ -37,17 +39,12 @@ export function RootCauseTab({ offering, att, canEdit, onAction }: {
   return (
     <div className="stack">
       <div className="filters" style={{ marginBottom: 0 }}>
-        <div className="segmented" role="group" aria-label="CO to analyse">
-          {cos.map((c) => (
-            <button key={c.co_id} aria-pressed={active === c.co_id} onClick={() => setCo(c.co_id)}>
-              <span className="id">CO{c.co_number}</span>{Number(c.final_level) < Number(c.target) ? ' · below' : ''}
-            </button>
-          ))}
-        </div>
+        <Segmented label="CO to analyse" value={active} onChange={setCo}
+                   options={cos.map((c) => ({ value: c.co_id, label: <><span className="id">CO{c.co_number}</span>{Number(c.final_level) < Number(c.target) ? ' · below' : ''}</> }))} />
         <span className="spacer" />
         {canEdit && passing.length > 0 && <button className="btn primary" onClick={addAction}>Add action from top cause</button>}
       </div>
-      {msg && <p className="note" role="status">{msg}</p>}
+      <AnimatePresence>{msg && <Notice key={msg}>{msg}</Notice>}</AnimatePresence>
 
       <section className="panel" aria-labelledby="t-cause">
         <header>
