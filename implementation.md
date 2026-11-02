@@ -49,12 +49,15 @@ Output: approved ER diagram and DDL.
 
 1. ER diagram in `docs/` covering the 25 PRD tables plus the additions below.
 2. `db/migrations/001_schema.sql` — all tables with PKs and FKs (FR-1.x, FR-2.x, FR-3.1, FR-4.1).
-3. `002_constraints.sql` — CHECKs: CO-PO and dependency strength 1–3; marks between 0 and max;
-   `direct_weight + indirect_weight = 100` (NFR-1, S1).
+3. Single-table CHECKs in `001_schema.sql`: CO-PO and dependency strength 1–3; marks ≥ 0;
+   `direct_weight + indirect_weight = 100` (NFR-1, S1); range domains for percentages and levels.
+   Rules that need another table — marks ≤ the question maximum and the component-weight sum —
+   are triggers and ship with Phase 3 (`002_integrity.sql`).
 4. Schema additions from the PRD:
    - `attainment_config`: `co_target_level`, `po_target_level` (S2).
-   - `config_component_weight (config_id FK, component, weight_pct)` with a deferred trigger that the
-     weights of one config sum to 100. v1 seed: `CIE_THEORY` 20, `CIE_QUIZ` 10, `EL` 20, `SEE` 50 (S5).
+   - `config_component_weight (config_id FK, component, weight_pct)`; the deferred trigger that the
+     weights of one config sum to 100 ships in Phase 3. v1 seed: `CIE_THEORY` 20, `CIE_QUIZ` 10,
+     `EL` 20, `SEE` 50 (S5).
      A nullable `course_id` can be added later for per-course schemes.
    - `assessment.type` restricted to those four components; several assessments of one type (e.g. two
      CIE theory tests) are pooled within the component.
@@ -97,7 +100,8 @@ Output: engine that matches the worked example to two decimals.
    1. `SELECT ... FOR UPDATE` on the offering (NFR-3).
    2. Raise if any assessment is unlocked (FR-4.3).
    3. Direct level per CO from config thresholds.
-   4. Indirect level from `indirect_attainment` (0 if no survey).
+   4. Indirect level from `indirect_attainment.pct_favourable` with the same thresholds (0 if no
+      survey), so a what-if scenario's thresholds apply to it too.
    5. Final level = `(direct_weight × direct + indirect_weight × indirect) / 100`.
    6. PO per offering from `co_po_map` strengths.
    7. `p_persist` → write `co_attainment` / `po_attainment` and refresh views; else write
@@ -117,8 +121,10 @@ Output: integrated NoSQL layer.
 
 1. Collections `survey_responses` (unique index per S12) and `audit_log`.
 2. API reference checks: `offering_id`, `co_id` must exist in PostgreSQL before a survey insert (FR-5.1).
-3. Nightly ETL: % rating ≥ 4 per (offering, CO) → level via config thresholds → upsert
-   `indirect_attainment` (FR-5.2).
+3. Nightly ETL: % rating ≥ the rule version's `favourable_rating` (default 4) per (offering, CO) →
+   upsert `indirect_attainment`; the engine derives the level from that % (FR-5.2). Groups without
+   responses are removed, and offerings with official results whose survey input changed are
+   recomputed.
 4. Audit: DB triggers write to `audit_outbox` in the same transaction; a worker moves rows to
    `audit_log` with `hash = SHA256(prev_hash + canonical JSON)` and marks them sent (S8).
 5. Daily job copies the chain head into `audit_anchor`; verifier recomputes the chain and reports the

@@ -1,16 +1,35 @@
 -- 007_audit.sql
 -- Audit capture (PRD FR-7.2, S8). Audited changes are written to audit_outbox in the same
 -- transaction as the change itself, so nothing is lost if the MongoDB writer is down. The writer
--- (api/jobs/audit.py) moves outbox rows into the hash-chained MongoDB audit_log. pg_notify only
--- wakes the writer early; correctness does not depend on it.
+-- (api/jobs/audit.py) polls the outbox and moves its rows into the hash-chained MongoDB
+-- audit_log. No NOTIFY: nothing listens, and it would serialise committing transactions on the
+-- notification queue lock.
 
+-- Who made the change. The API sets app.user per request to the signed-in user; it is trusted only
+-- on the API's own login (copo_api), so no other session can put someone else's name on a change
+-- by setting it. Every other session is recorded under its login.
 CREATE FUNCTION fn_audit_user() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT coalesce(nullif(current_setting('app.user', true), ''), session_user::text)
+    SELECT CASE WHEN session_user::text = 'copo_api'
+                THEN coalesce(nullif(current_setting('app.user', true), ''), 'copo_api')
+                ELSE session_user::text
+           END
 $$;
 
 CREATE FUNCTION fn_audit_key(p_row jsonb, p_cols text[]) RETURNS jsonb
 LANGUAGE sql IMMUTABLE AS $$
     SELECT jsonb_object_agg(c, p_row -> c) FROM unnest(p_cols) AS c
+$$;
+
+-- Row image as stored in the chain. Password hashes never leave PostgreSQL: the value is replaced,
+-- and an update that changes it shows '[changed]' (p_before is the old image, for updates).
+CREATE FUNCTION fn_audit_image(p_row jsonb, p_before jsonb DEFAULT NULL) RETURNS jsonb
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE WHEN p_row ? 'password_hash' THEN
+               jsonb_set(p_row, '{password_hash}',
+                         CASE WHEN p_before ? 'password_hash'
+                                   AND p_before -> 'password_hash' IS DISTINCT FROM p_row -> 'password_hash'
+                              THEN '"[changed]"' ELSE '"[redacted]"' END::jsonb)
+           ELSE p_row END
 $$;
 
 -- Row-level, for UPDATE and DELETE. Trigger arguments name the key columns.
@@ -24,8 +43,8 @@ BEGIN
         RETURN NULL;
     END IF;
     INSERT INTO audit_outbox (app_user, table_name, op, key, before, after)
-    VALUES (fn_audit_user(), TG_TABLE_NAME, TG_OP, fn_audit_key(coalesce(v_new, v_old), TG_ARGV), v_old, v_new);
-    PERFORM pg_notify('audit_outbox', TG_TABLE_NAME);
+    VALUES (fn_audit_user(), TG_TABLE_NAME, TG_OP, fn_audit_key(coalesce(v_new, v_old), TG_ARGV),
+            fn_audit_image(v_old), fn_audit_image(v_new, v_old));
     RETURN NULL;
 END $$;
 
@@ -34,19 +53,31 @@ CREATE FUNCTION trg_audit_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
     INSERT INTO audit_outbox (app_user, table_name, op, key, before, after)
-    SELECT fn_audit_user(), TG_TABLE_NAME, 'INSERT', fn_audit_key(to_jsonb(n), TG_ARGV), NULL, to_jsonb(n)
+    SELECT fn_audit_user(), TG_TABLE_NAME, 'INSERT', fn_audit_key(to_jsonb(n), TG_ARGV), NULL,
+           fn_audit_image(to_jsonb(n))
     FROM new_rows n;
-    PERFORM pg_notify('audit_outbox', TG_TABLE_NAME);
     RETURN NULL;
 END $$;
 
--- Attach both triggers to every audited table.
+-- TRUNCATE removes rows without row triggers; record that it happened.
+CREATE FUNCTION trg_audit_truncate() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    INSERT INTO audit_outbox (app_user, table_name, op, key)
+    VALUES (fn_audit_user(), TG_TABLE_NAME, 'TRUNCATE', '{}');
+    RETURN NULL;
+END $$;
+
+-- Attach the triggers to every audited table: marks and how they map to outcomes, the rules,
+-- the results and their survey input, the people involved (logins, enrolments) and the workflow.
 DO $$
 DECLARE
     t record;
 BEGIN
     FOR t IN SELECT * FROM (VALUES
         ('student_question_mark',   'enrollment_id, question_id'),
+        ('assessment_question',     'question_id'),
+        ('enrollment',              'enrollment_id'),
         ('question_co_map',         'question_id, co_id'),
         ('co_po_map',               'co_id, po_id'),
         ('co_dependency',           'co_id, prereq_co_id'),
@@ -54,9 +85,11 @@ BEGIN
         ('attainment_config',       'config_id'),
         ('config_component_weight', 'config_id, component'),
         ('co_attainment',           'offering_id, co_id'),
+        ('indirect_attainment',     'offering_id, co_id'),
         ('po_attainment',           'offering_id, po_id'),
         ('improvement_action',      'action_id'),
-        ('unlock_request',          'request_id')
+        ('unlock_request',          'request_id'),
+        ('app_user',                'user_id')
     ) AS v(tbl, keys)
     LOOP
         EXECUTE format(
@@ -67,15 +100,34 @@ BEGIN
             'CREATE TRIGGER audit_insert AFTER INSERT ON %I REFERENCING NEW TABLE AS new_rows '
             'FOR EACH STATEMENT EXECUTE FUNCTION trg_audit_insert(%s)',
             t.tbl, (SELECT string_agg(quote_literal(trim(k)), ', ') FROM unnest(string_to_array(t.keys, ',')) k));
+        EXECUTE format(
+            'CREATE TRIGGER audit_truncate AFTER TRUNCATE ON %I FOR EACH STATEMENT EXECUTE FUNCTION trg_audit_truncate()',
+            t.tbl);
     END LOOP;
 END $$;
 
 -- Rejected writes roll back with their transaction, so the API records each attempt
 -- separately through this function (PRD: "later edits are rejected and every attempt is logged").
+-- Only the roles that edit audited data (through the API) and maintenance logins may call it,
+-- and only for an audited table.
 CREATE FUNCTION fn_audit_denied(p_table text, p_key jsonb, p_detail jsonb) RETURNS void
-LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF coalesce(fn_app_role() NOT IN ('admin', 'faculty', ''), true) THEN
+        RAISE EXCEPTION 'Not allowed to record denied writes' USING ERRCODE = '42501';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                   WHERE tgrelid = to_regclass('public.' || quote_ident(p_table)) AND tgname = 'audit_row') THEN
+        RAISE EXCEPTION '% is not an audited table', p_table USING ERRCODE = '22023';
+    END IF;
+    IF jsonb_typeof(p_key) IS DISTINCT FROM 'object' OR jsonb_typeof(p_detail) IS DISTINCT FROM 'object' THEN
+        RAISE EXCEPTION 'Key and detail must be JSON objects' USING ERRCODE = '22023';
+    END IF;
     INSERT INTO audit_outbox (app_user, table_name, op, key, after)
     VALUES (fn_audit_user(), p_table, 'DENIED', p_key, p_detail);
-$$;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION fn_audit_denied(text, jsonb, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION fn_audit_denied(text, jsonb, jsonb) TO copo_admin, copo_faculty;
 
 CREATE INDEX audit_outbox_pending_idx ON audit_outbox (outbox_id) WHERE sent_at IS NULL;
