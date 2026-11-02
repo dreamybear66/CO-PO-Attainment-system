@@ -66,6 +66,8 @@ def parse(conn, assessment_id: int, text: str) -> tuple[list[tuple], list[dict]]
             try:
                 value = Decimal(cell)
             except InvalidOperation:
+                value = None
+            if value is None or not value.is_finite():         # also NaN, sNaN and Infinity
                 errors.append({"row": line_no, "usn": usn, "column": col,
                                "message": "Empty" if not cell else f"'{cell}' is not a number or AB"})
                 continue
