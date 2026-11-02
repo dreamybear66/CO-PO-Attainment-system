@@ -2,6 +2,7 @@
 
 from decimal import Decimal as D
 
+from api.services import whatif
 from tests.conftest import raises_sqlstate
 
 
@@ -36,14 +37,20 @@ def test_offering_uses_the_version_valid_at_its_term(db):
     assert finals(db) == [D("3.00"), D("0.60"), D("0.40")]
 
 
-def test_rerun_with_old_version_reproduces_old_numbers(db):
+def test_old_version_is_reproduced_as_a_what_if(db):
+    """Official results always use the offering's rule version (CP015); an older version can
+    still be re-run, as a what-if scenario, and gives the old numbers."""
+    db.execute("INSERT INTO app_user (user_id, username, password_hash, role, faculty_id) VALUES (1, 'fac', 'x', 'faculty', 1)")
     db.execute("CALL sp_compute_attainment(1)")
     original = finals(db)
     new_version(db, "2025-12-01", target=80)
     db.execute("CALL sp_compute_attainment(1)")
     assert finals(db) != original
-    db.execute("CALL sp_compute_attainment(1, 1)")  # explicitly with last year's config
-    assert finals(db) == original
+    with raises_sqlstate("CP015"):
+        db.execute("CALL sp_compute_attainment(1, 1)")
+    sid = whatif.create_and_run(db, offering_id=1, created_by=1, name="last year's rules", rules={},
+                                base_config_id=1)
+    assert [c["scenario"] for c in whatif.compare(db, sid)["cos"]] == original
 
 
 def test_versions_cannot_overlap(db):
