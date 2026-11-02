@@ -72,6 +72,65 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
     SELECT user_id, password_hash, role, faculty_id, usn FROM app_user WHERE username = p_username
 $$;
 
+-- Programme-wide figures (FR-4.5, FR-6.1). Staff see the same programme numbers whatever they teach,
+-- so these run as owner, past row-level security, and return aggregates only. Each year is judged
+-- against the targets of the rule versions its results used (averaged like the values).
+CREATE FUNCTION fn_staff_only() RETURNS void LANGUAGE plpgsql STABLE AS $$
+BEGIN
+    IF coalesce(fn_app_role() NOT IN ('admin', 'faculty', 'coordinator', ''), true) THEN
+        RAISE EXCEPTION 'Programme figures are for staff' USING ERRCODE = '42501';
+    END IF;
+END $$;
+
+CREATE FUNCTION fn_program_po_attainment()
+RETURNS TABLE (po_id int, po_code text, type text, statement text, academic_year text,
+               offerings int, attainment numeric, target numeric)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    PERFORM fn_staff_only();
+    RETURN QUERY
+    SELECT po.po_id, po.code::text, po.type::text, po.statement::text, o.academic_year::text,
+           count(*)::int, round(avg(pa.attainment), 2), round(avg(cfg.po_target_level), 2)
+    FROM po_attainment pa
+    JOIN course_offering o     ON o.offering_id = pa.offering_id
+    JOIN program_outcome po    ON po.po_id = pa.po_id
+    JOIN attainment_config cfg ON cfg.config_id = pa.config_id
+    GROUP BY po.po_id, po.code, po.type, po.statement, o.academic_year
+    ORDER BY o.academic_year, po.po_id;
+END $$;
+
+CREATE FUNCTION fn_weakest_cos(p_academic_year text, p_limit int)
+RETURNS TABLE (course_id int, code text, title text, co_id int, co_number smallint, statement text,
+               final_level numeric, sections int, target numeric, weakest_rank int)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    PERFORM fn_staff_only();
+    RETURN QUERY
+    WITH yearly AS (
+        SELECT c.course_id, c.code::text AS code, c.title::text AS title, co.co_id, co.co_number,
+               co.statement::text AS statement, round(avg(ca.final_level), 2) AS final_level,
+               count(*)::int AS sections, round(avg(cfg.co_target_level), 2) AS target
+        FROM co_attainment ca
+        JOIN course_offering o     ON o.offering_id = ca.offering_id
+        JOIN course c              ON c.course_id = o.course_id
+        JOIN course_outcome co     ON co.co_id = ca.co_id
+        JOIN attainment_config cfg ON cfg.config_id = ca.config_id
+        WHERE o.academic_year = p_academic_year
+        GROUP BY c.course_id, c.code, c.title, co.co_id, co.co_number, co.statement
+    )
+    SELECT r.* FROM (SELECT y.*, (rank() OVER (ORDER BY y.final_level))::int AS weakest_rank FROM yearly y) r
+    WHERE r.weakest_rank <= p_limit
+    ORDER BY r.weakest_rank, r.code, r.co_number;
+END $$;
+
+CREATE FUNCTION fn_result_years() RETURNS SETOF text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    PERFORM fn_staff_only();
+    RETURN QUERY SELECT DISTINCT o.academic_year::text FROM co_attainment ca
+                 JOIN course_offering o ON o.offering_id = ca.offering_id ORDER BY 1 DESC;
+END $$;
+
 -- ---------------------------------------------------------------- privileges
 
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
@@ -79,10 +138,19 @@ REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 REVOKE EXECUTE ON ALL PROCEDURES IN SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO copo_admin, copo_faculty, copo_coordinator, copo_student, copo_api;
 
+-- Helpers (policies, triggers, views) run as the caller, so the application roles get every
+-- function; the routines earlier migrations restricted keep their own grants, re-applied below.
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO copo_admin, copo_faculty, copo_coordinator, copo_student;
 REVOKE EXECUTE ON FUNCTION fn_login_lookup(text) FROM copo_admin, copo_faculty, copo_coordinator, copo_student;
 GRANT EXECUTE ON FUNCTION fn_login_lookup(text) TO copo_api;
 REVOKE EXECUTE ON FUNCTION fn_refresh_dashboards() FROM copo_faculty, copo_coordinator, copo_student;
+REVOKE EXECUTE ON FUNCTION fn_co_attainment_calc(attainment_rules[])
+    FROM copo_admin, copo_faculty, copo_coordinator, copo_student;
+REVOKE EXECUTE ON FUNCTION fn_audit_denied(text, jsonb, jsonb) FROM copo_coordinator, copo_student;
+REVOKE EXECUTE ON FUNCTION fn_root_cause(int, int) FROM copo_student;
+REVOKE EXECUTE ON FUNCTION fn_root_cause_action(int, int) FROM copo_coordinator, copo_student;
+REVOKE EXECUTE ON FUNCTION fn_program_po_attainment(), fn_weakest_cos(text, int), fn_result_years()
+    FROM copo_student;
 GRANT EXECUTE ON PROCEDURE sp_compute_attainment(int, int, boolean, int, boolean) TO copo_admin, copo_faculty;
 GRANT EXECUTE ON PROCEDURE sp_compute_all() TO copo_admin;
 
@@ -114,9 +182,12 @@ GRANT SELECT ON department, program, course, course_offering, program_outcome, c
     question_co_map, student_question_mark
     TO copo_student;
 
--- views and materialized views (views are security_invoker, so RLS still applies)
-GRANT SELECT ON v_offering_config, student_component_co_pct, student_co_score
-    TO copo_admin, copo_faculty, copo_coordinator, copo_student;
+-- views and materialized views (views are security_invoker, so RLS still applies). The score views
+-- also read the configs of official results and scenarios: students may read those tables, and
+-- with no student policy on them see none of their rows.
+GRANT SELECT ON v_offering_config, v_scoring_config, student_component_co_pct, student_co_score_by_config,
+    student_co_score TO copo_admin, copo_faculty, copo_coordinator, copo_student;
+GRANT SELECT ON co_attainment, whatif_scenario TO copo_student;
 GRANT SELECT ON v_program_po_attainment, v_improvement_followup TO copo_admin, copo_faculty, copo_coordinator;
 -- materialized views cannot carry RLS: admin and coordinator only
 GRANT SELECT ON mv_co_po_heatmap, mv_co_trend TO copo_admin, copo_coordinator;
