@@ -4,7 +4,7 @@ import pytest
 from psycopg.rows import dict_row
 
 from api.jobs import audit
-from tests.conftest import SEED, truncate_all
+from tests.conftest import SEED, raises_sqlstate, truncate_all
 
 
 def drained(db, mongo):
@@ -148,3 +148,25 @@ class AnchorDuringWalk:
 def test_anchor_written_during_verify_is_not_a_false_alarm(db, mongo):
     drained(db, mongo)
     assert audit.verify(db, AnchorDuringWalk(mongo, db))["ok"]
+
+
+def test_app_user_is_trusted_only_from_the_api_login(db, api_connect):
+    start = db.execute("SELECT max(outbox_id) FROM audit_outbox").fetchone()[0]
+    db.execute("SELECT set_config('app.user', 'hod', false)")   # a maintenance session claiming to be hod
+    db.execute("UPDATE co_po_map SET strength = 2 WHERE co_id = 1 AND po_id = 1")
+    api = api_connect("faculty", faculty_id=1)
+    api.execute("SELECT set_config('app.user', 'fac01', false)")
+    api.execute("SELECT fn_audit_denied('student_question_mark', '{\"assessment_id\": 1}', '{\"error\": \"locked\"}')")
+    users = db.execute("SELECT op, app_user FROM audit_outbox WHERE outbox_id > %s ORDER BY outbox_id",
+                       (start,)).fetchall()
+    assert users == [("UPDATE", "copo_owner"), ("DENIED", "fac01")]
+
+
+def test_denied_entries_cannot_be_forged(db, api_connect):
+    for caller in (api_connect("student"), api_connect("coordinator"),
+                   api_connect("faculty", faculty_id=1, app_role="admin")):   # role does not match
+        with raises_sqlstate("42501"):
+            caller.execute("SELECT fn_audit_denied('student_question_mark', '{}', '{}')")
+    with raises_sqlstate("22023"):
+        db.execute("SELECT fn_audit_denied('department', '{}', '{}')")          # not audited
+    assert db.execute("SELECT count(*) FROM audit_outbox WHERE op = 'DENIED'").fetchone()[0] == 0

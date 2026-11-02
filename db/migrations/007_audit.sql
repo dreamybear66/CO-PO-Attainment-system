@@ -4,8 +4,14 @@
 -- (api/jobs/audit.py) moves outbox rows into the hash-chained MongoDB audit_log. pg_notify only
 -- wakes the writer early; correctness does not depend on it.
 
+-- Who made the change. The API sets app.user per request to the signed-in user; it is trusted only
+-- on the API's own login (copo_api), so no other session can put someone else's name on a change
+-- by setting it. Every other session is recorded under its login.
 CREATE FUNCTION fn_audit_user() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT coalesce(nullif(current_setting('app.user', true), ''), session_user::text)
+    SELECT CASE WHEN session_user::text = 'copo_api'
+                THEN coalesce(nullif(current_setting('app.user', true), ''), 'copo_api')
+                ELSE session_user::text
+           END
 $$;
 
 CREATE FUNCTION fn_audit_key(p_row jsonb, p_cols text[]) RETURNS jsonb
@@ -72,10 +78,26 @@ END $$;
 
 -- Rejected writes roll back with their transaction, so the API records each attempt
 -- separately through this function (PRD: "later edits are rejected and every attempt is logged").
+-- Only the roles that edit audited data (through the API) and maintenance logins may call it,
+-- and only for an audited table.
 CREATE FUNCTION fn_audit_denied(p_table text, p_key jsonb, p_detail jsonb) RETURNS void
-LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF coalesce(fn_app_role() NOT IN ('admin', 'faculty', ''), true) THEN
+        RAISE EXCEPTION 'Not allowed to record denied writes' USING ERRCODE = '42501';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                   WHERE tgrelid = to_regclass('public.' || quote_ident(p_table)) AND tgname = 'audit_row') THEN
+        RAISE EXCEPTION '% is not an audited table', p_table USING ERRCODE = '22023';
+    END IF;
+    IF jsonb_typeof(p_key) IS DISTINCT FROM 'object' OR jsonb_typeof(p_detail) IS DISTINCT FROM 'object' THEN
+        RAISE EXCEPTION 'Key and detail must be JSON objects' USING ERRCODE = '22023';
+    END IF;
     INSERT INTO audit_outbox (app_user, table_name, op, key, after)
     VALUES (fn_audit_user(), p_table, 'DENIED', p_key, p_detail);
-$$;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION fn_audit_denied(text, jsonb, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION fn_audit_denied(text, jsonb, jsonb) TO copo_admin, copo_faculty;
 
 CREATE INDEX audit_outbox_pending_idx ON audit_outbox (outbox_id) WHERE sent_at IS NULL;
