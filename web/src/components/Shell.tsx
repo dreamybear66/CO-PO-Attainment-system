@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ROLE_NAMES, useAuth, type Role } from '../auth'
-import { useApi } from '../hooks'
+import { UNLOCKS_CHANGED, useApi } from '../hooks'
 
 const icon = {
   offerings: <path d="M3 4.5h10M3 8h10M3 11.5h6" />,
@@ -34,18 +34,24 @@ export function Shell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const loc = useLocation()
   const pending = useApi<unknown[]>(user?.role === 'admin' ? '/api/unlock-requests' : null)
+  const reloadPending = pending.reload
+  useEffect(() => {
+    window.addEventListener(UNLOCKS_CHANGED, reloadPending)
+    return () => window.removeEventListener(UNLOCKS_CHANGED, reloadPending)
+  }, [reloadPending])
   if (!user) return null
 
   const nav: Nav[] = [
-    { to: '/', label: 'Offerings', d: icon.offerings, roles: ['admin', 'faculty', 'coordinator'] },
+    // Unlock requests are decided in the Offerings page's side panel, so their count sits here.
+    { to: '/', label: 'Offerings', d: icon.offerings, roles: ['admin', 'faculty', 'coordinator'],
+      count: pending.data?.length || null },
     { to: '/trends', label: 'Trends', d: icon.trends, roles: ['admin', 'faculty', 'coordinator'] },
     { to: '/actions', label: 'Improvement actions', d: icon.actions, roles: ['admin', 'faculty', 'coordinator'] },
     { to: '/me', label: 'My CO scores', d: icon.scores, roles: ['student'] },
     { to: '/me/surveys', label: 'Course-exit surveys', d: icon.surveys, roles: ['student'] },
   ]
   const bottom: Nav[] = [
-    { to: '/settings', label: 'Rules and audit', d: icon.settings, roles: ['admin', 'coordinator'],
-      count: pending.data?.length || null },
+    { to: '/settings', label: 'Rules and audit', d: icon.settings, roles: ['admin', 'coordinator'] },
   ]
   const item = (n: Nav) => n.roles.includes(user.role) && (
     <NavLink key={n.to} to={n.to} end className="nav-item" onClick={() => setOpen(false)}>

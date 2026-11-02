@@ -4,7 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../auth'
 import { Empty, ErrorBox, Pill, SkeletonRows } from '../components/States'
 import { day, int, term } from '../format'
-import { useApi } from '../hooks'
+import { UNLOCKS_CHANGED, useApi } from '../hooks'
 
 export type Offering = {
   offering_id: number; course_id: number; code: string; title: string; semester: number
@@ -113,13 +113,24 @@ export function Offerings() {
 function UnlockQueue() {
   const q = useApi<Unlock[]>('/api/unlock-requests')
   const [busy, setBusy] = useState<number | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
   async function decide(id: number, approve: boolean) {
     setBusy(id)
-    try { await api(`/api/unlock-requests/${id}/decision`, { body: { approve } }); q.reload() } finally { setBusy(null) }
+    setFailed(null)
+    try {
+      await api(`/api/unlock-requests/${id}/decision`, { body: { approve } })
+    } catch (e) {
+      setFailed((e as Error).message)        // e.g. already decided by someone else
+    } finally {
+      setBusy(null)
+      q.reload()                             // the list is current either way
+      window.dispatchEvent(new Event(UNLOCKS_CHANGED))
+    }
   }
   return (
     <>
       <h2>Unlock requests</h2>
+      {failed && <p className="note" role="alert">{failed}</p>}
       <div className="panel">
         {q.error ? <ErrorBox message={q.error} onRetry={q.reload} />
           : !q.data ? <SkeletonRows rows={3} />
