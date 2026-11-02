@@ -35,8 +35,11 @@ def run(job: str, dbname: str | None = None, mongo_name: str | None = None) -> d
 def schedule() -> None:
     from apscheduler.schedulers.blocking import BlockingScheduler
 
-    s = BlockingScheduler(timezone="Asia/Kolkata")
-    s.add_job(lambda: print("audit", run("audit")), "interval", seconds=30, id="audit", max_instances=1)
+    # A run that starts late (machine asleep or busy at the time) still happens, once: the default
+    # grace of 1 s would drop it, and a missed 23:55 anchor leaves that day unanchored.
+    s = BlockingScheduler(timezone="Asia/Kolkata",
+                          job_defaults={"coalesce": True, "misfire_grace_time": None, "max_instances": 1})
+    s.add_job(lambda: print("audit", run("audit")), "interval", seconds=30, id="audit")
     s.add_job(lambda: print("etl", run("etl")), "cron", hour=1, minute=30, id="etl")
     s.add_job(lambda: print("anchor", run("anchor")), "cron", hour=23, minute=55, id="anchor")
     s.add_job(lambda: print("verify", run("verify")), "cron", hour=2, minute=0, id="verify")

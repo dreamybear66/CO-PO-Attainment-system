@@ -11,8 +11,6 @@ Usage:  python -m datagen.generate [--reset] [--seed 2026] [--database copo]
 """
 
 import argparse
-import hashlib
-import os
 import time
 from datetime import datetime, timezone
 
@@ -20,10 +18,23 @@ import bcrypt
 import numpy as np
 import psycopg
 from faker import Faker
-from pymongo import MongoClient
+from pymongo import ASCENDING, MongoClient
+from pymongo.database import Database
 
 from api import config
+from api.survey_hash import respondent_hash
 from datagen import catalog as cat
+from scripts.migrate import truncate_all
+
+# Latent skill per (student, CO) = SHARED_ABILITY x general ability + UNIQUE x CO-specific noise,
+# with unit variance. The shared part correlates every pair of COs (latent r = SHARED_ABILITY^2),
+# so it is kept small: at 0.35 (r = 0.12), sampling at n = 60 per section pushed three unrelated
+# declared dependencies and the decoy to the root-cause threshold rc_min_r = 0.40. At 0.15
+# (r = 0.02), seed 2026 gives the planted pair r = 0.75-0.82 in every weak-batch section, the
+# decoy at most 0.38, and one unrelated pair above 0.40 (IS363 CO3 <- IS233 CO2, 2024-25 even B,
+# r = 0.46), which is sampling noise: it stays at 0.45 with no shared ability at all.
+SHARED_ABILITY = 0.15
+UNIQUE = float(np.sqrt(1 - SHARED_ABILITY ** 2))
 
 TABLES_IN_LOAD_ORDER = [
     "department", "program", "faculty", "student", "course", "course_prerequisite",
@@ -47,8 +58,11 @@ def sigmoid(x):
 
 
 class Builder:
-    def __init__(self, seed: int):
+    def __init__(self, seed: int, hash_key: bytes):
         self.rng = np.random.default_rng(seed)
+        # Own stream for the PO6-PO11 maps, so adding them left every other draw unchanged.
+        self.soft_po_rng = np.random.default_rng([seed, 1])
+        self.hash_key = hash_key          # SURVEY_HASH_SECRET, for respondent ids
         self.fake = Faker("en_IN")
         Faker.seed(seed)
         self.rows: dict[str, list[tuple]] = {t: [] for t in TABLES_IN_LOAD_ORDER}
@@ -56,8 +70,9 @@ class Builder:
         self.locks: list[int] = []        # assessment ids to lock after marks are loaded
         self.course_id: dict[str, int] = {}
         self.co_id: dict[tuple[str, int], int] = {}
-        self.skill: dict[tuple[str, int], float] = {}   # (usn, co_id) -> latent skill
-        self.ability: dict[str, float] = {}
+        # Latent skill: one row per student (skill_row[usn]), one column per CO (co_id - 1).
+        self.skill = np.empty((0, 0))
+        self.skill_row: dict[str, int] = {}
 
     # ------------------------------------------------------------------ master data
 
@@ -79,7 +94,6 @@ class Builder:
 
         for pid, (code, kind, statement) in enumerate(cat.PROGRAM_OUTCOMES, start=1):
             r["program_outcome"].append((pid, 1, code, kind, statement))
-        po_ids = list(range(1, len(cat.PROGRAM_OUTCOMES) + 1))
 
         co = 0
         for code, title, *_ in cat.COURSES:
@@ -90,11 +104,14 @@ class Builder:
                 statement = (cat.CO_STATEMENTS[code][n - 1] if code in cat.CO_STATEMENTS
                              else f"{cat.BLOOM_VERBS[bloom]} the unit {n} concepts of {title}")
                 r["course_outcome"].append((co, self.course_id[code], n, statement, bloom))
-                # Every CO supports PO1, plus 1-3 of PO2-PO5, PO12, PSO1, PSO2.
+                # Every CO supports PO1, plus 1-3 of PO2-PO5, PO12, PSO1, PSO2, and sometimes
+                # one of PO6-PO11 at strength 1.
                 r["co_po_map"].append((co, 1, int(self.rng.integers(2, 4))))
                 extra = self.rng.choice([2, 3, 4, 5, 12, 13, 14], size=int(self.rng.integers(1, 4)), replace=False)
                 for po in sorted(int(p) for p in extra):
-                    r["co_po_map"].append((co, po_ids[po - 1], int(self.rng.integers(1, 4))))
+                    r["co_po_map"].append((co, po, int(self.rng.integers(1, 4))))
+                if self.soft_po_rng.random() < cat.SOFT_PO_SHARE:
+                    r["co_po_map"].append((co, int(self.soft_po_rng.choice(cat.SOFT_POS)), 1))
 
         self.dependencies()
 
@@ -103,7 +120,7 @@ class Builder:
             r["attainment_config"].append((
                 cfg_id, 1, cfg["target_pct"], c["l3_pct"], c["l2_pct"], c["l1_pct"],
                 c["direct_weight"], c["indirect_weight"], c["co_target_level"], c["po_target_level"],
-                20, 0.40, cfg["valid_from"], cfg["valid_to"],
+                c["rc_min_n"], c["rc_min_r"], cfg["valid_from"], cfg["valid_to"],
             ))
             for comp, w in cat.COMPONENT_WEIGHTS.items():
                 r["config_component_weight"].append((cfg_id, comp, w))
@@ -132,7 +149,8 @@ class Builder:
     def students(self) -> dict[int, dict[str, list[str]]]:
         """Returns batch -> section -> [usn]."""
         out: dict[int, dict[str, list[str]]] = {}
-        all_cos = list(self.co_id.values())
+        n_students = len(cat.BATCHES) * len(cat.SECTIONS) * cat.STUDENTS_PER_SECTION
+        self.skill = np.empty((n_students, len(self.co_id)))
         for batch in cat.BATCHES:
             out[batch] = {s: [] for s in cat.SECTIONS}
             for i in range(len(cat.SECTIONS) * cat.STUDENTS_PER_SECTION):
@@ -140,23 +158,22 @@ class Builder:
                 section = cat.SECTIONS[i // cat.STUDENTS_PER_SECTION]
                 out[batch][section].append(usn)
                 self.rows["student"].append((usn, self.fake.name(), 1, batch, section))
+                row = self.skill_row[usn] = len(self.skill_row)
                 theta = self.rng.normal()
-                self.ability[usn] = theta
-                noise = self.rng.normal(size=len(all_cos))
-                for co, e in zip(all_cos, noise):
-                    self.skill[(usn, co)] = 0.35 * theta + 0.937 * e
+                self.skill[row] = SHARED_ABILITY * theta + UNIQUE * self.rng.normal(size=len(self.co_id))
             if batch == cat.WEAK_BATCH:
                 self.plant(out[batch])
         return out
 
     def plant(self, sections: dict[str, list[str]]) -> None:
-        cause = self.co_id[cat.PLANTED["cause_co"]]
-        weak = self.co_id[cat.PLANTED["weak_co"]]
+        cause = self.co_id[cat.PLANTED["cause_co"]] - 1
+        weak = self.co_id[cat.PLANTED["weak_co"]] - 1
         for usns in sections.values():
             for usn in usns:
+                row = self.skill_row[usn]
                 if self.rng.random() < 0.5:
-                    self.skill[(usn, cause)] -= 1.2
-                self.skill[(usn, weak)] = 0.8 * self.skill[(usn, cause)] + 0.6 * self.rng.normal()
+                    self.skill[row, cause] -= 1.2
+                self.skill[row, weak] = 0.8 * self.skill[row, cause] + 0.6 * self.rng.normal()
 
     # ------------------------------------------------------------------ offerings and marks
 
@@ -170,6 +187,7 @@ class Builder:
 
         for batch, sections in batches.items():
             for code, _, _, sem, _ in cat.COURSES:
+                course_cos = [self.co_id[(code, n)] for n in range(1, cat.CO_COUNT + 1)]
                 year = batch + (sem - 1) // 2
                 term = "odd" if sem % 2 else "even"
                 if (year, term == "even") > (current[0], current[1] == "even"):
@@ -185,6 +203,9 @@ class Builder:
                         ids["enrollment"] += 1
                         enrol.append((ids["enrollment"], usn))
                         r["enrollment"].append((ids["enrollment"], oid, usn))
+                    # students x this course's COs, built once per offering
+                    skills = self.skill[np.ix_([self.skill_row[u] for u in usns],
+                                               [co - 1 for co in course_cos])]
                     for name, comp, qmarks, cos in cat.ASSESSMENTS:
                         if is_current and name not in cat.CURRENT_TERM_ASSESSMENTS:
                             continue
@@ -202,51 +223,50 @@ class Builder:
                                 tags = [(cos[0], 0.5), (cos[-1], 0.5)]
                             else:
                                 tags = [(cos[qi % len(cos)], 1.0)]
-                            tag_ids = [(self.co_id[(code, n)], w) for n, w in tags]
-                            for co, w in tag_ids:
-                                r["question_co_map"].append((qid, co, w))
-                            questions.append((qid, qmax, tag_ids))
-                        self.marks(enrol, comp, questions)
+                            weights = np.zeros(cat.CO_COUNT)      # question's weight per course CO
+                            for n, w in tags:
+                                r["question_co_map"].append((qid, self.co_id[(code, n)], w))
+                                weights[n - 1] = w
+                            questions.append((qid, qmax, weights))
+                        self.marks(enrol, comp, questions, skills)
                     if not is_current:
-                        self.survey(oid, code, enrol, year, term)
+                        self.survey(oid, course_cos, enrol, skills, year, term)
 
-    def marks(self, enrol, comp, questions) -> None:
+    def marks(self, enrol, comp, questions, skills) -> None:
         n = len(enrol)
         absent = self.rng.random(n) < cat.ABSENCE_RATE[comp]
         rows = self.rows["student_question_mark"]
-        for qid, qmax, tags in questions:
-            z = np.array([sum(w * self.skill[(usn, co)] for co, w in tags) for _, usn in enrol])
+        for qid, qmax, weights in questions:
+            z = skills @ weights
             frac = sigmoid(cat.COMPONENT_EASE[comp] + 1.1 * z + self.rng.normal(0, 0.6, n))
             got = np.clip(np.round(frac * qmax * 2) / 2, 0, qmax)
             for (eid, _), a, m in zip(enrol, absent, got):
                 rows.append((eid, qid, None, True) if a else (eid, qid, float(m), False))
 
-    def survey(self, oid, code, enrol, year, term) -> None:
+    def survey(self, oid, cos, enrol, skills, year, term) -> None:
         submitted = term_end(year, term)
-        cos = [self.co_id[(code, n)] for n in range(1, cat.CO_COUNT + 1)]
-        for _, usn in enrol:
+        for i, (_, usn) in enumerate(enrol):
             if self.rng.random() >= 0.8:
                 continue
-            answers = [{"co_id": co, "rating": int(np.clip(round(4.0 + 0.7 * self.skill[(usn, co)]
+            answers = [{"co_id": co, "rating": int(np.clip(round(4.0 + 0.7 * skills[i, j]
                                                                   + self.rng.normal(0, 0.7)), 1, 5))}
-                       for co in cos]
+                       for j, co in enumerate(cos)]
             self.surveys.append({
                 "survey_type": "course_exit",
                 "offering_id": oid,
-                "respondent_hash": hashlib.sha256(f"{usn}:{oid}:course_exit".encode()).hexdigest(),
+                "respondent_hash": respondent_hash(usn, oid, "course_exit", self.hash_key),
                 "submitted_at": submitted,
                 "answers": answers,
             })
 
     # ------------------------------------------------------------------ users
 
-    def users(self, batches) -> None:
-        password = os.getenv("DEMO_PASSWORD")
-        if not password:
-            raise RuntimeError("Set DEMO_PASSWORD in .env (password for the demo logins)")
+    def users(self, batches, password: str) -> None:
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         r = self.rows["app_user"]
-        r.append((1, "hod", pw_hash, "admin", 1, None))
+        # The HoD login is not linked to a faculty row: fac01 is faculty 1's login, and
+        # app_user.faculty_id is unique (one login per faculty member).
+        r.append((1, "hod", pw_hash, "admin", None, None))
         r.append((2, "coordinator", pw_hash, "coordinator", None, None))
         uid = 2
         for fid in range(1, cat.FACULTY_COUNT + 1):
@@ -287,31 +307,61 @@ SERIALS = {
 }
 
 
-def load_postgres(b: Builder, dbname: str | None, reset: bool) -> None:
-    with psycopg.connect(config.owner_dsn(dbname)) as conn:
-        with conn.cursor() as cur:
-            if reset:
-                cur.execute("SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
-                            "WHERE schemaname = 'public' AND tablename <> 'schema_migrations'")
-                cur.execute(f"TRUNCATE {cur.fetchone()[0]} RESTART IDENTITY CASCADE")
-            for table in TABLES_IN_LOAD_ORDER:
-                with cur.copy(f"COPY {table} ({COLUMNS[table]}) FROM STDIN") as copy:
-                    for row in b.rows[table]:
-                        copy.write_row(row)
-                print(f"  {table:<24} {len(b.rows[table]):>8,} rows")
-            for table, col in SERIALS.items():
-                cur.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), "
-                            f"(SELECT max({col}) FROM {table}))")
-            # Lock completed assessments only after their marks are in.
-            cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
-                        "WHERE assessment_id = ANY(%s)", (b.locks,))
-            print(f"  locked {cur.rowcount:,} assessments")
+def load(b: Builder, dbname: str | None, mongo: Database, reset: bool) -> None:
+    """Load both stores as one unit as far as possible: the PostgreSQL transaction commits only
+    after the surveys are in MongoDB, so a MongoDB failure rolls the PostgreSQL load back."""
+    with psycopg.connect(config.owner_dsn(dbname)) as conn:   # commits on exit, rolls back on error
+        load_postgres(b, conn, reset)
+        load_mongo(b, mongo, reset)
 
 
-def load_mongo(b: Builder, reset: bool) -> None:
-    db = MongoClient(config.MONGO_URI)[config.MONGO_DATABASE]
+def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
+    with conn.cursor() as cur:
+        if reset:
+            truncate_all(cur)
+        # Seed data is not an audited change: keep the audit triggers (audit_insert, audit_row)
+        # from copying ~570k loaded rows into audit_outbox and the MongoDB hash chain. DISABLE
+        # TRIGGER is transactional, so a failed load leaves them enabled.
+        audit = cur.execute(
+            "SELECT quote_ident(c.relname), quote_ident(t.tgname) FROM pg_trigger t "
+            "JOIN pg_class c ON c.oid = t.tgrelid "
+            "WHERE c.relnamespace = 'public'::regnamespace AND NOT t.tgisinternal "
+            "AND t.tgenabled <> 'D' AND t.tgname LIKE 'audit%'"
+        ).fetchall()
+        for table, trigger in audit:
+            cur.execute(f"ALTER TABLE {table} DISABLE TRIGGER {trigger}")
+        for table in TABLES_IN_LOAD_ORDER:
+            with cur.copy(f"COPY {table} ({COLUMNS[table]}) FROM STDIN") as copy:
+                for row in b.rows[table]:
+                    copy.write_row(row)
+            print(f"  {table:<24} {len(b.rows[table]):>8,} rows")
+        for table, col in SERIALS.items():
+            cur.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), "
+                        f"(SELECT max({col}) FROM {table}))")
+        # Lock completed assessments only after their marks are in. The lock trigger counts each
+        # assessment's marks; without statistics on the fresh rows it scans all of them per
+        # assessment (minutes), so analyze first.
+        cur.execute("ANALYZE")
+        cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
+                    "WHERE assessment_id = ANY(%s)", (b.locks,))
+        print(f"  locked {cur.rowcount:,} assessments")
+        for table, trigger in audit:
+            cur.execute(f"ALTER TABLE {table} ENABLE TRIGGER {trigger}")
+
+
+def load_mongo(b: Builder, db: Database, reset: bool) -> None:
     if reset:
-        db.survey_responses.drop()
+        # Reset both stores together. delete_many keeps the collections' indexes. The old audit
+        # chain describes data the reset deletes, and its anchors go with the PostgreSQL truncate,
+        # so a new dataset starts a new chain.
+        db.survey_responses.delete_many({})
+        db.audit_log.delete_many({})
+    # One response per respondent, offering and survey type (S12). Same definition as
+    # api.mongo.ensure_indexes, so creating it twice is a no-op.
+    db.survey_responses.create_index(
+        [("respondent_hash", ASCENDING), ("offering_id", ASCENDING), ("survey_type", ASCENDING)],
+        unique=True, name="one_response_per_respondent",
+    )
     if b.surveys:
         db.survey_responses.insert_many(b.surveys, ordered=False)
     print(f"  survey_responses         {len(b.surveys):>8,} documents")
@@ -324,15 +374,27 @@ def main() -> None:
     parser.add_argument("--database")
     args = parser.parse_args()
 
+    # Check settings and both databases before the 10-40 s of generation.
+    demo_password = config._env("DEMO_PASSWORD")
+    hash_key = config.survey_hash_secret().encode()
+    dbname = args.database or config.PG_DATABASE
+    with psycopg.connect(config.owner_dsn(dbname)) as conn:
+        if conn.execute("SELECT to_regclass('public.student_question_mark')").fetchone()[0] is None:
+            raise SystemExit(f"Database {dbname} has no schema; run `python -m scripts.migrate` first")
+    client = MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command("ping")
+    # Surveys go to the MongoDB database named like the PostgreSQL one (default MONGO_DATABASE),
+    # so --database copo_test never touches the main dataset.
+    mongo = client[args.database or config.MONGO_DATABASE]
+
     started = time.perf_counter()
-    b = Builder(args.seed)
+    b = Builder(args.seed, hash_key)
     b.master()
     batches = b.students()
     b.offerings(batches)
-    b.users(batches)
+    b.users(batches, demo_password)
     print(f"generated in {time.perf_counter() - started:.1f}s; loading")
-    load_postgres(b, args.database, args.reset)
-    load_mongo(b, args.reset)
+    load(b, dbname, mongo, args.reset)
     print(f"done in {time.perf_counter() - started:.1f}s")
 
 

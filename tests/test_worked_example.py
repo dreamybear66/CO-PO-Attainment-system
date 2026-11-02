@@ -2,7 +2,8 @@
 
 from decimal import Decimal as D
 
-from tests.conftest import raises_sqlstate
+from scripts.migrate import truncate_all
+from tests.conftest import add_offering, raises_sqlstate
 
 
 def co_rows(db):
@@ -40,6 +41,19 @@ def test_recompute_is_idempotent(db):
     assert db.execute("SELECT count(*) FROM improvement_action").fetchone()[0] == 1
 
 
+def test_official_results_use_the_offerings_rule_version(db):
+    db.execute("""
+        INSERT INTO attainment_config (config_id, program_id, target_pct, l3_pct, l2_pct, l1_pct,
+            direct_weight, indirect_weight, co_target_level, po_target_level, valid_from, valid_to)
+        VALUES (2, 1, 40, 70, 60, 50, 80, 20, 2.0, 2.0, '2010-08-01', '2020-08-01');
+        INSERT INTO config_component_weight VALUES (2, 'SEE', 100);
+    """)
+    with raises_sqlstate("CP015"):                 # an older, more lenient version
+        db.execute("CALL sp_compute_attainment(1, 2)")
+    db.execute("CALL sp_compute_attainment(1, 1)")   # naming its own version is fine
+    assert [r[5] for r in co_rows(db)] == [1, 1, 1]
+
+
 def test_refuses_when_an_assessment_is_unlocked(db):
     db.execute("INSERT INTO assessment (offering_id, type, name, max_marks) VALUES (1, 'CIE_QUIZ', 'Quiz 1', 10)")
     with raises_sqlstate("CP012"):
@@ -71,3 +85,17 @@ def test_dashboards_refreshed_after_compute(db):
     db.execute("CALL sp_compute_attainment(1)")
     assert db.execute("SELECT count(*) FROM mv_co_po_heatmap WHERE offering_id = 1").fetchone()[0] == 5
     assert db.execute("SELECT count(*) FROM mv_co_trend").fetchone()[0] == 3
+
+
+def test_level_follows_the_stored_percentage(db):
+    db.execute("UPDATE attainment_config SET l2_pct = 66.67 WHERE config_id = 1")
+    add_offering(db, 2, "2025-26", "even", [(8, 8, 8), (8, 8, 8), (2, 2, 2)], section="B")
+    db.execute("CALL sp_compute_attainment(2)")
+    row = db.execute("SELECT pct_attained, direct_level FROM co_attainment WHERE offering_id = 2 AND co_id = 1").fetchone()
+    assert row == (D("66.67"), 2)     # 2 of 3 = 66.666...%, stored as 66.67, which meets l2 = 66.67
+
+
+def test_truncate_also_empties_the_dashboards(db):
+    db.execute("CALL sp_compute_attainment(1)")
+    truncate_all(db)
+    assert db.execute("SELECT count(*) FROM mv_co_po_heatmap").fetchone()[0] == 0
