@@ -351,9 +351,9 @@ def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
 
 def load_mongo(b: Builder, db: Database, reset: bool) -> None:
     if reset:
-        # Reset both stores together. delete_many keeps the collections' indexes. The audit chain
-        # mirrors audit_outbox, whose ids the PostgreSQL truncate restarts at 1; a stale audit_log
-        # would make the outbox writer treat new rows as already copied.
+        # Reset both stores together. delete_many keeps the collections' indexes. The old audit
+        # chain describes data the reset deletes, and its anchors go with the PostgreSQL truncate,
+        # so a new dataset starts a new chain.
         db.survey_responses.delete_many({})
         db.audit_log.delete_many({})
     # One response per respondent, offering and survey type (S12). Same definition as
