@@ -19,19 +19,28 @@ export function RootCauseTab({ offering, att, canEdit, onAction }: {
   const [co, setCo] = useState<number | null>(null)
   const active = co ?? below[0]?.co_id ?? cos[0]?.co_id ?? null
   const res = useApi<Candidate[]>(active ? `/api/offerings/${offering.offering_id}/cos/${active}/root-cause` : null)
-  const [msg, setMsg] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ co: number | null; text: string } | null>(null)
+  const [added, setAdded] = useState<Set<number>>(new Set())
+  const [busy, setBusy] = useState(false)
 
   if (!cos.length) return <Empty>Compute attainment first; the analysis starts from a CO that missed its target.</Empty>
   const chosen = cos.find((c) => c.co_id === active)
   const passing = (res.data ?? []).filter((r) => r.passes)
 
+  const belowTarget = chosen ? Number(chosen.final_level) < Number(chosen.target) : false
+  const shownMsg = msg && msg.co === active ? msg.text : null
+
   async function addAction() {
+    if (active === null) return
+    const co = active
     setMsg(null)
+    setBusy(true)
     try {
-      await api(`/api/offerings/${offering.offering_id}/cos/${active}/root-cause/action`, { method: 'POST' })
-      setMsg('Improvement action added from the top-ranked cause.')
+      await api(`/api/offerings/${offering.offering_id}/cos/${co}/root-cause/action`, { method: 'POST' })
+      setAdded((s) => new Set(s).add(co))
+      setMsg({ co, text: 'Improvement action added from the top-ranked cause.' })
       onAction()
-    } catch (e) { setMsg((e as Error).message) }
+    } catch (e) { setMsg({ co, text: (e as Error).message }) } finally { setBusy(false) }
   }
 
   return (
@@ -45,9 +54,10 @@ export function RootCauseTab({ offering, att, canEdit, onAction }: {
           ))}
         </div>
         <span className="spacer" />
-        {canEdit && passing.length > 0 && <button className="btn primary" onClick={addAction}>Add action from top cause</button>}
+        {canEdit && belowTarget && !res.loading && passing.length > 0 && active !== null && !added.has(active) &&
+          <button className="btn primary" disabled={busy} onClick={addAction}>Add action from top cause</button>}
       </div>
-      {msg && <p className="note" role="status">{msg}</p>}
+      {shownMsg && <p className="note" role="status">{shownMsg}</p>}
 
       <section className="panel" aria-labelledby="t-cause">
         <header>
@@ -55,12 +65,13 @@ export function RootCauseTab({ offering, att, canEdit, onAction }: {
           <span className="meta">final level {level(chosen?.final_level)} · target {level(chosen?.target)}</span>
         </header>
         <p className="small muted" style={{ marginBottom: 12 }}>
-          Walks the declared CO dependencies up to three courses back and correlates the same students' scores.
+          Walks the declared CO dependencies up to {offering.config?.rc_max_depth ?? 3} levels back (each extra level
+          weighs {offering.config?.rc_depth_decay ?? '0.80'} as much) and correlates the same students' scores.
           A candidate counts with at least {offering.config?.rc_min_n ?? 20} students and r ≥ {offering.config?.rc_min_r ?? '0.40'}.
           Correlation is evidence for review, not proof of cause.
         </p>
         {res.error ? <ErrorBox message={res.error} onRetry={res.reload} />
-          : res.loading && !res.data ? <SkeletonRows rows={3} />
+          : !res.data ? <SkeletonRows rows={3} />
           : (res.data ?? []).length === 0 ? <Empty>No CO dependencies are declared for this CO, so there is nothing upstream to check.</Empty>
           : (
             <div className="table-wrap">
