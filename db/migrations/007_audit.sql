@@ -1,8 +1,9 @@
 -- 007_audit.sql
 -- Audit capture (PRD FR-7.2, S8). Audited changes are written to audit_outbox in the same
 -- transaction as the change itself, so nothing is lost if the MongoDB writer is down. The writer
--- (api/jobs/audit.py) moves outbox rows into the hash-chained MongoDB audit_log. pg_notify only
--- wakes the writer early; correctness does not depend on it.
+-- (api/jobs/audit.py) polls the outbox and moves its rows into the hash-chained MongoDB
+-- audit_log. No NOTIFY: nothing listens, and it would serialise committing transactions on the
+-- notification queue lock.
 
 -- Who made the change. The API sets app.user per request to the signed-in user; it is trusted only
 -- on the API's own login (copo_api), so no other session can put someone else's name on a change
@@ -31,7 +32,6 @@ BEGIN
     END IF;
     INSERT INTO audit_outbox (app_user, table_name, op, key, before, after)
     VALUES (fn_audit_user(), TG_TABLE_NAME, TG_OP, fn_audit_key(coalesce(v_new, v_old), TG_ARGV), v_old, v_new);
-    PERFORM pg_notify('audit_outbox', TG_TABLE_NAME);
     RETURN NULL;
 END $$;
 
@@ -42,7 +42,6 @@ BEGIN
     INSERT INTO audit_outbox (app_user, table_name, op, key, before, after)
     SELECT fn_audit_user(), TG_TABLE_NAME, 'INSERT', fn_audit_key(to_jsonb(n), TG_ARGV), NULL, to_jsonb(n)
     FROM new_rows n;
-    PERFORM pg_notify('audit_outbox', TG_TABLE_NAME);
     RETURN NULL;
 END $$;
 
