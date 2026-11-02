@@ -35,12 +35,10 @@ def db(migrated):
 @pytest.fixture
 def mongo():
     """Empty MongoDB test database with its indexes."""
-    from api.mongo import ensure_indexes, get_db
+    from api.mongo import get_db, reset_collections
 
     mdb = get_db(TEST_DB)
-    mdb.survey_responses.drop()
-    mdb.audit_log.drop()
-    ensure_indexes(mdb)
+    reset_collections(mdb, "survey_responses", "audit_log")
     return mdb
 
 
