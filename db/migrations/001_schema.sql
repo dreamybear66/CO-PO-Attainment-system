@@ -166,6 +166,7 @@ CREATE TABLE attainment_config (
     indirect_weight pct_0_100      NOT NULL,
     co_target_level attainment_0_3 NOT NULL,
     po_target_level attainment_0_3 NOT NULL,
+    favourable_rating smallint   NOT NULL DEFAULT 4   CHECK (favourable_rating BETWEEN 1 AND 5),  -- survey: rating >= this
     rc_min_n        int          NOT NULL DEFAULT 20  CHECK (rc_min_n >= 3),
     rc_min_r        numeric(3,2) NOT NULL DEFAULT 0.40 CHECK (rc_min_r BETWEEN 0 AND 1),
     valid_from      date NOT NULL,
@@ -197,12 +198,13 @@ CREATE TABLE co_attainment (
     PRIMARY KEY (offering_id, co_id)
 );
 
+-- Survey input per (offering, CO), loaded by the nightly ETL. No level is stored: each computation
+-- derives it from pct_favourable with its own thresholds (official or what-if).
 CREATE TABLE indirect_attainment (
     offering_id    int NOT NULL REFERENCES course_offering,
     co_id          int NOT NULL REFERENCES course_outcome,
-    respondents    int NOT NULL CHECK (respondents >= 0),
-    pct_favourable pct_0_100 NOT NULL,
-    level          level_0_3 NOT NULL,
+    respondents    int NOT NULL CHECK (respondents > 0),
+    pct_favourable pct_0_100 NOT NULL,     -- % of respondents rating >= the rule version's favourable_rating
     loaded_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (offering_id, co_id)
 );
@@ -321,16 +323,22 @@ CREATE TABLE audit_anchor (
     anchored_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Written in the same transaction as the audited change; a worker moves rows
--- to the MongoDB hash chain and stamps sent_at (S8).
+-- Written in the same transaction as the audited change; a worker moves rows to the MongoDB hash
+-- chain (S8). It records each row's place in the chain (chain_seq, chain_hash) before writing the
+-- document and stamps sent_at once the document is in MongoDB, so PostgreSQL knows where the
+-- chain ends and a crash between the two steps can be resolved either way.
 CREATE TABLE audit_outbox (
     outbox_id  bigserial PRIMARY KEY,
     ts         timestamptz NOT NULL DEFAULT clock_timestamp(),
     app_user   text,
     table_name text NOT NULL,
-    op         text NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE', 'DENIED')),
+    op         text NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'DENIED')),
     key        jsonb NOT NULL,
     before     jsonb,
     after      jsonb,
-    sent_at    timestamptz
+    chain_seq  bigint UNIQUE,
+    chain_hash text,
+    sent_at    timestamptz,
+    CHECK ((chain_seq IS NULL) = (chain_hash IS NULL)),
+    CHECK (sent_at IS NULL OR chain_seq IS NOT NULL)
 );

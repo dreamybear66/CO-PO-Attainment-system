@@ -1,6 +1,7 @@
 """Test fixtures. Tests run against a separate database (copo_test), migrated once per session
 and re-seeded with the PRD worked example before every test."""
 
+import os
 from contextlib import contextmanager
 
 import psycopg
@@ -11,6 +12,8 @@ from scripts import migrate
 from scripts.migrate import truncate_all  # also refreshes materialized views, so none stay stale
 
 TEST_DB = "copo_test"
+# Survey respondent ids are keyed; tests do not need the real key from .env.
+os.environ.setdefault("SURVEY_HASH_SECRET", "test-only-survey-key")
 SEED = config.ROOT / "db" / "seed" / "worked_example.sql"
 
 
@@ -30,6 +33,16 @@ def db(migrated):
     conn.execute(SEED.read_text(encoding="utf-8"))
     yield conn
     conn.close()
+
+
+@pytest.fixture
+def mongo():
+    """Empty MongoDB test database with its indexes."""
+    from api.mongo import get_db, reset_collections
+
+    mdb = get_db(TEST_DB)
+    reset_collections(mdb, "survey_responses", "audit_log")
+    return mdb
 
 
 @pytest.fixture

@@ -85,7 +85,8 @@ BEGIN
                coalesce(d.students, 0)                                AS students,
                d.pct_attained,
                fn_level(d.pct_attained, r.l3_pct, r.l2_pct, r.l1_pct) AS direct_level,
-               coalesce(ia.level, 0)::smallint                        AS indirect_level,
+               -- from the survey % with this run's thresholds; no survey data counts as 0
+               fn_level(ia.pct_favourable, r.l3_pct, r.l2_pct, r.l1_pct) AS indirect_level,
                r.direct_weight, r.indirect_weight
         FROM rules r
         JOIN course_offering o ON o.offering_id = r.offering_id
