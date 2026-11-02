@@ -41,7 +41,7 @@ export function AttainmentTab({ offering, att, canEdit, onCompute, allLocked }: 
       </section>
 
       <section className="panel span-4" aria-labelledby="t-rules">
-        <header><h2 id="t-rules">Rules used</h2><span className="meta">version from {day(cfg?.valid_from)}</span></header>
+        <header><h2 id="t-rules">Rules used</h2><span className="meta">version from {day(cfg?.valid_from)}{cos.length ? ', as stored with these results' : ''}</span></header>
         {cfg ? (
           <div className="rows">
             <div className="row"><span className="grow muted">Student target</span><span className="num">{num(cfg.target_pct)}%</span></div>
@@ -65,7 +65,7 @@ export function AttainmentTab({ offering, att, canEdit, onCompute, allLocked }: 
       </section>
 
       <section className="panel span-7" aria-labelledby="t-survey">
-        <header><h2 id="t-survey">Direct and survey evidence</h2><span className="meta">course-exit survey, rating 4 or 5 counts as favourable</span></header>
+        <header><h2 id="t-survey">Direct and survey evidence</h2><span className="meta">course-exit survey, rating {cfg?.favourable_rating ?? 4} or above counts as favourable</span></header>
         <div className="table-wrap">
           <table>
             <thead><tr><th>CO</th><th className="n">At target</th><th className="n">Direct</th><th className="n">Respondents</th><th className="n">Favourable</th><th className="n">Survey</th><th className="n">Final</th></tr></thead>
