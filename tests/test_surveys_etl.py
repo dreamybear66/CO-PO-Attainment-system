@@ -31,7 +31,8 @@ def test_etl_computes_pct_and_level(db, mongo):
     for i in range(1, 11):
         answer(usn(i), {1: 5 if i <= 8 else 2, 2: 4 if i <= 6 else 3, 3: 4 if i <= 4 else 1}, db, mongo)
     result = run_survey_etl(db, mongo)
-    assert result == {"groups": 3, "changed": 3, "skipped": 0}
+    assert result == {"groups": 3, "changed": 3, "removed": 0, "skipped": 0,
+                      "recomputed": [], "not_recomputed": {}}
     rows = db.execute("SELECT co_id, respondents, pct_favourable FROM indirect_attainment ORDER BY co_id").fetchall()
     assert rows == [(1, 10, D("80.00")), (2, 10, D("60.00")), (3, 10, D("40.00"))]
     db.execute("CALL sp_compute_attainment(1)")
@@ -139,3 +140,36 @@ def test_works_on_dict_row_connections(db, mongo, connect):
     conn.row_factory = dict_row
     answer(usn(1), ALL, conn, mongo)
     assert mongo.survey_responses.count_documents({}) == 1
+
+
+def final_levels(db):
+    return db.execute("SELECT co_id, indirect_level, final_level FROM co_attainment ORDER BY co_id").fetchall()
+
+
+def test_etl_recomputes_offerings_whose_survey_input_changed(db, mongo):
+    db.execute("CALL sp_compute_attainment(1)")
+    assert final_levels(db) == [(1, 3, D("3.00")), (2, 3, D("2.20")), (3, 2, D("0.40"))]
+    for i in range(1, 11):          # CO1 10% favourable now (level 0); CO2 and CO3 unchanged levels
+        answer(usn(i), {1: 5 if i == 1 else 2, 2: 4 if i <= 8 else 1, 3: 4 if i <= 6 else 1}, db, mongo)
+    result = run_survey_etl(db, mongo)
+    assert (result["recomputed"], result["not_recomputed"]) == ([1], {})
+    assert final_levels(db) == [(1, 0, D("2.40")), (2, 3, D("2.20")), (3, 2, D("0.40"))]
+    assert db.execute("SELECT count(*) FROM mv_co_po_heatmap WHERE final_level = 2.40").fetchone()[0] > 0
+    assert run_survey_etl(db, mongo)["recomputed"] == []            # nothing changed the second time
+
+
+def test_etl_removes_groups_without_responses(db, mongo):
+    db.execute("CALL sp_compute_attainment(1)")
+    result = run_survey_etl(db, mongo)                              # the seeded rows have no responses
+    assert (result["removed"], result["recomputed"]) == (3, [1])
+    assert db.execute("SELECT count(*) FROM indirect_attainment").fetchone()[0] == 0
+    assert [r[1] for r in final_levels(db)] == [0, 0, 0]
+
+
+def test_etl_reports_an_offering_it_cannot_recompute(db, mongo):
+    db.execute("CALL sp_compute_attainment(1)")
+    db.execute("INSERT INTO assessment (offering_id, type, name, max_marks) VALUES (1, 'CIE_QUIZ', 'Quiz 1', 10)")
+    result = run_survey_etl(db, mongo)
+    assert result["not_recomputed"] == {1: "CP012"}
+    assert db.execute("SELECT count(*) FROM indirect_attainment").fetchone()[0] == 0   # input still loaded
+
