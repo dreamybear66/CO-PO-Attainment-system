@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from api import db as api_db
 from api.main import app
-from tests.conftest import TEST_DB
+from tests import conftest
 
 PASSWORD = "test-password"
 
@@ -27,8 +27,8 @@ def client(db, mongo):
         INSERT INTO assessment_question VALUES (21, 2, 'Q1', 2), (22, 2, 'Q2', 2);
         INSERT INTO question_co_map VALUES (21, 1, 1), (22, 2, 1);
     """)
-    app.state.dbname = TEST_DB
-    app.state.mongo_name = TEST_DB
+    app.state.dbname = conftest.TEST_DB
+    app.state.mongo_name = conftest.TEST_DB
     with TestClient(app) as c:
         yield c
     api_db.close_pools()

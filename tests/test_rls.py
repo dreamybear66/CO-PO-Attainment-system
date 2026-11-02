@@ -5,7 +5,8 @@ import pytest
 
 from api import db as api_db
 from api.db import User
-from tests.conftest import TEST_DB, raises_sqlstate
+from tests import conftest
+from tests.conftest import raises_sqlstate
 
 FAC_A = User(1, "fac_a", "faculty", faculty_id=1)
 FAC_B = User(2, "fac_b", "faculty", faculty_id=2)
@@ -31,7 +32,7 @@ def two_faculty(db):
 
 
 def run(user, sql, params=None):
-    with api_db.session(user, TEST_DB) as conn:
+    with api_db.session(user, conftest.TEST_DB) as conn:
         cur = conn.execute(sql, params)
         return cur.fetchall() if cur.description else []
 
@@ -90,7 +91,7 @@ def test_materialized_views_are_hidden_from_faculty(two_faculty):
 
 
 def test_api_login_alone_reads_nothing(two_faculty):
-    with api_db.anonymous(TEST_DB) as conn:
+    with api_db.anonymous(conftest.TEST_DB) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("SELECT * FROM student_question_mark")
         conn.rollback()
