@@ -197,14 +197,17 @@ CALL sp_compute_attainment(42, NULL, false, 7);  -- run what-if scenario 7 (offi
 - **Root cause** walks `co_dependency` upstream and scores each upstream CO by path strength ×
   Pearson r of the same students' scores. Path strength is the product of strength/3, times
   `rc_depth_decay` (default 0.8) for each level beyond the first, up to `rc_max_depth` (default 3).
-  A candidate passes with n ≥ `rc_min_n` and a defined r ≥ `rc_min_r`. These, the target and the
-  scoring weights come from the rule version of the offering's official results. Each upstream CO's
-  shortfall is against its own target (blank if it has no result).
+  A candidate passes with n ≥ `rc_min_n` and a defined r ≥ `rc_min_r`. All of these, the target and
+  the scoring weights come from the rule version of the offering's official results. Each upstream
+  CO's shortfall is against its own target (blank if it has no result). Errors: `CP010` offering,
+  `CP011` rule version, `22023` CO not of the course.
 - **Actions from root cause** are refused for a CO at target or not yet computed (`CP016`); asking
   twice returns the same open action.
 - **What-if** scenarios start from the rule version of the official results (or the term's version
   before the first compute; `base_config_id` picks another). Unknown fields and out-of-range values
   are refused, a weight given alone gets its complement, and thresholds must stay l3 ≥ l2 ≥ l1.
+  Re-running an older rule version is a what-if; official results always use the term's version
+  (`CP015`).
 
 `python -m scripts.evaluate_root_cause [--database copo_test] [--dataset copo]` rebuilds the
 scenario in the scratch database (migrated and emptied first) and writes detection,
