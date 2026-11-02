@@ -41,5 +41,7 @@ def ensure_indexes(db: Database) -> None:
     )
     db.survey_responses.create_index([("offering_id", ASCENDING)], name="by_offering")
     db.audit_log.create_index([("seq", DESCENDING)], unique=True, name="seq")
-    # Lets the writer skip rows it already copied if it crashed before stamping the outbox.
-    db.audit_log.create_index([("outbox_id", ASCENDING)], unique=True, name="outbox_id")
+    # Earlier versions keyed crash recovery on a unique outbox_id. Outbox ids restart when
+    # PostgreSQL is reset while the chain goes on (recovery now uses audit_outbox.chain_seq).
+    if "outbox_id" in db.audit_log.index_information():
+        db.audit_log.drop_index("outbox_id")

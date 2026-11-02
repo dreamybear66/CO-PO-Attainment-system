@@ -321,8 +321,10 @@ CREATE TABLE audit_anchor (
     anchored_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Written in the same transaction as the audited change; a worker moves rows
--- to the MongoDB hash chain and stamps sent_at (S8).
+-- Written in the same transaction as the audited change; a worker moves rows to the MongoDB hash
+-- chain (S8). It records each row's place in the chain (chain_seq, chain_hash) before writing the
+-- document and stamps sent_at once the document is in MongoDB, so PostgreSQL knows where the
+-- chain ends and a crash between the two steps can be resolved either way.
 CREATE TABLE audit_outbox (
     outbox_id  bigserial PRIMARY KEY,
     ts         timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -332,5 +334,9 @@ CREATE TABLE audit_outbox (
     key        jsonb NOT NULL,
     before     jsonb,
     after      jsonb,
-    sent_at    timestamptz
+    chain_seq  bigint UNIQUE,
+    chain_hash text,
+    sent_at    timestamptz,
+    CHECK ((chain_seq IS NULL) = (chain_hash IS NULL)),
+    CHECK (sent_at IS NULL OR chain_seq IS NOT NULL)
 );

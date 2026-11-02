@@ -52,7 +52,8 @@ erDiagram
 ```
 
 `audit_outbox` and `audit_anchor` stand alone: the outbox is filled by audit triggers on the audited
-tables, and the anchor stores the daily head hash of the MongoDB audit chain.
+tables and records where each row landed in the MongoDB audit chain (`chain_seq`, `chain_hash`), and
+the anchor stores the daily head hash of the chain.
 
 ## Key rules
 
