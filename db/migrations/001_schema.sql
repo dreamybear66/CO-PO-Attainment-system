@@ -169,6 +169,8 @@ CREATE TABLE attainment_config (
     favourable_rating smallint   NOT NULL DEFAULT 4   CHECK (favourable_rating BETWEEN 1 AND 5),  -- survey: rating >= this
     rc_min_n        int          NOT NULL DEFAULT 20  CHECK (rc_min_n >= 3),
     rc_min_r        numeric(3,2) NOT NULL DEFAULT 0.40 CHECK (rc_min_r BETWEEN 0 AND 1),
+    rc_max_depth    smallint     NOT NULL DEFAULT 3    CHECK (rc_max_depth BETWEEN 1 AND 5),
+    rc_depth_decay  numeric(3,2) NOT NULL DEFAULT 0.80 CHECK (rc_depth_decay > 0 AND rc_depth_decay <= 1),
     valid_from      date NOT NULL,
     valid_to        date,
     CHECK (l3_pct >= l2_pct AND l2_pct >= l1_pct),

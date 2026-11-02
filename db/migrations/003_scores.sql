@@ -43,13 +43,16 @@ JOIN assessment a           ON a.assessment_id = aq.assessment_id
 JOIN question_co_map qcm    ON qcm.question_id = sqm.question_id
 GROUP BY e.usn, e.offering_id, qcm.co_id, a.type;
 
--- The rule versions an offering is scored under: its own (v_offering_config) and the base config of
--- any what-if scenario on it. Scoring only these, rather than every config, keeps the shared view
--- below as fast as a formula written for the offering's own config.
+-- The rule versions an offering is scored under: its own (v_offering_config), the base config of
+-- any what-if scenario on it, and the one its official results were computed with (which differs
+-- when a version is added for its term later). Scoring only these, rather than every config,
+-- keeps the shared view below as fast as a formula written for the offering's own config.
 CREATE VIEW v_scoring_config WITH (security_invoker = true) AS
 SELECT offering_id, config_id FROM v_offering_config
 UNION
-SELECT offering_id, base_config_id FROM whatif_scenario;
+SELECT offering_id, base_config_id FROM whatif_scenario
+UNION
+SELECT DISTINCT offering_id, config_id FROM co_attainment;
 
 -- Step 2: sum(weight x component %) / sum(weight) over the components that test the CO, per
 -- applicable rule version. This is the only copy of the formula: the engine reads it for the
