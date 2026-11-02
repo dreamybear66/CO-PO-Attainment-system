@@ -3,31 +3,67 @@
 How the CO-PO Attainment Management System gets built. Requirement IDs (FR-x, NFR-x) and suggested
 changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard).
 
-## Stack
+## Progress (2 Nov 2026)
+
+All six phases are built. 166 tests pass ([docs/test-report.md](docs/test-report.md)).
+
+| Phase | Status | Branch · PR | Output |
+| --- | --- | --- | --- |
+| Planning | Merged | `docs/project-planning` · #1 | PRD, this plan, CLAUDE.md |
+| 1 — Schema and constraints | Merged | `feat/schema` · #2 | 29 tables, ER diagram, CHECK/EXCLUDE constraints |
+| 2 — Synthetic data | Merged | `feat/datagen` · #3 | 556,800 marks, 1,440 students, 280 offerings, worked-example fixture |
+| 3 — Attainment engine | Merged | `feat/attainment-engine` · #4 | Triggers, `sp_compute_attainment`, matches the worked example exactly |
+| 4 — MongoDB, ETL, audit | PR open | `feat/mongo-audit` · #5 | 11,965 surveys, ETL, 573,223 audit records chained and verified |
+| 5 — Innovation features | PR open | `feat/innovation` · #6 | Root cause (planted cause ranks 1st, decoy excluded), what-if, versioned rules |
+| 6 — API, UI, security | PR open | `feat/web-app` · #7 | RLS on 17 tables, FastAPI, React app, demo script, test report |
+
+## Pending
+
+**Needs action**
+- [ ] Merge PRs #5 → #6 → #7 in order. PR #5 still targets `feat/attainment-engine`, which is
+  already merged, so first retarget it with `gh pr edit 5 --base main`. After each merge, retarget
+  the next PR to `main` the same way.
+
+**Needs a decision**
+- [ ] Root-cause depth penalty. When every link has strength 3, path strength does not penalise
+  depth, so in 20–40 student cohorts a depth-2 ancestor sometimes outranks the direct cause.
+  Options: break ties by depth, decay 0.8 per extra level, or keep the PRD formula
+  ([docs/root-cause-evaluation.md](docs/root-cause-evaluation.md)).
+- [ ] Final report (Phase 6, step 5): format and template from the course.
+- [ ] Which NBA / NAAC criteria the report and PRD should cite.
+
+**Later (deferred on purpose)**
+- [ ] Per-course component weights: add a nullable `course_id` to `config_component_weight`. This is
+  a data and lookup change only; v1 uses one scheme for every course.
+- [ ] Real course catalogue (course titles, CO statements, CO-PO mappings). The demo values are
+  invented; real student marks must never be committed.
+- [ ] SAP / ERP export of results: out of scope for v1.
+- [ ] Housekeeping: the Starlette test client shows an `anyio` deprecation warning (harmless).
+
+## Stack (as built)
 
 | Layer | Choice |
 | --- | --- |
 | Relational DB | PostgreSQL 16 (PL/pgSQL, RLS, materialized views, recursive CTEs) |
-| NoSQL DB | MongoDB (survey responses, hash-chained audit log) |
-| Backend | Python, FastAPI, psycopg, pymongo |
-| Frontend | React + a charting library |
-| Jobs | APScheduler (nightly ETL, audit verifier, daily anchor) |
-| Test data | Python generator (Faker + NumPy) |
-| Tests | pytest (API + SQL), SQL fixtures for the worked example |
+| NoSQL DB | MongoDB 8 (survey responses, hash-chained audit log) |
+| Backend | Python 3.11, FastAPI, psycopg 3 + pool, pymongo, bcrypt, PyJWT |
+| Frontend | React 18 + TypeScript (Vite), taste-skill `charts.js` |
+| Jobs | APScheduler (nightly ETL, audit writer, verifier, daily anchor) |
+| Test data | Python generator (Faker + NumPy), fixed seed |
+| Tests | pytest (API + SQL) against `copo_test`, SQL fixture for the worked example |
 
-## Repository layout (target)
+## Repository layout (as built)
 
 ```
 db/
-  migrations/        numbered DDL files (001_schema.sql, 002_constraints.sql, ...)
-  functions/         triggers, sp_compute_attainment, root-cause queries
-  views/             student_co_score, materialized dashboard views
+  migrations/        001_schema … 009_security (tables, triggers, views, procedures, indexes, RLS)
   seed/              worked-example fixture (Section 5 of PRD)
 api/                 FastAPI app (routers, services, mongo, jobs)
-web/                 React app
-datagen/             synthetic data generator
+web/                 React + TypeScript app
+datagen/             synthetic data generator and root-cause scenario
+scripts/             setup_db, migrate, demo, explain_report, evaluate_root_cause
 tests/               pytest suites, grouped by PRD test
-docs/                ER diagram, EXPLAIN ANALYZE reports
+docs/                ER diagram, EXPLAIN ANALYZE report, root-cause evaluation, test report
 ```
 
 ## Decisions (2 Nov 2026)
@@ -43,7 +79,7 @@ Settled in PRD Section 10; the phases below already apply them.
 | S10 | Programme-level PO = plain average of offering-level PO values |
 | S11 | Student role included, limited to own rows by RLS |
 
-## Phase 1 — Schema and constraints (week 1) · Member A
+## Phase 1 — Schema and constraints (week 1) · Member A · ✅ done
 
 Output: approved ER diagram and DDL.
 
@@ -70,7 +106,7 @@ Output: approved ER diagram and DDL.
    - `audit_outbox` (S8).
 5. Unique constraints: `enrollment (offering_id, usn)`; `co_po_map (co_id, po_id)`.
 
-## Phase 2 — Synthetic data (week 2) · Member B
+## Phase 2 — Synthetic data (week 2) · Member B · ✅ done
 
 Output: database with 500k+ mark rows.
 
@@ -83,7 +119,7 @@ Output: database with 500k+ mark rows.
 4. Deterministic seed so test runs are reproducible.
 5. `db/seed/worked_example.sql` — the exact 60-student, 3-CO case from PRD Section 5.
 
-## Phase 3 — Attainment engine (weeks 3–4) · Member A
+## Phase 3 — Attainment engine (weeks 3–4) · Member A · ✅ done
 
 Output: engine that matches the worked example to two decimals.
 
@@ -115,7 +151,7 @@ Output: engine that matches the worked example to two decimals.
    at 70 / 80 / 90 / 60 % (theory / quiz / EL / SEE) scores 70.0%, and 68.9% when no quiz question
    tests the CO.
 
-## Phase 4 — MongoDB, ETL and audit chain (week 5) · Member B
+## Phase 4 — MongoDB, ETL and audit chain (week 5) · Member B · ✅ done
 
 Output: integrated NoSQL layer.
 
@@ -130,7 +166,7 @@ Output: integrated NoSQL layer.
 5. Daily job copies the chain head into `audit_anchor`; verifier recomputes the chain and reports the
    first broken `seq` (FR-7.2, NFR-6).
 
-## Phase 5 — Innovation features (week 6) · Member A (SQL), Member B (API)
+## Phase 5 — Innovation features (week 6) · Member A (SQL), Member B (API) · ✅ done
 
 Output: root-cause report, what-if simulator, versioned rules.
 
@@ -141,7 +177,7 @@ Output: root-cause report, what-if simulator, versioned rules.
    PO baseline vs scenario (FR-6.3).
 4. Versioned rules: lookup of the config valid for an offering's academic year; re-run test (NFR-4).
 
-## Phase 6 — API, UI, security, demo (week 7) · Member B (UI), both (tests)
+## Phase 6 — API, UI, security, demo (week 7) · Member B (UI), both (tests) · ✅ done except step 5's final report
 
 Output: demo-ready system.
 
@@ -152,19 +188,36 @@ Output: demo-ready system.
    student screen shows own CO-wise scores.
 3. Screens: CSV marks upload with row errors, lock/unlock request, compute, CO-PO heatmap, CO trend,
    weakest-CO ranking, root-cause report, what-if side-by-side, audit verification.
-4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`.
-5. Demo script and final report.
+4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`. ✅
+5. Demo script (`scripts/demo.py`) ✅ and final report (pending, see [Pending](#pending)).
+
+## As built vs plan (2 Nov 2026)
+
+Where the build differs from the plan above:
+
+| Area | Plan | As built | Why |
+| --- | --- | --- | --- |
+| Migration files | `002_constraints.sql`, separate `functions/` and `views/` folders | CHECKs in `001_schema.sql`; triggers in `002_integrity.sql`; views, procedures and RLS in numbered migrations 003–009 | one ordered list to apply, reset and test against |
+| Rule-version lookup | join configs by date range | `LATERAL … LIMIT 1` in `v_offering_config` | the planner misestimated the range join and chose nested loops (root-cause query 855 ms → 26 ms) |
+| Indexes | include `enrollment(offering_id)` | dropped | already covered by UNIQUE `(offering_id, usn)`; see `docs/explain/report.md` |
+| RLS policies | per-row ownership functions | `col IN (SELECT fn_my_x())` set-returning helpers | evaluated once per query; student surveys 7.5 s → 0.05 s |
+| Audit capture | `pg_notify` listener | transactional outbox (S8) + `pg_notify` wake-up | no change is lost when MongoDB or the writer is down |
+| Course prerequisites | — | acyclic-graph trigger | keeps the CO-dependency check meaningful |
+| UI | React + charting library | React + taste-skill `charts.js`, style `framed-sheet` | follows the taste-skill app-screen rules |
 
 ## Test map
+
+Results of the last run: [docs/test-report.md](docs/test-report.md).
 
 | PRD test | Location |
 | --- | --- |
 | Correctness | `tests/test_worked_example.py`, `tests/test_component_weights.py` |
 | Constraints | `tests/test_constraints.py` |
-| Access control | `tests/test_rls.py` (faculty A vs B; student sees only own rows) |
+| Access control | `tests/test_rls.py` (faculty A vs B; student sees only own rows), `tests/test_api.py` |
 | Audit tamper | `tests/test_audit_chain.py` |
 | Performance | `docs/explain/` reports |
 | Root cause | `tests/test_root_cause.py` |
 | Simulator isolation | `tests/test_whatif_isolation.py` |
 | Concurrency | `tests/test_concurrency.py` |
 | Reproducibility | `tests/test_versioned_rules.py` |
+| Surveys and ETL | `tests/test_surveys_etl.py` |

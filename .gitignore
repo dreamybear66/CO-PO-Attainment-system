@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+!web/.env.inspect
+
+# taste-skill working files (inspector screenshots, dealt sheet)
+.taste-skill/
 
 # python
 .venv/
@@ -12,6 +16,7 @@ __pycache__/
 # node
 node_modules/
 web/dist/
+web/dist-inspect/
 
 # editors / OS
 .vscode/
