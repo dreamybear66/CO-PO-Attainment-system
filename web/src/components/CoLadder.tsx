@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { level, num, pct } from '../format'
+import { gsap, reducedMotion, useGSAP } from './gsap'
 
 export type CoRow = {
   co_id: number; co_number: number; statement: string; pct_attained: string | number | null
@@ -16,8 +18,18 @@ export function CoLadder({ cos, rules }: { cos: CoRow[]; rules: Rules }) {
     { v: num(rules.l2_pct)!, label: `L2 ${num(rules.l2_pct)}%` },
     { v: num(rules.l3_pct)!, label: `L3 ${num(rules.l3_pct)}%` },
   ]
+  const ref = useRef<HTMLDivElement>(null)
+  useGSAP(() => {
+    if (reducedMotion()) return
+    const q = gsap.utils.selector(ref)
+    const tl = gsap.timeline()
+    tl.from(q('.ladder-row'), { opacity: 0, y: 10, stagger: 0.07, duration: 0.45 })
+      .from(q('.fill'), { scaleX: 0, transformOrigin: 'left center', stagger: 0.07, duration: 1, ease: 'expo.out', clearProps: 'transform' }, 0.1)
+      .from(q('.tick'), { scaleY: 0, stagger: 0.02, duration: 0.3 }, 0.3)
+      .from(q('.level, .pct'), { opacity: 0, x: 6, stagger: 0.07, duration: 0.4 }, 0.45)
+  }, { scope: ref, dependencies: [cos] })
   return (
-    <div>
+    <div ref={ref}>
       <div className="ladder-scale" aria-hidden="true">
         {ticks.map((t) => <span key={t.label} style={{ left: `${t.v}%` }}>{t.label}</span>)}
       </div>
@@ -36,7 +48,7 @@ export function CoLadder({ cos, rules }: { cos: CoRow[]; rules: Rules }) {
                   {ticks.map((t) => <div className="tick" key={t.label} style={{ left: `${t.v}%` }} />)}
                 </div>
               </div>
-              <span className="num" style={{ textAlign: 'right' }}>{pct(p)}</span>
+              <span className="num pct" style={{ textAlign: 'right' }}>{pct(p)}</span>
               <span className={`level num ${miss ? 'below' : ''}`}>{level(c.final_level)}</span>
             </div>
           )
