@@ -345,6 +345,9 @@ def load_postgres(b: Builder, conn: psycopg.Connection, reset: bool) -> None:
         cur.execute("UPDATE assessment SET locked = true, locked_at = now() "
                     "WHERE assessment_id = ANY(%s)", (b.locks,))
         print(f"  locked {cur.rowcount:,} assessments")
+        # Run the deferred checks (weight sums, config overlap) now: ALTER TABLE refuses a table
+        # that still has pending trigger events.
+        cur.execute("SET CONSTRAINTS ALL IMMEDIATE")
         for table, trigger in audit:
             cur.execute(f"ALTER TABLE {table} ENABLE TRIGGER {trigger}")
 
