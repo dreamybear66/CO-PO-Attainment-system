@@ -49,12 +49,15 @@ Output: approved ER diagram and DDL.
 
 1. ER diagram in `docs/` covering the 25 PRD tables plus the additions below.
 2. `db/migrations/001_schema.sql` — all tables with PKs and FKs (FR-1.x, FR-2.x, FR-3.1, FR-4.1).
-3. `002_constraints.sql` — CHECKs: CO-PO and dependency strength 1–3; marks between 0 and max;
-   `direct_weight + indirect_weight = 100` (NFR-1, S1).
+3. Single-table CHECKs in `001_schema.sql`: CO-PO and dependency strength 1–3; marks ≥ 0;
+   `direct_weight + indirect_weight = 100` (NFR-1, S1); range domains for percentages and levels.
+   Rules that need another table — marks ≤ the question maximum and the component-weight sum —
+   are triggers and ship with Phase 3 (`002_integrity.sql`).
 4. Schema additions from the PRD:
    - `attainment_config`: `co_target_level`, `po_target_level` (S2).
-   - `config_component_weight (config_id FK, component, weight_pct)` with a deferred trigger that the
-     weights of one config sum to 100. v1 seed: `CIE_THEORY` 20, `CIE_QUIZ` 10, `EL` 20, `SEE` 50 (S5).
+   - `config_component_weight (config_id FK, component, weight_pct)`; the deferred trigger that the
+     weights of one config sum to 100 ships in Phase 3. v1 seed: `CIE_THEORY` 20, `CIE_QUIZ` 10,
+     `EL` 20, `SEE` 50 (S5).
      A nullable `course_id` can be added later for per-course schemes.
    - `assessment.type` restricted to those four components; several assessments of one type (e.g. two
      CIE theory tests) are pooled within the component.

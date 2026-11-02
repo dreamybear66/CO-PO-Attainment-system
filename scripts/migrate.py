@@ -3,11 +3,15 @@
 Usage:
   python -m scripts.migrate                 apply pending migrations
   python -m scripts.migrate --reset         drop and recreate the public schema first
-  python -m scripts.migrate --until 004     stop after the migration with this prefix
+  python -m scripts.migrate --until 004     stop after the migration with this number
   python -m scripts.migrate --database X    target another database (tests use copo_test)
+
+With --reset, the drop and every migration run in one transaction, so a failure leaves the
+previous schema in place. Extensions live in the `extensions` schema, which reset keeps.
 """
 
 import argparse
+from contextlib import nullcontext
 from pathlib import Path
 
 import psycopg
@@ -17,42 +21,73 @@ from api import config
 MIGRATIONS = config.ROOT / "db" / "migrations"
 
 
-def migration_files(until: str | None = None) -> list[Path]:
-    files = sorted(MIGRATIONS.glob("*.sql"))
-    if until:
-        files = [f for f in files if f.name[: len(until)] <= until]
-    return files
+def number(path: Path) -> int:
+    return int(path.name.split("_", 1)[0])
 
 
-def apply(dbname: str | None = None, *, reset: bool = False, until: str | None = None) -> list[str]:
+def migration_files(until: str | int | None = None) -> list[Path]:
+    files = sorted(MIGRATIONS.glob("*.sql"), key=number)
+    if until is None:
+        return files
+    try:
+        last = int(until)
+    except ValueError:
+        raise ValueError(f"--until takes a migration number such as 004, not {until!r}") from None
+    if last not in {number(f) for f in files}:
+        raise ValueError(f"No migration numbered {until}; have {', '.join(f.name for f in files)}")
+    return [f for f in files if number(f) <= last]
+
+
+def apply(dbname: str | None = None, *, reset: bool = False, until: str | int | None = None) -> list[str]:
+    files = migration_files(until)
     applied: list[str] = []
     with psycopg.connect(config.owner_dsn(dbname), autocommit=True) as conn:
-        if reset:
-            conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
-            conn.execute("CREATE SCHEMA public")
-            conn.execute("CREATE EXTENSION IF NOT EXISTS btree_gist")
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS schema_migrations ("
-            " name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
-        )
-        done = {row[0] for row in conn.execute("SELECT name FROM schema_migrations")}
-        for path in migration_files(until):
-            if path.name in done:
-                continue
-            with conn.transaction():
-                conn.execute(path.read_text(encoding="utf-8"))
-                conn.execute("INSERT INTO schema_migrations (name) VALUES (%s)", (path.name,))
-            applied.append(path.name)
+        with conn.transaction() if reset else nullcontext():
+            if reset:
+                conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
+                conn.execute("CREATE SCHEMA public")
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS schema_migrations ("
+                " name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
+            )
+            done = {row[0] for row in conn.execute("SELECT name FROM schema_migrations")}
+            for path in files:
+                if path.name in done:
+                    continue
+                with conn.transaction():
+                    conn.execute(path.read_text(encoding="utf-8"))
+                    conn.execute("INSERT INTO schema_migrations (name) VALUES (%s)", (path.name,))
+                applied.append(path.name)
     return applied
+
+
+def truncate_all(conn) -> None:
+    """Empty every table except schema_migrations and restart their sequences, then refresh the
+    materialized views so they stop showing the removed rows. Used by datagen --reset and tests."""
+    tables = conn.execute(
+        "SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
+        "WHERE schemaname = 'public' AND tablename <> 'schema_migrations'"
+    ).fetchone()[0]
+    if tables is None:
+        raise RuntimeError("The database has no tables yet; run `python -m scripts.migrate` first")
+    conn.execute(f"TRUNCATE {tables} RESTART IDENTITY CASCADE")
+    views = conn.execute(
+        "SELECT quote_ident(matviewname) FROM pg_matviews WHERE schemaname = 'public'"
+    ).fetchall()
+    for (view,) in views:
+        conn.execute(f"REFRESH MATERIALIZED VIEW {view}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true")
-    parser.add_argument("--until")
+    parser.add_argument("--until", help="last migration number to apply, e.g. 004 or 4")
     parser.add_argument("--database")
     args = parser.parse_args()
-    applied = apply(args.database, reset=args.reset, until=args.until)
+    try:
+        applied = apply(args.database, reset=args.reset, until=args.until)
+    except ValueError as e:
+        parser.error(str(e))
     print("\n".join(f"applied {name}" for name in applied) or "nothing to apply")
 
 
