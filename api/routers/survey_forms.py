@@ -9,13 +9,14 @@ POST   /api/offerings/{id}/survey-form         create the form in my Google acco
 POST   /api/offerings/{id}/survey-form/sync    fetch new responses now (the form's owner)
 """
 
+import secrets
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from psycopg.rows import dict_row
 
-from api import db
+from api import config, db
 from api.auth import database, require
 from api.db import User
 from api.google import client as google
@@ -23,6 +24,7 @@ from api.mongo import get_db
 from api.services import survey_forms
 
 router = APIRouter(prefix="/api")
+NONCE_COOKIE = "copo_google_nonce"
 editors = require("admin", "faculty")
 staff = require("admin", "faculty", "coordinator")
 
@@ -60,17 +62,28 @@ def connect(return_to: str = "/", user: User = Depends(editors)):
     if not google.configured():
         raise HTTPException(409, "Google is not set up on this server yet (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET "
                                  "and GOOGLE_TOKEN_KEY in .env)")
-    return {"url": google.auth_url(google.state_token(user.user_id, user.username, _safe_path(return_to)))}
+    nonce = secrets.token_urlsafe(24)
+    url = google.auth_url(google.state_token(user.user_id, user.username, _safe_path(return_to), nonce))
+    resp = JSONResponse({"url": url})
+    # Only the browser that asked can finish the sign-in: a link sent to someone else has no cookie.
+    resp.set_cookie(NONCE_COOKIE, nonce, max_age=600, httponly=True, samesite="lax", path="/api/google",
+                    secure=config.google_redirect_uri().startswith("https://"))
+    return resp
 
 
 @router.get("/google/callback", include_in_schema=False)
-def callback(state: str, code: str | None = None, error: str | None = None, dbname=Depends(database)):
+def callback(request: Request, state: str, code: str | None = None, error: str | None = None,
+             dbname=Depends(database)):
     try:
         st = google.read_state(state)
     except google.GoogleError as exc:
         return RedirectResponse(f"/?google_error={quote(str(exc))}", status_code=303)
     back = _safe_path(st.get("ret"))
     sep = "&" if "?" in back else "?"
+    nonce = request.cookies.get(NONCE_COOKIE, "")
+    if not nonce or not secrets.compare_digest(google.nonce_hash(nonce), st.get("nh", "")):
+        msg = "This Google sign-in was started in another browser or has expired; start it again from the app"
+        return RedirectResponse(f"{back}{sep}google_error={quote(msg)}", status_code=303)
     if error or not code:
         return RedirectResponse(f"{back}{sep}google_error={quote('Google sign-in was cancelled')}", status_code=303)
     try:
@@ -88,7 +101,9 @@ def callback(state: str, code: str | None = None, error: str | None = None, dbna
             ON CONFLICT (user_id) DO UPDATE SET google_email = EXCLUDED.google_email,
                 refresh_token_enc = EXCLUDED.refresh_token_enc, connected_at = now()""",
                      (email or "unknown", google.encrypt(refresh)))
-    return RedirectResponse(f"{back}{sep}google=connected", status_code=303)
+    done = RedirectResponse(f"{back}{sep}google=connected", status_code=303)
+    done.delete_cookie(NONCE_COOKIE, path="/api/google")
+    return done
 
 
 @router.post("/google/disconnect")
@@ -141,6 +156,8 @@ def get_form(offering_id: int, request: Request, user: User = Depends(staff), db
 def create_form(offering_id: int, user: User = Depends(editors), dbname=Depends(database)):
     with db.session(user, dbname) as conn:
         offering = _offering(conn, offering_id)
+        # One creation per offering at a time: a double click waits here, then sees the first form.
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext('survey_form'), %s)", (offering_id,))
         if _form(conn, offering_id):
             raise HTTPException(409, "This offering already has a survey form")
         acc = _account(conn)

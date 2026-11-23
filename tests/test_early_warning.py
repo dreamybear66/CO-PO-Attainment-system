@@ -156,3 +156,32 @@ def test_who_may_see_and_run(client, db):
     assert r.status_code == 200 and r.json()["predictions"] == 120
     r = client.post("/api/offerings/1/early-warning", headers=login(client, "fac_a"))     # the seed: SEE only, locked
     assert r.status_code == 409
+
+
+def test_relocking_does_not_retrain_and_concurrent_saves_queue(client, db):
+    """Review of #14: only a lock that changed something re-runs the warning; two saves of one
+    offering at the same time do not collide."""
+    import threading
+
+    h = login(client, "fac_a")
+    client.post(f"/api/assessments/{TARGET * 10 + 1}/lock", headers=h)
+    first = db.execute("SELECT computed_at FROM early_warning_run WHERE offering_id = %s", (TARGET,)).fetchone()[0]
+    client.post(f"/api/assessments/{TARGET * 10 + 1}/lock", headers=h)             # already locked
+    assert db.execute("SELECT computed_at FROM early_warning_run WHERE offering_id = %s", (TARGET,)).fetchone()[0] == first
+    with owner() as pg:
+        result = early_warning.predict(pg, TARGET)
+    errors = []
+
+    def save():
+        try:
+            with owner() as pg:
+                early_warning.save(pg, TARGET, result)
+        except Exception as exc:                                                   # pragma: no cover
+            errors.append(exc)
+    threads = [threading.Thread(target=save) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    assert db.execute("SELECT count(*) FROM early_warning WHERE offering_id = %s", (TARGET,)).fetchone()[0] == 120

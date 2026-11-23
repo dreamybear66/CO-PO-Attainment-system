@@ -253,7 +253,10 @@ def predict(owner_pg, offering_id: int, keys: list[tuple[str, int]] | None = Non
 
 
 def save(pg, offering_id: int, result: dict) -> None:
-    """Replace the offering's run with `result`. `pg` runs as the teacher, so RLS checks ownership."""
+    """Replace the offering's run with `result`. `pg` runs as the teacher, so RLS checks ownership.
+    Runs of one offering are saved one at a time (advisory lock), so a lock-triggered run and a
+    Run button pressed at the same moment queue instead of colliding on the primary key."""
+    pg.execute("SELECT pg_advisory_xact_lock(hashtext('early_warning'), %s)", (offering_id,))
     pg.execute("DELETE FROM early_warning_run WHERE offering_id = %s", (offering_id,))
     pg.execute("INSERT INTO early_warning_run (offering_id, config_id, stage, model, flag_prob) "
                "VALUES (%s, %s, %s, %s, %s)",
