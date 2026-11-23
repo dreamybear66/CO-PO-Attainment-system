@@ -52,6 +52,28 @@ def test_unreadable_question_line_is_reported_not_dropped():
     assert any("more than once" in w for w in r["warnings"])
 
 
+# ---------------------------------------------------------------- cover-page layout
+
+def test_cover_page_has_twenty_rows_that_fit_on_a4_without_overlapping():
+    from api.ocr import layout
+    assert layout.MAX_QUESTIONS == 20
+    rows = [layout.mark_boxes(i) for i in range(layout.MAX_QUESTIONS)]
+    boxes = [*layout.USN_YEAR, *layout.USN_ROLL, *(b for r in rows for b in r), *layout.TOTAL]
+    top = layout.FIDUCIALS["tl"][1] + layout.FIDUCIAL
+    bottom = layout.FIDUCIALS["bl"][1]
+    for b in boxes:                       # inside the corner squares, so alignment covers them
+        assert layout.FIDUCIALS["tl"][0] + layout.FIDUCIAL < b.x and b.x + b.w < layout.FIDUCIALS["tr"][0]
+        assert top < b.y and b.y + b.h < bottom
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert a.x + a.w <= b.x or b.x + b.w <= a.x or a.y + a.h <= b.y or b.y + b.h <= a.y, (a, b)
+    # Q1-Q10 down the left column, Q11-Q20 down the right; the total sits below both.
+    assert rows[0][0].x == rows[9][0].x < rows[10][0].x == rows[19][0].x
+    assert rows[0][0].y == rows[10][0].y and rows[9][0].y == rows[19][0].y
+    assert layout.TOTAL[0].y > rows[9][0].y + layout.BOX_H
+    assert layout.USN_YEAR[0].y + layout.BOX_H < rows[0][0].y
+
+
 # ---------------------------------------------------------------- choosing values
 
 def onehot(d, p=0.9):
@@ -206,11 +228,11 @@ def test_ocr_refuses_locked_assessments_and_non_pdfs(client, db):
 
 def fake_raw(n_paper_questions=3, rows=None, aligned=True):
     """What reader.read_pdf returns, without a PDF: every mark row reads as `rows[i]` (units digit)."""
-    rows = rows or [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+    rows = rows or [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] * 2
     sheet = {"page": 2, "aligned": aligned, "image": "x"}
     if aligned:
         sheet |= {"usn": {"probas": [onehot(2), onehot(5), onehot(0), onehot(0), onehot(1)], "image": "u"},
-                  "marks": [{"probas": [None, onehot(v)], "image": f"r{i}"} for i, v in enumerate(rows)],
+                  "marks": {i: {"probas": [None, onehot(v)], "image": f"r{i}"} for i, v in enumerate(rows)},
                   "total": {"probas": [None, None, None], "image": "t"}}
     qs = [{"q_no": f"Q{i}", "text": "", "max_marks": 9, "cos": [1], "bloom": 2} for i in range(1, n_paper_questions + 1)]
     return {"paper": {"questions": qs, "paper_max": None, "warnings": []}, "sheets": [sheet]}
@@ -233,14 +255,14 @@ def test_an_unreadable_page_gets_one_empty_input_per_question():
 
 def test_questions_beyond_the_cover_page_are_not_returned_and_existing_marks_are_reported(client, db, monkeypatch):
     from api.routers import ocr as ocr_router
-    monkeypatch.setattr(ocr_router.reader, "read_pdf", lambda data, n_questions=None: fake_raw(12))
+    monkeypatch.setattr(ocr_router.reader, "read_pdf", lambda data, fallback=None: fake_raw(22))
     db.execute("UPDATE attainment_config SET ocr_review_confidence = 0.55")
     db.execute("INSERT INTO assessment_question (question_id, assessment_id, q_no, max_marks) VALUES (31, 3, 'Q1', 30)")
     db.execute("INSERT INTO question_co_map VALUES (31, 1, 1)")
     db.execute("INSERT INTO student_question_mark VALUES (50, 31, 12, false)")          # 1RV25WX050 already marked
     body = client.post("/api/assessments/3/ocr", headers=login(client, "fac_a"),
                        files={"file": ("t.pdf", b"%PDF", "application/pdf")}).json()
-    assert [q["q_no"] for q in body["paper"]["questions"]] == [f"Q{i}" for i in range(1, 11)]
-    assert any("Q11, Q12" in w for w in body["paper"]["warnings"])
+    assert [q["q_no"] for q in body["paper"]["questions"]] == [f"Q{i}" for i in range(1, 21)]
+    assert any("Q21, Q22" in w for w in body["paper"]["warnings"])
     assert "1RV25WX050" in body["absent"] and body["absent_with_marks"] == ["1RV25WX050"]
     assert body["threshold"] == 0.55                                   # from the rule version, not .env

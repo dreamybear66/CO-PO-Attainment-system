@@ -166,8 +166,8 @@ def build_pdf(key: Key, out: Path, seed: int = 7, digits: np.ndarray | None = No
         img = cover_blank(scratch)
         write_number(img, layout.USN_YEAR, int(sheet.usn[3:5]), by_label, rng, 2, "0")
         write_number(img, layout.USN_ROLL, int(sheet.usn[7:10]), by_label, rng, 3, "0")
-        for i, q in enumerate(key.paper.questions):
-            write_number(img, layout.mark_boxes(i), sheet.marks[q.q_no], by_label, rng, 2)
+        for q in key.paper.questions:          # Q7 on the paper is written in row Q7
+            write_number(img, layout.mark_boxes(int(q.q_no[1:]) - 1), sheet.marks[q.q_no], by_label, rng, 2)
         sheet.total = sum(sheet.marks.values())
         write_number(img, layout.TOTAL, sheet.total, by_label, rng, 3)
         sheet.page = len(pages) + 1

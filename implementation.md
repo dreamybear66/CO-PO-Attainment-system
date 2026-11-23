@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 199 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 200 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -240,7 +240,9 @@ confirm. FR-3.7–3.9, NFR-10.
 3. Pages 2+ (answer-sheet cover pages): locate the printed marks table, read the USN and each
    handwritten per-question mark with a handwritten-digit model; keep a confidence per value.
    The model is an MLP trained on MNIST's first 60,000 digits (`scripts/train_digits.py`,
-   98.2 % on the 10,000 held-out digits); the cover-page layout is in `api/ocr/layout.py`.
+   98.2 % on the 10,000 held-out digits); the cover-page layout is in `api/ocr/layout.py`:
+   20 mark rows (Q1-Q10 and Q11-Q20 in two columns), one per question number on the paper, and
+   only the rows of the paper's questions are read.
    The corner squares straighten each scan (`api/ocr/sheet.py`). Values are not read digit by
    digit but chosen (`api/ocr/reader.py`): each mark is the value 0..its maximum that best explains
    the digit probabilities, and USNs are paired with enrolled students so that the whole PDF has the

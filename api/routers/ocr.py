@@ -76,17 +76,13 @@ def read_answer_sheets(assessment_id: int, file: UploadFile = File(...),
         threshold = float(rule["ocr_review_confidence"]) if rule else reader.DEFAULT_REVIEW_CONFIDENCE
     # The database work is done; OCR runs outside the transaction.
     try:
-        raw = reader.read_pdf(data, n_questions=layout.MAX_QUESTIONS)   # every row; paired below
+        raw = reader.read_pdf(data, fallback=[{**q, "cos": list(q["cos"]), "text": ""} for q in existing])
     except reader.OcrError as exc:
         raise HTTPException(422, str(exc)) from exc
 
     paper = raw["paper"]
     warnings = list(paper["warnings"])
-    if paper["questions"]:
-        questions = paper["questions"]
-    else:
-        questions = [{**q, "cos": list(q["cos"]), "text": ""} for q in existing]
-        warnings.append("No questions were read on page 1; the assessment's saved questions are used")
+    questions = paper["questions"]
     beyond = [q["q_no"] for q in questions if reader.cover_row(q) is None]
     if beyond:
         warnings.append(f"The cover page has rows for Q1-Q{layout.MAX_QUESTIONS} only, so {', '.join(beyond)} "

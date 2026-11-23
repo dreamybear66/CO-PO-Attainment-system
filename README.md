@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** all ten phases are built and 199 tests pass. Google Forms surveys need
+**Status:** all ten phases are built and 200 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -57,7 +57,7 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   unreadable page can be typed in or skipped, and a student with no sheet in this PDF is saved as
   absent only if they have no marks yet (one class can be scanned in several PDFs). The highlight
   threshold is the rule version's `ocr_review_confidence` (default 0.90). Everything runs locally and the scans are not
-  stored. The cover-page layout is a synthetic stand-in (`api/ocr/layout.py`).
+  stored. The cover-page layout is a synthetic stand-in with 20 mark rows (`api/ocr/layout.py`).
 - **Google Forms surveys:** an offering's **Survey** tab creates the course-exit survey as a Google
   Form in the teacher's own Google account (college email, USN, name, phone, then one 1–5 rating per
   CO) and shares it with **Share on WhatsApp**, which opens WhatsApp with the link and a message
@@ -345,7 +345,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 199 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 200 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 

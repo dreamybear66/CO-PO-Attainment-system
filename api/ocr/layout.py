@@ -9,14 +9,15 @@ replace it by changing these numbers.
        RV College of Engineering · Answer booklet
        USN  1RV [y][y]  branch  [r][r][r]
        Marks (examiner)
-       Q1  [t][u]        Q6  [t][u]
+       Q1  [t][u]        Q11 [t][u]
        ...               ...
-       Q5  [t][u]        Q10 [t][u]
+       Q10 [t][u]        Q20 [t][u]
        Total [h][t][u]
     ■                                                    ■
 
-Each mark is written as two digits, tens and units (a single-digit mark goes in the units box).
-Half marks are not supported.
+One row per question number on the paper (Q7 on the paper is written in row Q7), for both parts of
+a CIE paper (Part A quiz, Part B test) or the SEE. Each mark is written as two digits, tens and
+units (a single-digit mark goes in the units box). Half marks are not supported.
 """
 
 from dataclasses import dataclass
@@ -36,7 +37,8 @@ FIDUCIALS = {
 
 BOX_W, BOX_H = 26.0, 32.0                # one handwritten digit
 BOX_GAP = 4.0
-MAX_QUESTIONS = 10                       # Q1..Q10 on the cover page
+ROWS_PER_COLUMN = 10
+MAX_QUESTIONS = 2 * ROWS_PER_COLUMN      # Q1..Q20 on the cover page, two columns of ten
 
 
 @dataclass(frozen=True)
@@ -56,13 +58,13 @@ def _row(x: float, y: float, n: int) -> list[Box]:
     return [Box(x + i * (BOX_W + BOX_GAP), y) for i in range(n)]
 
 
-USN_Y = 150.0
+USN_Y = 140.0
 USN_YEAR = _row(150.0, USN_Y, 2)        # after the printed "1RV"
 USN_ROLL = _row(300.0, USN_Y, 3)        # after the printed "branch" gap
 
-MARKS_TOP = 260.0
-MARKS_ROW_H = 52.0
-_COLUMNS = ((70.0, 130.0), (320.0, 380.0))   # (label x, first box x) for Q1-Q5 and Q6-Q10
+MARKS_TOP = 222.0
+MARKS_ROW_H = 47.0
+_COLUMNS = ((70.0, 130.0), (320.0, 380.0))   # (label x, first box x) for Q1-Q10 and Q11-Q20
 
 
 def question_label(i: int) -> str:
@@ -70,17 +72,17 @@ def question_label(i: int) -> str:
 
 
 def mark_boxes(i: int) -> list[Box]:
-    """Tens and units boxes of question i (0-based)."""
-    label_x, box_x = _COLUMNS[i // 5]
-    return _row(box_x, MARKS_TOP + (i % 5) * MARKS_ROW_H, 2)
+    """Tens and units boxes of question i (0-based: row 0 is Q1)."""
+    label_x, box_x = _COLUMNS[i // ROWS_PER_COLUMN]
+    return _row(box_x, MARKS_TOP + (i % ROWS_PER_COLUMN) * MARKS_ROW_H, 2)
 
 
 def label_position(i: int) -> tuple[float, float]:
-    label_x, _ = _COLUMNS[i // 5]
-    return label_x, MARKS_TOP + (i % 5) * MARKS_ROW_H + 22.0
+    label_x, _ = _COLUMNS[i // ROWS_PER_COLUMN]
+    return label_x, MARKS_TOP + (i % ROWS_PER_COLUMN) * MARKS_ROW_H + 22.0
 
 
-TOTAL_Y = MARKS_TOP + 5 * MARKS_ROW_H + 24.0
+TOTAL_Y = MARKS_TOP + ROWS_PER_COLUMN * MARKS_ROW_H + 20.0
 TOTAL = _row(130.0, TOTAL_Y, 3)          # hundreds, tens, units
 
 

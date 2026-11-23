@@ -33,16 +33,20 @@ def pages(data: bytes) -> list[np.ndarray]:
     return out
 
 
-def read_pdf(data: bytes, n_questions: int | None = None) -> dict:
-    """The question paper and, undecided, what is written on every cover page. n_questions is how
-    many mark rows to read; by default as many as the paper lists."""
+def read_pdf(data: bytes, fallback: list[dict] | None = None) -> dict:
+    """The question paper and, undecided, what is written on every cover page. Only the rows of the
+    paper's questions are read (Q7 from row Q7). If page 1 gives no question at all, `fallback`
+    questions are used instead (the saved ones) and a warning says so."""
     images = pages(data)
     qp = paper.read(images[0])
     qp.pop("text", None)
-    n = n_questions or max(len(qp["questions"]), 1)
+    if not qp["questions"] and fallback:
+        qp["questions"] = [dict(q) for q in fallback]
+        qp["warnings"].append("No questions were read on page 1; the saved questions are used")
+    rows = [r for r in (cover_row(q) for q in qp["questions"]) if r is not None]
     sheets = []
     for number, img in enumerate(images[1:], start=2):
-        s = sheet.read(img, n)
+        s = sheet.read(img, rows)
         s["page"] = number
         sheets.append(s)
     return {"paper": qp, "sheets": sheets}
@@ -76,7 +80,8 @@ def _assign_usns(sheets: list[dict], candidates: list[str]) -> dict[int, tuple[s
 def review(raw: dict, questions: list[dict], enrolled: list[str], threshold: float) -> dict:
     """Pick a value for everything on the cover pages and say what the teacher should check.
 
-    questions: [{q_no, max_marks}]. Each is read from its own cover-page row by number (Q3 from row 3),
+    questions: [{q_no, max_marks}], q_no as numbered on the paper. Each is read from its own
+    cover-page row by number (Q3 from row Q3),
     so a question line page 1 could not read never shifts the others; questions beyond the cover
     page's rows are left out. enrolled: the offering's USNs.
     Each USN is chosen among the enrolled ones and each mark among 0..its maximum, by how well
@@ -101,9 +106,9 @@ def review(raw: dict, questions: list[dict], enrolled: list[str], threshold: flo
         marks = []
         for q in questions:
             row = cover_row(q)
-            if row is None or row >= len(s["marks"]):
+            m = s["marks"].get(row) if row is not None else None
+            if m is None:
                 continue
-            m = s["marks"][row]
             value, conf = digits.best_number(m["probas"], int(q["max_marks"]))
             marks.append({"q_no": q["q_no"], "value": 0 if value is None else value,
                           "blank": value is None, "confidence": round(conf, 3),
