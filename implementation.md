@@ -244,7 +244,11 @@ confirm. FR-3.7–3.9, NFR-10.
    its share of the probability; the total written on the sheet is checked against the sum.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
-   the existing validation, triggers and locking.
+   the existing validation, triggers and locking. API (`api/routers/ocr.py`): `POST
+   /api/assessments/{id}/ocr` reads the PDF and returns suggestions only; `PUT
+   /api/assessments/{id}/questions` saves the confirmed questions (replaced while no marks exist,
+   only retagged after), with equal CO weights; confirmed marks go to the existing CSV endpoint.
+   The PDF and page images are not stored.
 5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values
    by `datagen/ocr_samples.py`, using MNIST's 10,000 held-out digits as handwriting; accuracy is
    reported against the target still to be agreed.
