@@ -106,7 +106,7 @@ function usePointerFx(root: React.RefObject<HTMLElement>) {
 const STEPS = [
   {
     name: 'Marks go in',
-    text: 'Upload the marks sheet, or simply scan the answer sheets. Every question is linked to the course outcome it tests, so each student gets a score for each outcome. An absent student counts as zero.',
+    text: 'Scan the answer sheets of a test as one PDF: the quiz and the test are read together, and anything unclear is highlighted for a quick check. Experiential-learning marks are typed straight in. Every question is linked to the course outcome it tests, so each student gets a score for each outcome. An absent student counts as zero.',
     pic: { src: '/landing/marks.webp', w: 1600, h: 736, alt: 'A course with all six assessments entered and locked' },
   },
   {
@@ -210,7 +210,7 @@ function Hero() {
       <div className="lp-hero-copy">
         <h1 id="lp-title">CO-PO attainment, done for you</h1>
         <p className="lp-lede">
-          Upload the marks, or just scan the answer sheets. Every course outcome and programme outcome is
+          Scan the answer sheets and the marks are read for you. Every course outcome and programme outcome is
           worked out for you, students share feedback through a survey on WhatsApp, the ones who need help
           are flagged early, and the course file is ready as a PDF.
         </p>
