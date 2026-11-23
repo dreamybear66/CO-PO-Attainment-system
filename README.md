@@ -256,6 +256,7 @@ false-positive and noise-sensitivity results to `docs/root-cause-evaluation.md`.
 ### Background jobs
 
 ```powershell
+.\.venv\Scripts\python.exe -m api.jobs forms      # Google Form responses -> survey_responses (checked, anonymised)
 .\.venv\Scripts\python.exe -m api.jobs etl        # surveys (MongoDB) -> indirect_attainment, then recompute
 .\.venv\Scripts\python.exe -m api.jobs audit      # audit_outbox -> hash-chained MongoDB audit_log
 .\.venv\Scripts\python.exe -m api.jobs anchor     # copy the chain head into audit_anchor
@@ -279,8 +280,33 @@ false-positive and noise-sensitivity results to `docs/root-cause-evaluation.md`.
   recorded event as an anchor: deleting the newest documents is reported, and the writer stops
   (`ChainError`) rather than writing over the gap. A PostgreSQL reset does not break the chain; it
   carries on from its head.
-- **Schedule.** Outbox every 30 s, ETL 01:30, verify 02:00, anchor 23:55 (Asia/Kolkata). A run
+- **Schedule.** Outbox every 30 s, Google Forms fetch 01:15, ETL 01:30, verify 02:00, anchor 23:55 (Asia/Kolkata). A run
   missed while the machine was off happens once when it is back.
+
+### Google Forms surveys (setup, once)
+
+Course-exit surveys are created as Google Forms in each teacher's own Google account. The server
+needs one free Google Cloud project (no billing account is needed):
+
+1. Open https://console.cloud.google.com, create a project (e.g. `copo-surveys`).
+2. **APIs & Services → Library**: enable the **Google Forms API**.
+3. **APIs & Services → OAuth consent screen** (Google Auth Platform → Branding/Audience/Data access):
+   app name and support email; audience **External**, publishing status **Testing**; add the scopes
+   `.../auth/forms.body`, `.../auth/forms.responses.readonly`, `openid` and `email`; under **Test
+   users** add the Google account of every teacher who will create forms.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID**: type **Web
+   application**, authorised redirect URI `http://localhost:8000/api/google/callback`.
+5. Put the client ID and secret in `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and a
+   token key as `GOOGLE_TOKEN_KEY` (`python -c "from cryptography.fernet import Fernet;
+   print(Fernet.generate_key().decode())"`). Restart the API.
+
+Then a teacher opens an offering's **Survey** tab, clicks **Connect Google** once, and **Create the
+survey form**. The form asks for college email (`COLLEGE_EMAIL_DOMAIN`, default `rvce.edu.in`),
+USN, name and phone number, then one 1–5 rating per CO. **Share on WhatsApp** opens WhatsApp with
+the link and a message filled in. **Fetch responses** (and the nightly `forms` job at 01:15) reads
+the responses: each must come from a college email and an enrolled USN, rate every CO and be the
+student's first; it is then stored like an in-app survey, with a hashed USN only. Email, name and
+phone number are not stored. Refresh tokens are stored encrypted and only their owner can use them.
 
 ### Error codes
 

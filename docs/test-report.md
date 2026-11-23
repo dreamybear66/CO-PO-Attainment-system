@@ -20,6 +20,7 @@ client.
 | Reproducibility | 4 | pass | Re-running with the old rule version reproduces the old numbers; later rule changes do not alter past results; versions cannot overlap. |
 | Surveys and ETL | 24 | pass | Reference checks against PostgreSQL, one response per student, keyed-hash respondent, malformed answers rejected, idempotent ETL that recomputes affected offerings. |
 | Answer-sheet OCR | 10 | pass | Question lines are read through OCR confusions and unreadable lines are reported. Marks are chosen within each question's maximum and USNs among enrolled students. A synthetic 15-sheet PDF is read end to end: questions exact, every wrong value flagged for review; confirmed questions and marks are saved through the usual checks. Questions can only be retagged once marks exist; locked assessments, other faculty and non-PDFs are refused. Needs Tesseract and the digit model. |
+| Google Forms surveys | 7 | pass | Connecting Google stores only an encrypted refresh token that no other user (not even the HoD) can see and that never reaches the audit chain. The form has email, USN, name, phone and one 1-5 scale per CO. Fetched responses are rejected for a non-college email, a malformed or non-enrolled USN or a missing rating; a student's second response is counted, not stored; accepted ones keep only a hashed USN. Repeated fetches are safe. The sign-in state cannot be used as a login or to redirect off the site. Google is faked. |
 | Synthetic data | 10 | pass | Same seed gives the same data, the dataset has the planned size, the planted cause stands out and the decoy does not, every PO is mapped, one login per person. |
 
 | PRD test | Files |
@@ -29,6 +30,7 @@ client.
 | Access control | `test_rls.py` (9), `test_api.py` (14), `test_compute_access.py` (4) |
 | Simulator isolation | `test_whatif_isolation.py` (12), `test_whatif.py` (2) |
 | Answer-sheet OCR | `test_ocr.py` (10) |
+| Google Forms surveys | `test_survey_forms.py` (7) |
 | Others | one file each: `test_constraints.py`, `test_audit_chain.py`, `test_root_cause.py`, `test_concurrency.py`, `test_versioned_rules.py`, `test_surveys_etl.py`, `test_datagen.py` |
 
 ## Phases 7–10

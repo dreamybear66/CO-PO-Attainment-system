@@ -75,3 +75,29 @@ def tesseract_cmd() -> str:
 def ocr_review_confidence() -> float:
     """Digits read with less confidence are highlighted on the review screen."""
     return float(_env("OCR_REVIEW_CONFIDENCE", "0.90"))
+
+
+# ---------------------------------------------------------------- Google Forms surveys (phase 8)
+# Empty until the department's Google Cloud project is set up (README: Google Forms setup); the
+# survey screens then say what is missing instead of failing.
+
+def google_client_id() -> str:
+    return _env("GOOGLE_CLIENT_ID", allow_empty=True)
+
+
+def google_client_secret() -> str:
+    return _env("GOOGLE_CLIENT_SECRET", allow_empty=True)
+
+
+def google_redirect_uri() -> str:
+    return _env("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/google/callback")
+
+
+def google_token_key() -> str:
+    """Fernet key that encrypts stored Google refresh tokens."""
+    return _env("GOOGLE_TOKEN_KEY", allow_empty=True)
+
+
+def college_email_domain() -> str:
+    """Survey responses must come from this email domain."""
+    return _env("COLLEGE_EMAIL_DOMAIN", "rvce.edu.in").lower().lstrip("@")

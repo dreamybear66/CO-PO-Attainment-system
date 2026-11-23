@@ -22,7 +22,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | UI motion | PR open | `feat/ui-motion` | Motion/GSAP animation layer, animated sign-in; `main` merged in |
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
-| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
+| 8 — Google Forms surveys | In progress | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
@@ -41,7 +41,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 - [ ] OCR accuracy target: what share of marks must be read correctly before the teacher's review?
 - [ ] A sample (blank or synthetic) question paper and answer-sheet cover page, so the OCR matches
   the college layout.
-- [ ] Who owns the Google Cloud project and OAuth consent screen for the Forms API?
+- [x] Who owns the Google Cloud project: Krrish's personal Google account (decided 23 Nov 2026).
+- [ ] Create the Google Cloud project and put its OAuth client in `.env` (README: Google Forms setup).
 - [ ] Early-warning target: what recall and precision, and what predicted chance flags a student?
 - [ ] Course-file PDF: which sections, and does the college have a template?
 
@@ -258,17 +259,25 @@ confirm. FR-3.7–3.9, NFR-10.
 
 ## Phase 8 — Google Forms surveys and WhatsApp sharing
 
-Status: not started.
+Status: in progress on `feat/google-forms-surveys`; backend and tests done.
+Decided 23 Nov 2026: the Google Cloud project is on Krrish's personal account (OAuth consent
+screen in Testing), each teacher connects their own Google account, responses come in by a
+Fetch button and a nightly job.
 
 Output: a teacher clicks once to create the course-exit survey and once to share it. FR-5.1, 5.3–5.5.
 
-1. Google Cloud project + OAuth consent screen (owner to be decided); store the teacher's token.
+1. Google Cloud project + OAuth consent screen (README: Google Forms setup); each teacher connects
+   their own account (`/api/google/*`); the refresh token is stored encrypted (Fernet) in
+   `google_account`, visible only to its owner (migration 011).
 2. Create a form per offering: college email, USN, name, phone, then one 1–5 rating per CO.
 3. WhatsApp share button: a `wa.me` link with the form link and a prefilled message.
 4. Pull responses through the Forms API; accept only enrolled USNs with a college email, one per
    student; store a hashed USN only (name and phone dropped) in `survey_responses`; the existing
    ETL turns them into indirect attainment.
 5. Dashboard: response rate, rating distribution per CO, count yet to respond.
+6. Nightly `forms` job at 01:15 (before the 01:30 ETL) fetches every form with its owner's
+   connection. Code: `api/google/client.py`, `api/services/survey_forms.py`,
+   `api/routers/survey_forms.py`; tests: `tests/test_survey_forms.py` (Google faked).
 
 ## Phase 9 — Weak-student lists and early warning (novelty)
 
