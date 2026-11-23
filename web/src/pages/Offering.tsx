@@ -24,7 +24,7 @@ export function Offering() {
   const att = useApi<AttainmentData>(`/api/offerings/${id}/attainment`)
   // ?tab=survey (and google=connected / google_error=...) arrive back from the Google sign-in.
   const [query] = useState(() => new URLSearchParams(window.location.search))
-  const [tab, setTab] = useState<Tab | null>(() => Object.hasOwn(TABS, query.get('tab') ?? '') ? query.get('tab') as Tab : null)
+  const [tab, setTab] = useState<Tab | null>(() => Object.prototype.hasOwnProperty.call(TABS, query.get('tab') ?? '') ? query.get('tab') as Tab : null)
   const [computing, setComputing] = useState(false)
   const [notice, setNotice] = useState<string | null>(() =>
     query.get('google') === 'connected' ? 'Google account connected. You can create the survey form now.' : query.get('google_error'))
