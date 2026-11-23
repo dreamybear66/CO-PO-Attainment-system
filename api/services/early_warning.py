@@ -141,8 +141,9 @@ def _matrix(rows: list[dict], fill: dict | None = None) -> tuple[np.ndarray, dic
     return x, fill
 
 
-def predict(owner_pg, offering_id: int) -> dict:
-    """Train on earlier finished offerings of the course and predict for this one."""
+def predict(owner_pg, offering_id: int, keys: list[tuple[str, int]] | None = None) -> dict:
+    """Train on earlier finished offerings of the course and predict for this one. `keys` replays a
+    stage, e.g. [("CIE_THEORY", 1)], whatever is locked (scripts/evaluate_early_warning.py)."""
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import roc_auc_score
 
@@ -154,7 +155,15 @@ def predict(owner_pg, offering_id: int) -> dict:
         JOIN attainment_config ac USING (config_id) WHERE o.offering_id = %s""", (offering_id,)).fetchone()
     if not off:
         raise EarlyWarningError("Offering not found or no rule version for its term")
-    st = stage(owner_pg, offering_id)
+    if keys is None:
+        st = stage(owner_pg, offering_id)
+    else:
+        mine = _stage_keys(cur.execute("SELECT assessment_id, type::text AS type, name FROM assessment "
+                                       "WHERE offering_id = %s", (offering_id,)).fetchall())
+        st = [{"type": t, "rank": r, "name": mine[(t, r)]["name"], "assessment_id": mine[(t, r)]["assessment_id"]}
+              for t, r in keys if (t, r) in mine]
+        if len(st) != len(keys):
+            raise EarlyWarningError("The offering does not have every assessment of that stage")
     keys = [(s["type"], s["rank"]) for s in st]
 
     # Earlier finished offerings of the same course that have the same assessments.

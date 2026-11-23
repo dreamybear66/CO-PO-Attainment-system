@@ -43,7 +43,9 @@ accreditation support to automating teachers' CO-PO work, which added phases 7â€
   the college layout.
 - [x] Who owns the Google Cloud project: Krrish's personal Google account (decided 23 Nov 2026).
 - [ ] Create the Google Cloud project and put its OAuth client in `.env` (README: Google Forms setup).
-- [ ] Early-warning target: what recall and precision, and what predicted chance flags a student?
+- [ ] Early-warning target: what recall and precision? The cut-off is 0.5 (decided); at 0.5 after
+  CIE Test 1, recall is 35 % and precision 78 %, at 0.3 69 % and 61 %
+  ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - [ ] Course-file PDF: which sections, and does the college have a template?
 
 **Later (deferred on purpose)**
@@ -301,7 +303,10 @@ Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 3. Show each flagged student with the CO, the predicted chance and the marks that drove the flag.
    Advisory only; it never changes official attainment.
 4. Evaluate on held-out offerings after CIE-1 and CIE-2 against the recall/precision target still
-   to be agreed.
+   to be agreed. `scripts/evaluate_early_warning.py` replays the 64 finished 2025-26 offerings
+   ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)): AUC 0.79 after CIE Test 1
+   and 0.94 after both tests and quizzes; at the 0.5 cut-off, 78 % of flags are right but 35 % of
+   the students who end below target are flagged after CIE Test 1 (69 % at a 0.3 cut-off).
 
 ## Phase 10 â€” Course-file PDF
 
