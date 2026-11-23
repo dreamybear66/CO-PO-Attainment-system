@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–8 are built (PRs open); 183 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–9 are built (PRs open); 189 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -23,7 +23,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
-| 9 — Weak students, early warning | In progress | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
+| 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
@@ -284,7 +284,8 @@ Output: a teacher clicks once to create the course-exit survey and once to share
 
 ## Phase 9 — Weak-student lists and early warning (novelty)
 
-Status: in progress on `feat/early-warning`; backend and tests done.
+Status: built on `feat/early-warning` (PR open); 6 tests; replayed on 2025-26 in
+[docs/early-warning-evaluation.md](docs/early-warning-evaluation.md).
 
 Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
@@ -334,6 +335,8 @@ Where the build differs from the plan above:
 | OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
+| Early-warning features | CIE components so far | CO marks so far and prerequisite-CO scores; one model per course and stage, trained on the owner connection | the whole-stage score overlapped the CO score and took the wrong sign, which made reasons contradictory |
+| Early-warning trigger | after each locked CIE | after each locked CIE, quiz or EL, best effort after the lock commits; also a Run button | a failed prediction must never undo a lock |
 | Survey sharing | WhatsApp share button | a `wa.me` link with the form link and a message filled in | free and needs no WhatsApp API; the teacher picks the group |
 | Survey responses | Forms API reference checks | every response goes through the in-app survey checks plus college-email and USN-format checks; only counts are kept about a fetch | one set of rules for both ways of answering; email, name and phone never stored |
 | OCR value choice | read digit by digit | marks chosen within 0..max, USNs paired across the PDF (Hungarian algorithm) | uses what is known about the paper and the class; on 240 synthetic sheets no wrong value went unflagged |
@@ -355,3 +358,5 @@ Results of the last run: [docs/test-report.md](docs/test-report.md).
 | Reproducibility | `tests/test_versioned_rules.py` |
 | Surveys and ETL | `tests/test_surveys_etl.py` |
 | Answer-sheet OCR | `tests/test_ocr.py`; accuracy in `docs/ocr-evaluation.md` |
+| Google Forms surveys | `tests/test_survey_forms.py` |
+| Weak students, early warning | `tests/test_early_warning.py`; replay in `docs/early-warning-evaluation.md` |
