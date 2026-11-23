@@ -95,16 +95,49 @@ def to_mnist(box: np.ndarray) -> np.ndarray | None:
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
-def read(boxes: list[np.ndarray]) -> list[tuple[int | None, float]]:
-    """(digit or None for blank, confidence 0-1) for each box."""
+def probabilities(boxes: list[np.ndarray]) -> list[np.ndarray | None]:
+    """For each box: None if blank, else the probability of each digit 0-9."""
     images = [to_mnist(b) for b in boxes]
     written = [i for i, im in enumerate(images) if im is not None]
-    out: list[tuple[int | None, float]] = [(None, 1.0)] * len(boxes)
+    out: list[np.ndarray | None] = [None] * len(boxes)
     if written:
         x = np.stack([images[i].reshape(-1) for i in written]).astype(np.float32) / 255.0
         proba = model().predict_proba(x)
-        classes = model().classes_
+        order = np.argsort(model().classes_.astype(int))       # columns in digit order 0-9
         for k, i in enumerate(written):
-            j = int(proba[k].argmax())
-            out[i] = (int(classes[j]), float(proba[k][j]))
+            out[i] = proba[k][order]
     return out
+
+
+MISMATCH = np.log(1e-3)          # a blank box where a digit should be, or the other way round
+
+
+def log_likelihood(probas: list[np.ndarray | None], text: str) -> float:
+    score = 0.0
+    for p, ch in zip(probas, text):
+        if ch == " ":
+            score += 0.0 if p is None else MISMATCH
+        else:
+            score += MISMATCH if p is None else float(np.log(max(p[int(ch)], 1e-6)))
+    return score
+
+
+def best_of(probas: list[np.ndarray | None], candidates: list[str]) -> tuple[int, float]:
+    """Index of the candidate (box texts, ' ' for blank) that best explains the boxes, and its
+    posterior probability among all candidates."""
+    scores = np.array([log_likelihood(probas, c) for c in candidates])
+    best = int(scores.argmax())
+    posterior = np.exp(scores - scores.max())
+    return best, float(posterior[best] / posterior.sum())
+
+
+def best_number(probas: list[np.ndarray | None], max_value: int) -> tuple[int | None, float]:
+    """The value 0..max_value (written right-aligned) that best explains the boxes. None if every
+    box is blank (nothing written)."""
+    if all(p is None for p in probas):
+        return None, 1.0
+    width = len(probas)
+    max_value = min(max_value, 10 ** width - 1)
+    candidates = [str(v).rjust(width) for v in range(max_value + 1)]
+    i, confidence = best_of(probas, candidates)
+    return i, confidence

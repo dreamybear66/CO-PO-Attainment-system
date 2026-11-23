@@ -230,11 +230,18 @@ confirm. FR-3.7–3.9, NFR-10.
 
 1. Upload endpoint for one PDF per assessment; split it into page images (local, no outside service).
 2. Page 1 (question paper, printed): OCR with Tesseract, parse each question's number, max marks,
-   CO and Bloom level into draft `assessment_question` and `question_co_map` rows.
+   CO and Bloom level into draft `assessment_question` and `question_co_map` rows
+   (`api/ocr/paper.py`). The page is enlarged and binarised first, and the short codes at the end
+   of each line are taken by position and repaired for OCR confusions (i/l/I for 1, O for 0).
 3. Pages 2+ (answer-sheet cover pages): locate the printed marks table, read the USN and each
    handwritten per-question mark with a handwritten-digit model; keep a confidence per value.
    The model is an MLP trained on MNIST's first 60,000 digits (`scripts/train_digits.py`,
    98.2 % on the 10,000 held-out digits); the cover-page layout is in `api/ocr/layout.py`.
+   The corner squares straighten each scan (`api/ocr/sheet.py`). Values are not read digit by
+   digit but chosen (`api/ocr/reader.py`): each mark is the value 0..its maximum that best explains
+   the digit probabilities, and USNs are paired with enrolled students so that the whole PDF has the
+   highest likelihood and no student gets two sheets (Hungarian algorithm). A value's confidence is
+   its share of the probability; the total written on the sheet is checked against the sum.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
    the existing validation, triggers and locking.
