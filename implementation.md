@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phase 7 is built (PR open); 179 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–8 are built (PRs open); 188 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -22,7 +22,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | UI motion | PR open | `feat/ui-motion` | Motion/GSAP animation layer, animated sign-in; `main` merged in |
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
-| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
+| 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
@@ -41,7 +41,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 - [ ] OCR accuracy target: what share of marks must be read correctly before the teacher's review?
 - [ ] A sample (blank or synthetic) question paper and answer-sheet cover page, so the OCR matches
   the college layout.
-- [ ] Who owns the Google Cloud project and OAuth consent screen for the Forms API?
+- [x] Who owns the Google Cloud project: Krrish's personal Google account (decided 23 Nov 2026).
+- [ ] Create the Google Cloud project and put its OAuth client in `.env` (README: Google Forms setup).
 - [ ] Early-warning target: what recall and precision, and what predicted chance flags a student?
 - [ ] Course-file PDF: which sections, and does the college have a template?
 
@@ -70,7 +71,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 
 ```
 db/
-  migrations/        001_schema … 010_question_bloom (tables, triggers, views, procedures, indexes, RLS)
+  migrations/        001_schema … 011_survey_forms (tables, triggers, views, procedures, indexes, RLS)
   seed/              worked-example fixture (Section 5 of PRD)
 api/                 FastAPI app (routers, services, mongo, jobs)
 web/                 React + TypeScript app
@@ -258,17 +259,26 @@ confirm. FR-3.7–3.9, NFR-10.
 
 ## Phase 8 — Google Forms surveys and WhatsApp sharing
 
-Status: not started.
+Status: built on `feat/google-forms-surveys` (PR open); 7 tests with Google faked. Live use waits
+for the Google Cloud project (README: Google Forms surveys).
+Decided 23 Nov 2026: the Google Cloud project is on Krrish's personal account (OAuth consent
+screen in Testing), each teacher connects their own Google account, responses come in by a
+Fetch button and a nightly job.
 
 Output: a teacher clicks once to create the course-exit survey and once to share it. FR-5.1, 5.3–5.5.
 
-1. Google Cloud project + OAuth consent screen (owner to be decided); store the teacher's token.
+1. Google Cloud project + OAuth consent screen (README: Google Forms setup); each teacher connects
+   their own account (`/api/google/*`); the refresh token is stored encrypted (Fernet) in
+   `google_account`, visible only to its owner (migration 011).
 2. Create a form per offering: college email, USN, name, phone, then one 1–5 rating per CO.
 3. WhatsApp share button: a `wa.me` link with the form link and a prefilled message.
 4. Pull responses through the Forms API; accept only enrolled USNs with a college email, one per
    student; store a hashed USN only (name and phone dropped) in `survey_responses`; the existing
    ETL turns them into indirect attainment.
 5. Dashboard: response rate, rating distribution per CO, count yet to respond.
+6. Nightly `forms` job at 01:15 (before the 01:30 ETL) fetches every form with its owner's
+   connection. Code: `api/google/client.py`, `api/services/survey_forms.py`,
+   `api/routers/survey_forms.py`; tests: `tests/test_survey_forms.py` (Google faked).
 
 ## Phase 9 — Weak-student lists and early warning (novelty)
 
@@ -310,6 +320,9 @@ Where the build differs from the plan above:
 | OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
+| Survey sharing | WhatsApp share button | a `wa.me` link with the form link and a message filled in | free and needs no WhatsApp API; the teacher picks the group |
+| Survey responses | Forms API reference checks | the form collects Google-verified emails; every response must come from the email on record for its USN (`student.email`), then goes through the in-app survey checks; only counts are kept about a fetch | a typed email let anyone answer as a classmate (review of #13); email, name and phone never stored |
+| Google sign-in | signed state | signed state plus a nonce cookie of the browser that started it; creation under a per-offering lock, a half-made form deleted (`drive.file`) | OAuth login CSRF and orphan forms (review of #13) |
 | OCR review threshold | setting | `attainment_config.ocr_review_confidence` (default 0.90, migration 010) | thresholds are data in the rules, not `.env` (review of #12) |
 | OCR pairing and saving | rows by position; every student without a sheet saved as AB | rows by question number; unreadable pages typed in or skipped; AB only for students with no marks yet unless the teacher opts in | a missing question line shifted marks; a second PDF of the same class overwrote the first (review of #12) |
 | OCR value choice | read digit by digit | marks chosen within 0..max, USNs paired across the PDF (Hungarian algorithm) | uses what is known about the paper and the class; on 240 synthetic sheets no wrong value went unflagged |

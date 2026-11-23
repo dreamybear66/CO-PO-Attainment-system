@@ -105,6 +105,7 @@ const TESTS: [string, number, string][] = [
   ['Root cause', 15, 'The planted cause ranks first; the decoy is excluded.'],
   ['Simulator isolation', 14, 'What-if runs leave official tables unchanged.'],
   ['Synthetic data', 10, 'Same seed, same data; the planted cause stands out.'],
+  ['Google Forms surveys', 9, 'Verified emails only; nobody can answer as a classmate.'],
   ['Answer-sheet OCR', 13, 'Scanned sheets are read; every misread value is flagged for the teacher.'],
   ['Concurrency', 8, 'A second compute waits or is refused; a failed run keeps the last result.'],
   ['Improvement actions', 5, 'Actions close once a CO reaches target; follow-ups link to the next offering.'],

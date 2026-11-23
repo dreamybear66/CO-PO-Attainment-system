@@ -1,7 +1,8 @@
 # Test report
 
 Run on 23 Nov 2026: `python -m pytest`, PostgreSQL 16, MongoDB 8.0.6, Python 3.11, Tesseract 5.4.
-**179 passed, 0 failed** (166 before phase 7, plus 13 for answer-sheet OCR); the run before OCR took 5 min 54 s. The one warning is a Starlette deprecation in the test
+**188 passed, 0 failed** (166 before phase 7, plus 13 for answer-sheet OCR and 9 for
+Google Forms surveys). The one warning is a Starlette deprecation in the test
 client.
 
 ## PRD Section 8 tests
@@ -20,6 +21,7 @@ client.
 | Reproducibility | 4 | pass | Re-running with the old rule version reproduces the old numbers; later rule changes do not alter past results; versions cannot overlap. |
 | Surveys and ETL | 24 | pass | Reference checks against PostgreSQL, one response per student, keyed-hash respondent, malformed answers rejected, idempotent ETL that recomputes affected offerings. |
 | Answer-sheet OCR | 13 | pass | Question lines are read through OCR confusions and unreadable lines are reported. Marks are chosen within each question's maximum and USNs among enrolled students. A synthetic 15-sheet PDF is read end to end: questions exact, every wrong value flagged for review; confirmed questions and marks are saved through the usual checks. Questions can only be retagged once marks exist; locked assessments, other faculty and non-PDFs are refused. Marks are taken from each question's own row even when a question line on page 1 is unreadable; an unreadable page gets one empty input per question; questions beyond Q10 are not offered; students with no sheet who already have marks are reported, not overwritten; the review threshold comes from the rule version. Needs Tesseract and the digit model. |
+| Google Forms surveys | 9 | pass | Connecting Google stores only an encrypted refresh token that no other user (not even the HoD) can see and that never reaches the audit chain; a sign-in link finished in another browser is refused. The form collects the verified email, then USN, name, phone and one 1-5 scale per CO; a failed creation deletes the half-made form. Fetched responses are rejected when the verified email is missing, not a college email or not the one on record for the USN (no answering as a classmate), for a malformed or non-enrolled USN or a missing rating; a student's second response is counted, not stored; accepted ones keep only a hashed USN. Repeated fetches are safe. The sign-in state cannot be used as a login or to redirect off the site. Google is faked. |
 | Synthetic data | 10 | pass | Same seed gives the same data, the dataset has the planned size, the planted cause stands out and the decoy does not, every PO is mapped, one login per person. |
 
 | PRD test | Files |
@@ -29,13 +31,14 @@ client.
 | Access control | `test_rls.py` (9), `test_api.py` (14), `test_compute_access.py` (4) |
 | Simulator isolation | `test_whatif_isolation.py` (12), `test_whatif.py` (2) |
 | Answer-sheet OCR | `test_ocr.py` (13) |
+| Google Forms surveys | `test_survey_forms.py` (9) |
 | Others | one file each: `test_constraints.py`, `test_audit_chain.py`, `test_root_cause.py`, `test_concurrency.py`, `test_versioned_rules.py`, `test_surveys_etl.py`, `test_datagen.py` |
 
 ## Phases 7–10
 
-Answer-sheet OCR (phase 7) is tested above; its accuracy on synthetic scans is in
-[ocr-evaluation.md](ocr-evaluation.md). The tests for Google Forms surveys, early warning,
-weak-student lists and the course-file PDF (PRD Section 8) will be added with phases 8–10.
+Answer-sheet OCR (phase 7) and Google Forms surveys (phase 8, with Google faked) are tested above;
+OCR accuracy on synthetic scans is in [ocr-evaluation.md](ocr-evaluation.md). The tests for early
+warning, weak-student lists and the course-file PDF (PRD Section 8) will be added with phases 9–10.
 
 ## Demo data run
 

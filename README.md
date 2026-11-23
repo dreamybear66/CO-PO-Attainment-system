@@ -11,8 +11,9 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
 (planned) and **prerequisite-aware root-cause analysis** (built).
 
-**Status:** phases 1–7 are built and 179 tests pass. Phases 8–10 (Google Forms surveys, early
-warning and weak-student lists, course-file PDF) were added on 23 Nov 2026 and are not built yet.
+**Status:** phases 1–8 are built and 188 tests pass. Phases 9–10 (early warning and weak-student
+lists, course-file PDF) were added on 23 Nov 2026 and are not built yet. Google Forms surveys need
+a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
 - Requirements: [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard)
@@ -58,17 +59,19 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   absent only if they have no marks yet (one class can be scanned in several PDFs). The highlight
   threshold is the rule version's `ocr_review_confidence` (default 0.90). Everything runs locally and the scans are not
   stored. The cover-page layout is a synthetic stand-in (`api/ocr/layout.py`).
+- **Google Forms surveys:** an offering's **Survey** tab creates the course-exit survey as a Google
+  Form in the teacher's own Google account (college email, USN, name, phone, then one 1–5 rating per
+  CO) and shares it with **Share on WhatsApp**, which opens WhatsApp with the link and a message
+  filled in. **Fetch responses** (and a nightly job) checks each response like an in-app survey and
+  keeps only a hashed USN and the ratings. The tab shows the response rate and the ratings per CO.
+  Needs a one-time Google Cloud setup (see Google Forms surveys below).
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
 
-### Planned (phases 8–10)
+### Planned (phases 9–10)
 
-- **Google Forms surveys:** the course-exit survey is created as a Google Form (college email, USN,
-  name, phone, then one 1–5 rating per CO) and shared with a WhatsApp button that opens WhatsApp with
-  the link filled in. Responses are matched to enrolled students, then only a hashed USN is kept. A
-  dashboard shows the response rate and ratings per CO.
 - **Weak-student lists:** students below target in each CO, ready for remedial classes.
 - **Early warning (novelty):** after each locked CIE, a logistic regression trained on earlier
   offerings predicts which students are likely to miss each CO, and shows the marks behind each flag.
@@ -128,7 +131,7 @@ triggers, CHECK constraints and the stored procedure, so the API cannot bypass t
 ## Repository layout
 
 ```
-db/migrations/   001_schema … 010_question_bloom: tables, triggers, views, procedures, indexes, RLS
+db/migrations/   001_schema … 011_survey_forms: tables, triggers, views, procedures, indexes, RLS
 db/seed/         worked_example.sql (PRD Section 5)
 datagen/         synthetic programme, marks and surveys; planted root-cause scenario
 api/             FastAPI app: routers/, services/ (marks CSV, surveys, what-if), jobs/ (ETL, audit)
@@ -259,6 +262,7 @@ false-positive and noise-sensitivity results to `docs/root-cause-evaluation.md`.
 ### Background jobs
 
 ```powershell
+.\.venv\Scripts\python.exe -m api.jobs forms      # Google Form responses -> survey_responses (checked, anonymised)
 .\.venv\Scripts\python.exe -m api.jobs etl        # surveys (MongoDB) -> indirect_attainment, then recompute
 .\.venv\Scripts\python.exe -m api.jobs audit      # audit_outbox -> hash-chained MongoDB audit_log
 .\.venv\Scripts\python.exe -m api.jobs anchor     # copy the chain head into audit_anchor
@@ -282,8 +286,38 @@ false-positive and noise-sensitivity results to `docs/root-cause-evaluation.md`.
   recorded event as an anchor: deleting the newest documents is reported, and the writer stops
   (`ChainError`) rather than writing over the gap. A PostgreSQL reset does not break the chain; it
   carries on from its head.
-- **Schedule.** Outbox every 30 s, ETL 01:30, verify 02:00, anchor 23:55 (Asia/Kolkata). A run
+- **Schedule.** Outbox every 30 s, Google Forms fetch 01:15, ETL 01:30, verify 02:00, anchor 23:55 (Asia/Kolkata). A run
   missed while the machine was off happens once when it is back.
+
+### Google Forms surveys (setup, once)
+
+Course-exit surveys are created as Google Forms in each teacher's own Google account. The server
+needs one free Google Cloud project (no billing account is needed):
+
+1. Open https://console.cloud.google.com, create a project (e.g. `copo-surveys`).
+2. **APIs & Services → Library**: enable the **Google Forms API**.
+3. **APIs & Services → OAuth consent screen** (Google Auth Platform → Branding/Audience/Data access):
+   app name and support email; audience **External**, publishing status **Testing**; add the scopes
+   `.../auth/forms.body`, `.../auth/forms.responses.readonly`, `.../auth/drive.file` (only to
+   delete a form this app made if creating it fails), `openid` and `email`; under **Test
+   users** add the Google account of every teacher who will create forms.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID**: type **Web
+   application**, authorised redirect URI `http://localhost:8000/api/google/callback`.
+5. Put the client ID and secret in `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and a
+   token key as `GOOGLE_TOKEN_KEY` (`python -c "from cryptography.fernet import Fernet;
+   print(Fernet.generate_key().decode())"`). Restart the API.
+
+Then a teacher opens an offering's **Survey** tab, clicks **Connect Google** once, and **Create the
+survey form**. Students sign in with their Google account to answer: the form records their
+verified email (Google's "verified" email collection; it cannot be typed), then asks for USN, name
+and phone number and one 1–5 rating per CO. **Share on WhatsApp** opens WhatsApp with the link and a
+message filled in. **Fetch responses** (and the nightly `forms` job at 01:15) reads the responses:
+the verified email must be of `COLLEGE_EMAIL_DOMAIN` (default `rvce.edu.in`) and be the email on
+record for the USN given (`student.email`), so nobody can answer as a classmate; the USN must be
+enrolled, every CO rated, and the response the student's first. It is then stored like an in-app
+survey, with a hashed USN only. Email, name and phone number are not stored. Refresh tokens are
+stored encrypted and only their owner can use them; the Google sign-in only completes in the
+browser that started it.
 
 ### Error codes
 
@@ -307,7 +341,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 179 tests pass in about six minutes (the OCR tests need Tesseract and the digit model, and are
+All 188 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 

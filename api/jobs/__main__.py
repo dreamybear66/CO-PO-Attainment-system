@@ -1,5 +1,6 @@
 """Run background jobs by hand or on a schedule.
 
+  python -m api.jobs forms        fetch Google Form survey responses into MongoDB
   python -m api.jobs etl          survey ETL into indirect_attainment
   python -m api.jobs audit        move pending audit rows into the MongoDB chain
   python -m api.jobs anchor       copy the chain head into audit_anchor
@@ -20,6 +21,9 @@ from api.mongo import get_db
 def run(job: str, dbname: str | None = None, mongo_name: str | None = None) -> dict:
     mongo = get_db(mongo_name)
     with psycopg.connect(config.owner_dsn(dbname), autocommit=True) as pg:
+        if job == "forms":
+            from api.routers.survey_forms import sync_all
+            return sync_all(pg, mongo)
         if job == "etl":
             return etl.run_survey_etl(pg, mongo)
         if job == "audit":
@@ -40,6 +44,7 @@ def schedule() -> None:
     s = BlockingScheduler(timezone="Asia/Kolkata",
                           job_defaults={"coalesce": True, "misfire_grace_time": None, "max_instances": 1})
     s.add_job(lambda: print("audit", run("audit")), "interval", seconds=30, id="audit")
+    s.add_job(lambda: print("forms", run("forms")), "cron", hour=1, minute=15, id="forms")   # before the ETL
     s.add_job(lambda: print("etl", run("etl")), "cron", hour=1, minute=30, id="etl")
     s.add_job(lambda: print("anchor", run("anchor")), "cron", hour=23, minute=55, id="anchor")
     s.add_job(lambda: print("verify", run("verify")), "cron", hour=2, minute=0, id="verify")
