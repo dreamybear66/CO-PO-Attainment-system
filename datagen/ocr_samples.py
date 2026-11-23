@@ -4,7 +4,8 @@
 
 Page 1 is a printed question paper; each later page is one student's cover page (api/ocr/layout.py)
 with marks "handwritten" from MNIST's held-out digits, which the digit model never saw. Pages are
-rasterised and lightly rotated, shifted and noised like a scan, then saved as an image-only PDF.
+rasterised and lightly rotated, shifted and noised like a scan, then saved as JPEG pages in an
+image-only PDF.
 An answer key (<out>.json) records every true value, for scripts/evaluate_ocr.py.
 
 Everything is synthetic: no real question paper, answer sheet or student mark is used.
@@ -173,9 +174,10 @@ def build_pdf(key: Key, out: Path, seed: int = 7, digits: np.ndarray | None = No
 
     pdf = fitz.open()
     for img in pages:
-        ok, png = cv2.imencode(".png", img)
+        # JPEG, as scanners save: a noisy page as PNG is ~1.8 MB, as JPEG ~0.2 MB.
+        ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 80])
         page = pdf.new_page(width=layout.PAGE_W, height=layout.PAGE_H)
-        page.insert_image(page.rect, stream=png.tobytes())
+        page.insert_image(page.rect, stream=jpg.tobytes())
     out.parent.mkdir(parents=True, exist_ok=True)
     pdf.save(out, deflate=True)
     out.with_suffix(".json").write_text(json.dumps(asdict(key), indent=1))

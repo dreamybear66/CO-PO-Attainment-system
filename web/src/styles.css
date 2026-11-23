@@ -324,3 +324,13 @@ tbody tr:nth-child(n + 9), .rows > .row:nth-child(n + 9) { animation-delay: 0.24
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation: none !important; }
 }
+
+/* answer-sheet OCR review (phase 7) */
+.ocr-h { font-size: var(--fs-body); font-weight: 600; margin: 4px 0 8px; }
+.ocr td { vertical-align: top; }
+.ocr-crop { display: block; height: 40px; max-width: 160px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+.ocr-num { width: 64px; }
+.ocr-cos { width: 110px; }
+.ocr-flag { background: var(--pill-warning-bg); }
+.ocr-row-flag td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+.ocr-usn { display: inline-block; margin: 2px 6px 2px 0; }

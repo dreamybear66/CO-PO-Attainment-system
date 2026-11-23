@@ -18,16 +18,24 @@ import numpy as np
 from api import config
 
 MODEL_PATH: Path = config.MODELS_DIR / "digits.joblib"
+MNIST_CACHE: Path = config.MODELS_DIR / "mnist.npz"
 TRAIN_SIZE = 60_000                      # MNIST's standard split: 60k train, 10k test
 BLANK_INK = 0.012                        # share of a box's pixels that must be ink to count as written
 
 
+@lru_cache(maxsize=1)
 def load_mnist() -> tuple[np.ndarray, np.ndarray]:
-    """MNIST as (images uint8 [70000, 28, 28], labels int [70000]); downloaded once by scikit-learn
-    from OpenML into its data cache."""
+    """MNIST as (images uint8 [70000, 28, 28], labels int [70000]). Downloaded once by scikit-learn
+    from OpenML; parsing that file takes minutes, so the arrays are kept in models/mnist.npz."""
+    if MNIST_CACHE.exists():
+        with np.load(MNIST_CACHE) as f:
+            return f["images"], f["labels"]
     from sklearn.datasets import fetch_openml
     x, y = fetch_openml("mnist_784", version=1, as_frame=False, parser="liac-arff", return_X_y=True)
-    return x.reshape(-1, 28, 28).astype(np.uint8), y.astype(int)
+    images, labels = x.reshape(-1, 28, 28).astype(np.uint8), y.astype(int)
+    MNIST_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(MNIST_CACHE, images=images, labels=labels)
+    return images, labels
 
 
 def train(path: Path = MODEL_PATH) -> float:

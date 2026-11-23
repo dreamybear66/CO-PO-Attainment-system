@@ -8,7 +8,7 @@ finds why a CO is weak, simulates rule changes, and keeps a tamper-evident audit
 live in the database, not in code. It is built to save teachers time, not to produce NBA/NAAC
 accreditation reports.
 
-Three features go beyond automation: **answer-sheet OCR** (planned), **early-warning prediction**
+Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
 (planned) and **prerequisite-aware root-cause analysis** (built).
 
 **Status:** phases 1–6 are built and 166 tests pass. Phases 7–10 (OCR, Google Forms surveys, early
@@ -46,17 +46,22 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   hash-chained MongoDB log with a daily anchor and a verifier.
 - **Access control:** PostgreSQL row-level security per role (HoD, faculty, coordinator, student).
   Faculty see only their own offerings and students only their own rows.
+- **Answer-sheet OCR (novelty):** upload one scanned PDF per assessment ("Read PDF" on the Marks
+  tab). Page 1 is the question paper: Tesseract reads each question's number, max marks, COs and
+  Bloom level. Every later page is a student's cover page: the corner squares straighten the scan
+  and a digit model trained on MNIST reads the USN and the handwritten marks. Each mark is chosen
+  from 0 to its question's maximum and each USN among the enrolled students, so most misreads
+  cannot happen; anything unsure, a total that does not add up, or a duplicate USN is highlighted.
+  Nothing is saved until the teacher ticks that they checked the highlighted values; the marks then
+  go through the same validation as a CSV upload. Everything runs locally and the scans are not
+  stored. The cover-page layout is a synthetic stand-in (`api/ocr/layout.py`).
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
 
-### Planned (phases 7–10)
+### Planned (phases 8–10)
 
-- **Answer-sheet OCR (novelty):** upload one PDF per assessment. Page 1 is the question paper; OCR
-  reads each question's number, max marks, CO and Bloom level. The next pages are each student's
-  answer-sheet cover page; OCR reads the handwritten per-question marks. Every value is shown on a
-  review screen and saved only after the teacher confirms it. OCR runs locally with free tools.
 - **Google Forms surveys:** the course-exit survey is created as a Google Form (college email, USN,
   name, phone, then one 1–5 rating per CO) and shared with a WhatsApp button that opens WhatsApp with
   the link filled in. Responses are matched to enrolled students, then only a hashed USN is kept. A
