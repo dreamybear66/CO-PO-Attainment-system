@@ -71,7 +71,3 @@ def tesseract_cmd() -> str:
     default = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
     return _env("TESSERACT_CMD", str(default) if default.exists() else "tesseract")
 
-
-def ocr_review_confidence() -> float:
-    """Digits read with less confidence are highlighted on the review screen."""
-    return float(_env("OCR_REVIEW_CONFIDENCE", "0.90"))

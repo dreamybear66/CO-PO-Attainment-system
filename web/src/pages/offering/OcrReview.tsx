@@ -6,7 +6,7 @@ import type { OfferingDetail } from './types'
 
 // What POST /api/assessments/{id}/ocr returns: suggestions only, nothing is saved yet.
 export type OcrQuestion = { q_no: string; text: string; max_marks: number; cos: number[]; bloom: number | null; problems: string[] }
-type OcrMark = { q_no: string; value: number; blank: boolean; confidence: number; check: boolean; image: string }
+type OcrMark = { q_no: string; value: number | null; blank: boolean; confidence: number; check: boolean; image: string | null }
 type OcrSheet = {
   page: number; usn: string | null; usn_confidence: number; usn_image: string; check: boolean; problems: string[]
   marks: OcrMark[]; total: { value: number | null; confidence: number; image: string } | null
@@ -14,7 +14,7 @@ type OcrSheet = {
 export type OcrResult = {
   assessment: { assessment_id: number; name: string; max_marks: string }
   paper: { questions: OcrQuestion[]; warnings: string[]; paper_max: number | null; same_as_saved: boolean; marks_entered: number }
-  sheets: OcrSheet[]; absent: string[]; threshold: number
+  sheets: OcrSheet[]; absent: string[]; absent_with_marks: string[]; threshold: number
 }
 
 /** Review screen for one read PDF: the teacher corrects what OCR suggested and confirms it. */
@@ -23,7 +23,9 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
   onSaved: (message: string) => void; onClose: () => void; onErrors: (rows: RowError[] | null) => void
 }) {
   const [questions, setQuestions] = useState(() => data.paper.questions.map((q) => ({ ...q, cosText: q.cos.join(', ') })))
-  const [sheets, setSheets] = useState(() => data.sheets.map((s) => ({ ...s, marks: s.marks.map((m) => ({ ...m, text: String(m.value) })) })))
+  const [sheets, setSheets] = useState(() => data.sheets.map((s) => ({ ...s, marks: s.marks.map((m) => ({ ...m, text: m.value === null ? '' : String(m.value) })) })))
+  const [skipped, setSkipped] = useState<Set<number>>(new Set())
+  const [overwriteAbsent, setOverwriteAbsent] = useState(false)
   const [onlyCheck, setOnlyCheck] = useState(true)
   const [checked, setChecked] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -32,22 +34,29 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
   const allUsns = useMemo(() => [...new Set([...data.sheets.map((s) => s.usn).filter(Boolean) as string[], ...data.absent])].sort(), [data])
 
   const usnCount = new Map<string, number>()
-  sheets.forEach((s) => s.usn && usnCount.set(s.usn, (usnCount.get(s.usn) ?? 0) + 1))
+  sheets.forEach((s) => s.usn && !skipped.has(s.page) && usnCount.set(s.usn, (usnCount.get(s.usn) ?? 0) + 1))
+  const kept = sheets.filter((s) => !skipped.has(s.page))
   const absent = allUsns.filter((u) => !usnCount.has(u))
+  // A student with no sheet here but marks already saved (e.g. scanned in another PDF) keeps them,
+  // unless the teacher explicitly marks them absent too.
+  const hasMarks = new Set(data.absent_with_marks)
+  const absentNew = absent.filter((u) => !hasMarks.has(u))
+  const absentKept = absent.filter((u) => hasMarks.has(u))
+  const maxOf = new Map(questions.map((q) => [q.q_no, q.max_marks]))
   const parsedCos = questions.map((q) => q.cosText.split(/[\s,]+/).filter(Boolean).map(Number))
   const questionProblems = questions.map((q, i) =>
     !parsedCos[i].length || parsedCos[i].some((c) => !coNumbers.has(c)) ? 'COs must be CO numbers of this course' :
     !(q.max_marks >= 1 && q.max_marks <= 99) ? 'Max marks must be 1 to 99' : null)
   const markProblem = (s: (typeof sheets)[number], i: number) => {
     const v = Number(s.marks[i].text)
-    const max = questions[i]?.max_marks ?? 0
+    const max = maxOf.get(s.marks[i].q_no) ?? 0
     return s.marks[i].text === '' || !Number.isInteger(v) || v < 0 || v > max ? `0 to ${max}` : null
   }
   const blocking = [
     ...questionProblems.filter(Boolean),
-    ...sheets.filter((s) => !s.usn).map((s) => `Page ${s.page} has no USN`),
+    ...kept.filter((s) => !s.usn).map((s) => `Page ${s.page} has no USN (choose one, or skip the page)`),
     ...[...usnCount].filter(([, n]) => n > 1).map(([u]) => `${u} is on more than one sheet`),
-    ...sheets.flatMap((s) => s.marks.map((_, i) => markProblem(s, i) ? `Page ${s.page} ${s.marks[i].q_no}: enter a mark ${markProblem(s, i)}` : null)).filter(Boolean),
+    ...kept.flatMap((s) => s.marks.map((_, i) => markProblem(s, i) ? `Page ${s.page} ${s.marks[i].q_no}: enter a mark ${markProblem(s, i)}` : null)).filter(Boolean),
   ] as string[]
   const flagged = sheets.filter((s) => s.check).length
   const shown = onlyCheck ? sheets.filter((s) => s.check || !s.usn || (usnCount.get(s.usn) ?? 0) > 1) : sheets
@@ -65,9 +74,13 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
         q.max_marks === data.paper.questions[i].max_marks && parsedCos[i].join() === data.paper.questions[i].cos.join() && q.bloom === data.paper.questions[i].bloom)
       if (!unchanged) await api(`/api/assessments/${id}/questions`, { method: 'PUT', body: payload })
       // The confirmed marks go through the same CSV upload as a hand-made file.
+      // Columns by question number, so a sheet's marks land under their own question.
       const lines = [['usn', ...questions.map((q) => q.q_no)].join(',')]
-      for (const s of sheets) lines.push([s.usn, ...s.marks.map((m) => m.text)].join(','))
-      for (const u of absent) lines.push([u, ...questions.map(() => 'AB')].join(','))
+      for (const s of kept) {
+        const byQ = new Map(s.marks.map((m) => [m.q_no, m.text]))
+        lines.push([s.usn, ...questions.map((q) => byQ.get(q.q_no) ?? '')].join(','))
+      }
+      for (const u of [...absentNew, ...(overwriteAbsent ? absentKept : [])]) lines.push([u, ...questions.map(() => 'AB')].join(','))
       const form = new FormData()
       form.append('file', new Blob([lines.join('\n')], { type: 'text/csv' }), 'ocr.csv')
       const r = await api<{ saved: number }>(`/api/assessments/${id}/marks`, { form })
@@ -83,7 +96,7 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
     <section className="panel ocr" aria-labelledby="t-ocr">
       <header>
         <h2 id="t-ocr">Check the scanned sheets: {data.assessment.name}</h2>
-        <span className="meta">{sheets.length} sheets · {flagged} to check · {absent.length} without a sheet</span>
+        <span className="meta">{sheets.length} sheets · {flagged} to check · {skipped.size} skipped · {absent.length} without a sheet</span>
       </header>
       <p className="small muted" style={{ marginBottom: 12 }}>
         Nothing is saved yet. Values read with less than {Math.round(data.threshold * 100)}% confidence, totals that do not add up and
@@ -126,8 +139,10 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
             <thead><tr><th className="n">Page</th><th>USN</th>{questions.map((q) => <th key={q.q_no}>{q.q_no}<span className="sub">of {q.max_marks}</span></th>)}<th>Total on sheet</th></tr></thead>
             <tbody>
               {shown.map((s) => (
-                <tr key={s.page} className={s.check ? 'ocr-row-flag' : undefined}>
-                  <td className="n num">{s.page}</td>
+                <tr key={s.page} className={skipped.has(s.page) ? 'ocr-skipped' : s.check ? 'ocr-row-flag' : undefined}>
+                  <td className="n num">{s.page}
+                    <label className="sub"><input type="checkbox" checked={skipped.has(s.page)} aria-label={`Skip page ${s.page}`}
+                      onChange={(e) => setSkipped((all) => { const n = new Set(all); if (e.target.checked) { n.add(s.page) } else { n.delete(s.page) } return n })} /> skip</label></td>
                   <td className={s.usn_confidence < data.threshold || !s.usn || (usnCount.get(s.usn) ?? 0) > 1 ? 'ocr-flag' : undefined}>
                     <img className="ocr-crop" src={s.usn_image} alt={`USN as written on page ${s.page}`} />
                     <select className="input" value={s.usn ?? ''} aria-label={`USN on page ${s.page}`}
@@ -139,7 +154,7 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
                   </td>
                   {s.marks.map((m, i) => (
                     <td key={m.q_no} className={m.check || markProblem(s, i) ? 'ocr-flag' : undefined}>
-                      <img className="ocr-crop" src={m.image} alt={`${m.q_no} mark as written on page ${s.page}`} />
+                      {m.image && <img className="ocr-crop" src={m.image} alt={`${m.q_no} mark as written on page ${s.page}`} />}
                       <input className="input ocr-num" inputMode="numeric" value={m.text} aria-label={`${m.q_no} mark on page ${s.page}`}
                              onChange={(e) => setMark(s.page, i, e.target.value)} />
                       {m.check && <span className="sub">{Math.round(m.confidence * 100)}% sure</span>}
@@ -155,7 +170,14 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
       )}
 
       <h3 className="ocr-h" style={{ marginTop: 20 }}>No sheet ({absent.length})</h3>
-      <p className="small">{absent.length ? <>Saved as absent (<span className="id">AB</span>, counts as zero): {absent.map((u) => <span key={u} className="id ocr-usn">{u}</span>)}</> : 'Every enrolled student has a sheet.'}</p>
+      {absent.length === 0 && <p className="small">Every enrolled student has a sheet.</p>}
+      {absentNew.length > 0 && <p className="small">Saved as absent (<span className="id">AB</span>, counts as zero): {absentNew.map((u) => <span key={u} className="id ocr-usn">{u}</span>)}</p>}
+      {absentKept.length > 0 && (
+        <p className="small">
+          Already have marks for this assessment, kept as they are: {absentKept.map((u) => <span key={u} className="id ocr-usn">{u}</span>)}
+          <br /><label><input type="checkbox" checked={overwriteAbsent} onChange={(e) => setOverwriteAbsent(e.target.checked)} /> Mark these {absentKept.length} as absent too, replacing their marks</label>
+        </p>
+      )}
 
       {blocking.length > 0 && <div className="note" role="status">{blocking.slice(0, 6).map((b) => <div key={b}>{b}</div>)}{blocking.length > 6 && <div>…and {blocking.length - 6} more</div>}</div>}
       {error && <div className="error-box" role="alert">{error}</div>}

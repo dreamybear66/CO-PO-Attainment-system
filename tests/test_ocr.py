@@ -200,3 +200,47 @@ def test_ocr_refuses_locked_assessments_and_non_pdfs(client, db):
     assert r.status_code == 409
     assert client.post("/api/assessments/3/ocr", headers=login(client, "fac_b"),
                        files={"file": ("x.pdf", b"x", "application/pdf")}).status_code == 404
+
+
+# ---------------------------------------------------------------- review fixes (PR #12)
+
+def fake_raw(n_paper_questions=3, rows=None, aligned=True):
+    """What reader.read_pdf returns, without a PDF: every mark row reads as `rows[i]` (units digit)."""
+    rows = rows or [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+    sheet = {"page": 2, "aligned": aligned, "image": "x"}
+    if aligned:
+        sheet |= {"usn": {"probas": [onehot(2), onehot(5), onehot(0), onehot(0), onehot(1)], "image": "u"},
+                  "marks": [{"probas": [None, onehot(v)], "image": f"r{i}"} for i, v in enumerate(rows)],
+                  "total": {"probas": [None, None, None], "image": "t"}}
+    qs = [{"q_no": f"Q{i}", "text": "", "max_marks": 9, "cos": [1], "bloom": 2} for i in range(1, n_paper_questions + 1)]
+    return {"paper": {"questions": qs, "paper_max": None, "warnings": []}, "sheets": [sheet]}
+
+
+def test_marks_follow_question_numbers_not_list_position():
+    from api.ocr import reader
+    # Page 1's Q3 line could not be read: Q4 must still come from the Q4 row, not the Q3 row.
+    qs = [{"q_no": "Q1", "max_marks": 9}, {"q_no": "Q2", "max_marks": 9}, {"q_no": "Q4", "max_marks": 9}]
+    r = reader.review(fake_raw(), qs, ["1RV25WX001"], 0.9)
+    assert [(m["q_no"], m["value"]) for m in r["sheets"][0]["marks"]] == [("Q1", 1), ("Q2", 2), ("Q4", 4)]
+
+
+def test_an_unreadable_page_gets_one_empty_input_per_question():
+    from api.ocr import reader
+    qs = [{"q_no": "Q1", "max_marks": 9}, {"q_no": "Q2", "max_marks": 9}]
+    s = reader.review(fake_raw(aligned=False), qs, ["1RV25WX001"], 0.9)["sheets"][0]
+    assert s["check"] and [(m["q_no"], m["value"], m["check"]) for m in s["marks"]] == [("Q1", None, True), ("Q2", None, True)]
+
+
+def test_questions_beyond_the_cover_page_are_not_returned_and_existing_marks_are_reported(client, db, monkeypatch):
+    from api.routers import ocr as ocr_router
+    monkeypatch.setattr(ocr_router.reader, "read_pdf", lambda data, n_questions=None: fake_raw(12))
+    db.execute("UPDATE attainment_config SET ocr_review_confidence = 0.55")
+    db.execute("INSERT INTO assessment_question (question_id, assessment_id, q_no, max_marks) VALUES (31, 3, 'Q1', 30)")
+    db.execute("INSERT INTO question_co_map VALUES (31, 1, 1)")
+    db.execute("INSERT INTO student_question_mark VALUES (50, 31, 12, false)")          # 1RV25WX050 already marked
+    body = client.post("/api/assessments/3/ocr", headers=login(client, "fac_a"),
+                       files={"file": ("t.pdf", b"%PDF", "application/pdf")}).json()
+    assert [q["q_no"] for q in body["paper"]["questions"]] == [f"Q{i}" for i in range(1, 11)]
+    assert any("Q11, Q12" in w for w in body["paper"]["warnings"])
+    assert "1RV25WX050" in body["absent"] and body["absent_with_marks"] == ["1RV25WX050"]
+    assert body["threshold"] == 0.55                                   # from the rule version, not .env
