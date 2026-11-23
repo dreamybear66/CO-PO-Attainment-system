@@ -6,7 +6,9 @@
 
 The rescope adds two tables in `011_survey_forms.sql`, 31 in all: `google_account` (a teacher's
 encrypted Google refresh token, visible to that user only and not audited) and `survey_form` (the
-Google Form of an offering and its question ids). Migration 010 adds `assessment_question.bloom_level`.
+Google Form of an offering and its question ids); it also adds `student.email`, the college email a
+survey response's verified email must match. Migration 010 adds `assessment_question.bloom_level` and
+`attainment_config.ocr_review_confidence`.
 
 ```mermaid
 erDiagram

@@ -8,6 +8,11 @@
 --   Forms question ids of each field, so responses can be read back. Responses themselves go to
 --   MongoDB survey_responses through the usual checks; names and phone numbers are never stored.
 
+-- A student's college email. Google Forms responses carry the respondent's verified Google email,
+-- which must be this address for the USN the response names (review of #13: the form's email was
+-- free text, so anyone could answer as any student). Synthetic in the demo data.
+ALTER TABLE student ADD COLUMN email text UNIQUE CHECK (email = lower(email));
+
 -- The caller's app_user id, from the username the API sets for each request.
 CREATE FUNCTION fn_my_user_id() RETURNS int
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$

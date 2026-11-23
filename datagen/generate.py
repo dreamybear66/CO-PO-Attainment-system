@@ -157,7 +157,7 @@ class Builder:
                 usn = f"1RV{batch % 100:02d}IS{i + 1:03d}"
                 section = cat.SECTIONS[i // cat.STUDENTS_PER_SECTION]
                 out[batch][section].append(usn)
-                self.rows["student"].append((usn, self.fake.name(), 1, batch, section))
+                self.rows["student"].append((usn, self.fake.name(), 1, batch, section, f"{usn.lower()}@rvce.edu.in"))
                 row = self.skill_row[usn] = len(self.skill_row)
                 theta = self.rng.normal()
                 self.skill[row] = SHARED_ABILITY * theta + UNIQUE * self.rng.normal(size=len(self.co_id))
@@ -281,7 +281,7 @@ COLUMNS = {
     "department": "dept_id, name",
     "program": "program_id, dept_id, name, degree",
     "faculty": "faculty_id, dept_id, name, email",
-    "student": "usn, name, program_id, admission_year, section",
+    "student": "usn, name, program_id, admission_year, section, email",
     "course": "course_id, code, title, credits, semester, program_id",
     "course_prerequisite": "course_id, prereq_course_id",
     "program_outcome": "po_id, program_id, code, type, statement",

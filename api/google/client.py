@@ -18,9 +18,11 @@ AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 FORMS_URL = "https://forms.googleapis.com/v1"
+DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
 SCOPES = ["openid", "email",
           "https://www.googleapis.com/auth/forms.body",
-          "https://www.googleapis.com/auth/forms.responses.readonly"]
+          "https://www.googleapis.com/auth/forms.responses.readonly",
+          "https://www.googleapis.com/auth/drive.file"]          # only to delete a form this app made
 STATE_AUDIENCE = "google-connect"          # a state token can never pass as a sign-in token
 
 transport: httpx.BaseTransport | None = None
@@ -58,8 +60,15 @@ def decrypt(token_enc: str) -> str:
 
 # ---------------------------------------------------------------- sign-in
 
-def state_token(user_id: int, username: str, return_to: str) -> str:
-    claims = {"aud": STATE_AUDIENCE, "uid": user_id, "un": username, "ret": return_to,
+def nonce_hash(nonce: str) -> str:
+    import hashlib
+    return hashlib.sha256(nonce.encode()).hexdigest()
+
+
+def state_token(user_id: int, username: str, return_to: str, nonce: str) -> str:
+    """Signed state for the Google round trip. It carries the hash of a nonce that is also set as an
+    HttpOnly cookie in the browser that started the sign-in, so the callback only accepts that browser."""
+    claims = {"aud": STATE_AUDIENCE, "uid": user_id, "un": username, "ret": return_to, "nh": nonce_hash(nonce),
               "exp": datetime.now(timezone.utc) + timedelta(minutes=10)}
     return jwt.encode(claims, config.jwt_secret(), algorithm="HS256")
 
@@ -137,6 +146,15 @@ class Forms:
 
     def create(self, title: str) -> dict:
         return self._call("POST", "/forms", json={"info": {"title": title, "documentTitle": title}})
+
+    def delete(self, form_id: str) -> None:
+        """Best effort: remove a form this app created (Drive API, drive.file scope)."""
+        try:
+            r = self.client.delete(f"{DRIVE_FILES_URL}/{form_id}")
+        except httpx.HTTPError as exc:
+            raise GoogleError("Google Drive could not be reached") from exc
+        if r.status_code >= 400:
+            raise GoogleError(f"Google Drive refused to delete the form ({r.status_code})")
 
     def batch_update(self, form_id: str, requests: list[dict]) -> dict:
         return self._call("POST", f"/forms/{form_id}:batchUpdate", json={"requests": requests})

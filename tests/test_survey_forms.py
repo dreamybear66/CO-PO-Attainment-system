@@ -30,6 +30,8 @@ class FakeGoogle:
         self.calls: list[tuple[str, str]] = []
         self.batch: list[dict] = []
         self.responses: list[dict] = []
+        self.deleted: list[str] = []
+        self.fail_batch = False
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -40,9 +42,14 @@ class FakeGoogle:
                                              "id_token": f"h.{payload}.s"})
         if url.startswith(google.REVOKE_URL):
             return httpx.Response(200)
+        if request.method == "DELETE" and url.startswith(google.DRIVE_FILES_URL):
+            self.deleted.append(url.rsplit("/", 1)[1])
+            return httpx.Response(204)
         if request.method == "POST" and url.endswith("/v1/forms"):
             return httpx.Response(200, json={"formId": "F1", "responderUri": "https://docs.google.com/forms/d/e/F1/viewform"})
         if url.endswith(":batchUpdate"):
+            if self.fail_batch:
+                return httpx.Response(500, json={"error": {"message": "backend error"}})
             reqs = json.loads(request.content)["requests"]
             self.batch = reqs
             return httpx.Response(200, json={"replies": [
@@ -56,11 +63,18 @@ class FakeGoogle:
 
 
 def answer(email, usn, ratings, name="A Student", phone="9999999999"):
-    # Question ids follow the fake batchUpdate: q1 email, q2 usn, q3 name, q4 phone, q5.. COs
-    # (request 0 is the description update).
-    values = {"q1": email, "q2": usn, "q3": name, "q4": phone}
+    # Question ids follow the fake batchUpdate: q2 usn, q3 name, q4 phone, q5.. COs (requests 0 and 1
+    # are the description and settings updates). The email is Google's verified respondent email.
+    values = {"q2": usn, "q3": name, "q4": phone}
     values.update({f"q{5 + i}": str(r) for i, r in enumerate(ratings) if r is not None})
-    return {"answers": {k: {"questionId": k, "textAnswers": {"answers": [{"value": v}]}} for k, v in values.items()}}
+    out = {"answers": {k: {"questionId": k, "textAnswers": {"answers": [{"value": v}]}} for k, v in values.items()}}
+    if email:
+        out["respondentEmail"] = email
+    return out
+
+
+def mail(usn):
+    return f"{usn.lower()}@rvce.edu.in"
 
 
 @pytest.fixture
@@ -83,6 +97,7 @@ def client(db, mongo):
             (2, 'fac_b', %(pw)s, 'faculty', 2, NULL),
             (3, 'hod', %(pw)s, 'admin', NULL, NULL),
             (4, 'coord', %(pw)s, 'coordinator', NULL, NULL)""", {"pw": pw})
+    db.execute("UPDATE student SET email = lower(usn) || '@rvce.edu.in'")         # the college emails on record
     app.state.dbname = conftest.TEST_DB
     app.state.mongo_name = conftest.TEST_DB
     with TestClient(app) as c:
@@ -146,13 +161,15 @@ def test_form_is_created_with_identity_fields_and_one_scale_per_co(client, db, f
     r = client.post("/api/offerings/1/survey-form", headers=h)
     assert r.status_code == 201, r.text
     assert r.json()["responder_uri"].endswith("/viewform")
+    assert {"updateSettings": {"settings": {"emailCollectionType": "VERIFIED"},
+                               "updateMask": "emailCollectionType"}} in fake.batch
     items = [x["createItem"]["item"] for x in fake.batch if "createItem" in x]
-    assert [i["title"] for i in items[:4]] == ["College email", "USN", "Name", "Phone number"]
+    assert [i["title"] for i in items[:3]] == ["USN", "Name", "Phone number"]
     scales = [i for i in items if "scaleQuestion" in i["questionItem"]["question"]]
     assert len(scales) == 3 and all(s["questionItem"]["question"]["scaleQuestion"]["high"] == 5 for s in scales)
     assert ("POST", "https://forms.googleapis.com/v1/forms/F1:setPublishSettings") in fake.calls
     ids = db.execute("SELECT question_ids FROM survey_form WHERE offering_id = 1").fetchone()[0]
-    assert ids["email"] == "q1" and ids["usn"] == "q2" and ids["cos"] == {"1": "q5", "2": "q6", "3": "q7"}
+    assert "email" not in ids and ids["usn"] == "q2" and ids["cos"] == {"1": "q5", "2": "q6", "3": "q7"}
     assert client.post("/api/offerings/1/survey-form", headers=h).status_code == 409    # one per offering
     assert client.post("/api/offerings/1/survey-form", headers=login(client, "fac_b")).status_code == 404
 
@@ -161,18 +178,23 @@ def test_responses_are_checked_stored_anonymously_and_counted(client, db, mongo,
     h = login(client, "fac_a")
     connect_google(client, h)
     client.post("/api/offerings/1/survey-form", headers=h)
+    db.execute("INSERT INTO student (usn, name, program_id, admission_year, section, email) "
+               "VALUES ('1RV25WX099', 'Not enrolled', 1, 2025, 'A', '1rv25wx099@rvce.edu.in')")
     fake.responses = [
-        answer("a@rvce.edu.in", "1rv25wx001", [4, 5, 3]),          # accepted (USN case does not matter)
-        answer("a@rvce.edu.in", "1RV25WX001", [1, 1, 1]),          # same student again
+        answer(mail("1RV25WX001"), "1rv25wx001", [4, 5, 3]),       # accepted (USN case does not matter)
+        answer(mail("1RV25WX001"), "1RV25WX001", [1, 1, 1]),       # same student again
+        answer(mail("1RV25WX002"), "1RV25WX005", [1, 1, 1]),       # a classmate answering as someone else
         answer("b@gmail.com", "1RV25WX002", [5, 5, 5]),            # not a college email
+        answer(None, "1RV25WX006", [5, 5, 5]),                     # no verified email collected
         answer("c@rvce.edu.in", "ABC", [5, 5, 5]),                 # USN format
-        answer("d@rvce.edu.in", "1RV25WX099", [5, 5, 5]),          # not enrolled
-        answer("e@rvce.edu.in", "1RV25WX003", [5, None, 5]),       # a CO left unrated
-        answer("f@rvce.edu.in", "1RV25WX004", [2, 4, 5]),          # accepted
+        answer(mail("1RV25WX099"), "1RV25WX099", [5, 5, 5]),       # not enrolled
+        answer(mail("1RV25WX003"), "1RV25WX003", [5, None, 5]),    # a CO left unrated
+        answer(mail("1RV25WX004"), "1RV25WX004", [2, 4, 5]),       # accepted
     ]
     s = client.post("/api/offerings/1/survey-form/sync", headers=h).json()
-    assert s["read"] == 7 and s["accepted"] == 2 and s["already"] == 1
-    assert s["rejected"] == {"Not a college email": 1, "USN not in the right format": 1,
+    assert s["read"] == 9 and s["accepted"] == 2 and s["already"] == 1
+    assert s["rejected"] == {"Email is not the one on record for this USN": 1, "Not a college email": 1,
+                             "No verified email (form not collecting emails)": 1, "USN not in the right format": 1,
                              "USN not enrolled in this offering": 1, "Ratings incomplete or out of range": 1}
     docs = list(mongo.survey_responses.find({"offering_id": 1}, {"_id": 0}))
     assert len(docs) == 2
@@ -205,7 +227,7 @@ def test_nightly_job_fetches_with_the_owners_connection(client, db, mongo, fake)
     h = login(client, "fac_a")
     connect_google(client, h)
     client.post("/api/offerings/1/survey-form", headers=h)
-    fake.responses = [answer("a@rvce.edu.in", "1RV25WX010", [3, 3, 3])]
+    fake.responses = [answer(mail("1RV25WX010"), "1RV25WX010", [3, 3, 3])]
     import psycopg
 
     from api import config
@@ -216,3 +238,25 @@ def test_nightly_job_fetches_with_the_owners_connection(client, db, mongo, fake)
     with psycopg.connect(config.owner_dsn(conftest.TEST_DB), autocommit=True) as pg:
         out = sync_all(pg, mongo)
     assert out["forms"] == 0 and out["skipped"][0]["reason"] == "owner not connected to Google"
+
+
+def test_a_sign_in_link_finished_in_another_browser_is_refused(client, db, fake):
+    """Review of #13: teacher A must not be able to get teacher B's Google account linked to A."""
+    url = client.get("/api/google/connect", params={"return_to": "/offerings/1"},
+                     headers=login(client, "fac_a")).json()["url"]
+    state = parse_qs(urlparse(url).query)["state"][0]
+    with TestClient(app) as other_browser:                      # B's browser has no nonce cookie
+        r = other_browser.get("/api/google/callback", params={"state": state, "code": "code-1"},
+                              follow_redirects=False)
+    assert r.status_code == 303 and "google_error" in r.headers["location"]
+    assert db.execute("SELECT count(*) FROM google_account").fetchone()[0] == 0
+    assert not any(u == google.TOKEN_URL for _, u in fake.calls)              # the code was never exchanged
+
+
+def test_a_failed_creation_leaves_no_form_behind(client, db, fake):
+    h = login(client, "fac_a")
+    connect_google(client, h)
+    fake.fail_batch = True
+    r = client.post("/api/offerings/1/survey-form", headers=h)
+    assert r.status_code == 502 and fake.deleted == ["F1"]
+    assert db.execute("SELECT count(*) FROM survey_form").fetchone()[0] == 0

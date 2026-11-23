@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–8 are built (PRs open); 186 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–8 are built (PRs open); 188 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -321,7 +321,8 @@ Where the build differs from the plan above:
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
 | Survey sharing | WhatsApp share button | a `wa.me` link with the form link and a message filled in | free and needs no WhatsApp API; the teacher picks the group |
-| Survey responses | Forms API reference checks | every response goes through the in-app survey checks plus college-email and USN-format checks; only counts are kept about a fetch | one set of rules for both ways of answering; email, name and phone never stored |
+| Survey responses | Forms API reference checks | the form collects Google-verified emails; every response must come from the email on record for its USN (`student.email`), then goes through the in-app survey checks; only counts are kept about a fetch | a typed email let anyone answer as a classmate (review of #13); email, name and phone never stored |
+| Google sign-in | signed state | signed state plus a nonce cookie of the browser that started it; creation under a per-offering lock, a half-made form deleted (`drive.file`) | OAuth login CSRF and orphan forms (review of #13) |
 | OCR review threshold | setting | `attainment_config.ocr_review_confidence` (default 0.90, migration 010) | thresholds are data in the rules, not `.env` (review of #12) |
 | OCR pairing and saving | rows by position; every student without a sheet saved as AB | rows by question number; unreadable pages typed in or skipped; AB only for students with no marks yet unless the teacher opts in | a missing question line shifted marks; a second PDF of the same class overwrote the first (review of #12) |
 | OCR value choice | read digit by digit | marks chosen within 0..max, USNs paired across the PDF (Hungarian algorithm) | uses what is known about the paper and the class; on 240 synthetic sheets no wrong value went unflagged |

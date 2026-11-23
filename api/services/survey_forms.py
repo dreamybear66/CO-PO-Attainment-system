@@ -1,10 +1,11 @@
 """Course-exit surveys as Google Forms (phase 8, FR-5.1, FR-5.3 to FR-5.5).
 
-A form asks for college email, USN, name and phone number, then one 1-5 rating per CO. Reading
-responses back, each one goes through the same checks as an in-app survey (services.surveys): the
-email must be of the college domain, the USN enrolled, the offering finished, every CO rated once,
-one response per student. Accepted responses are stored with a hashed USN only; email, name and
-phone number are used for the checks and then dropped. Only counts are kept about the sync.
+A form collects the respondent's verified Google email (Google Forms' "verified" email collection:
+the student signs in), then asks for USN, name and phone number and one 1-5 rating per CO. Reading
+responses back, each one goes through the same checks as an in-app survey (services.surveys), and
+before that the verified email must be the college email on record for the USN given, so nobody
+can answer as another student. Accepted responses are stored with a hashed USN only; email, name
+and phone number are used for the checks and then dropped. Only counts are kept about the sync.
 """
 
 import json
@@ -12,7 +13,7 @@ import re
 from collections import Counter
 from datetime import datetime, timezone
 
-from psycopg.rows import dict_row
+from psycopg.rows import dict_row, tuple_row
 from pymongo.database import Database
 
 from api import config
@@ -20,13 +21,14 @@ from api.google.client import Forms
 from api.services.surveys import SurveyError, finished_sql, submit_survey
 
 USN = re.compile(r"^\d[A-Z]{2}\d{2}[A-Z]{2}\d{3}$")
-FIELDS = [("email", "College email", "Your @{domain} address"),
-          ("usn", "USN", "For example 1RV24IS001"),
+FIELDS = [("usn", "USN", "For example 1RV24IS001"),
           ("name", "Name", "Used only to help you fill the form; not stored"),
           ("phone", "Phone number", "Not stored")]
 
 REASONS = {
+    "no_email": "No verified email (form not collecting emails)",
     "email": "Not a college email",
+    "not_theirs": "Email is not the one on record for this USN",
     "usn": "USN not in the right format",
     "enrolled": "USN not enrolled in this offering",
     "running": "Offering still running (some assessment unlocked)",
@@ -41,10 +43,13 @@ def form_content(code: str, title: str, year: str, section: str, cos: list[dict]
     domain = config.college_email_domain()
     description = (
         "Rate how well this course helped you reach each course outcome (1 = not at all, 5 = fully). "
-        f"Use your @{domain} email and your USN; they are used only to check that you are enrolled "
-        "and answer once. Your name and phone number are not stored, and your ratings are stored "
-        "without your USN.")
-    requests = [{"updateFormInfo": {"info": {"description": description}, "updateMask": "description"}}]
+        f"Sign in with your @{domain} Google account and give your USN; they are used only to check that "
+        "you are enrolled and answer once. Your name and phone number are not stored, and your ratings "
+        "are stored without your USN.")
+    requests = [{"updateFormInfo": {"info": {"description": description}, "updateMask": "description"}},
+                # Google records the signed-in respondent's email; it cannot be typed or faked.
+                {"updateSettings": {"settings": {"emailCollectionType": "VERIFIED"},
+                                    "updateMask": "emailCollectionType"}}]
     index = 0
     for _, label, help_text in FIELDS:
         requests.append({"createItem": {"location": {"index": index}, "item": {
@@ -61,21 +66,31 @@ def form_content(code: str, title: str, year: str, section: str, cos: list[dict]
 
 
 def create(conn, forms: Forms, offering: dict, cos: list[dict], owner_user_id: int) -> dict:
-    """Create and publish the form, then record it. `conn` runs as the teacher (RLS applies)."""
+    """Create and publish the form, then record it. `conn` runs as the teacher (RLS applies) and the
+    caller holds the offering's advisory lock, so a double click cannot make two forms. If anything
+    fails once the form exists in Google, the form is deleted again instead of being left behind."""
     title, requests = form_content(offering["code"], offering["title"], offering["academic_year"],
                                    offering["section"], cos)
     form = forms.create(title)
-    reply = forms.batch_update(form["formId"], requests)
-    question_ids = [r["createItem"]["questionId"][0] for r in reply["replies"] if "createItem" in r]
-    ids = {key: qid for (key, _, _), qid in zip(FIELDS, question_ids[:len(FIELDS)])}
-    ids["cos"] = {str(co["co_id"]): qid for co, qid in zip(cos, question_ids[len(FIELDS):])}
-    forms.publish(form["formId"])
-    edit_uri = f"https://docs.google.com/forms/d/{form['formId']}/edit"
-    conn.execute("""
-        INSERT INTO survey_form (offering_id, form_id, responder_uri, edit_uri, owner_user_id, question_ids)
-        VALUES (%s, %s, %s, %s, %s, %s)""",
-                 (offering["offering_id"], form["formId"], form["responderUri"], edit_uri, owner_user_id,
-                  json.dumps(ids)))
+    try:
+        reply = forms.batch_update(form["formId"], requests)
+        question_ids = [r["createItem"]["questionId"][0] for r in reply["replies"] if "createItem" in r]
+        ids = {key: qid for (key, _, _), qid in zip(FIELDS, question_ids[:len(FIELDS)])}
+        ids["cos"] = {str(co["co_id"]): qid for co, qid in zip(cos, question_ids[len(FIELDS):])}
+        forms.publish(form["formId"])
+        edit_uri = f"https://docs.google.com/forms/d/{form['formId']}/edit"
+        with conn.transaction():          # a savepoint, so a failed insert can still be cleaned up
+            conn.execute("""
+                INSERT INTO survey_form (offering_id, form_id, responder_uri, edit_uri, owner_user_id, question_ids)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
+                         (offering["offering_id"], form["formId"], form["responderUri"], edit_uri,
+                          owner_user_id, json.dumps(ids)))
+    except Exception:
+        try:
+            forms.delete(form["formId"])
+        except Exception:
+            pass                          # nothing more to do; the original error is what matters
+        raise
     return {"form_id": form["formId"], "responder_uri": form["responderUri"], "edit_uri": edit_uri}
 
 
@@ -92,14 +107,22 @@ def sync(pg, mongo: Database, form: dict, forms: Forms) -> dict:
     domain = "@" + config.college_email_domain()
     counts = Counter()
     responses = forms.responses(form["form_id"])
+    usns = sorted({_text(r, ids["usn"]).upper().replace(" ", "") for r in responses})
+    on_record = dict(pg.cursor(row_factory=tuple_row).execute("SELECT usn, email FROM student WHERE usn = ANY(%s)", (usns,)).fetchall())
     for resp in responses:
-        email = _text(resp, ids["email"]).lower()
+        email = resp.get("respondentEmail", "").strip().lower()      # verified by Google, not typed
         usn = _text(resp, ids["usn"]).upper().replace(" ", "")
+        if not email:
+            counts["no_email"] += 1
+            continue
         if not email.endswith(domain):
             counts["email"] += 1
             continue
         if not USN.match(usn):
             counts["usn"] += 1
+            continue
+        if usn in on_record and on_record[usn] != email:
+            counts["not_theirs"] += 1
             continue
         answers = []
         for co_id, qid in ids["cos"].items():
