@@ -3,9 +3,10 @@
 How the CO-PO Attainment Management System gets built. Requirement IDs (FR-x, NFR-x) and suggested
 changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard).
 
-## Progress (2 Nov 2026)
+## Progress (23 Nov 2026)
 
-All six phases are built. 166 tests pass ([docs/test-report.md](docs/test-report.md)).
+Phases 1–6 are built and merged; 166 tests pass. On 23 Nov 2026 the project was rescoped from
+accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
 | --- | --- | --- | --- |
@@ -13,26 +14,37 @@ All six phases are built. 166 tests pass ([docs/test-report.md](docs/test-report
 | 1 — Schema and constraints | Merged | `feat/schema` · #2 | 29 tables, ER diagram, CHECK/EXCLUDE constraints |
 | 2 — Synthetic data | Merged | `feat/datagen` · #3 | 556,800 marks, 1,440 students, 280 offerings, worked-example fixture |
 | 3 — Attainment engine | Merged | `feat/attainment-engine` · #4 | Triggers, `sp_compute_attainment`, matches the worked example exactly |
-| 4 — MongoDB, ETL, audit | PR open | `feat/mongo-audit` · #5 | 11,965 surveys, ETL, 573,223 audit records chained and verified |
-| 5 — Innovation features | PR open | `feat/innovation` · #6 | Root cause (planted cause ranks 1st, decoy excluded), what-if, versioned rules |
-| 6 — API, UI, security | PR open | `feat/web-app` · #7 | RLS on 17 tables, FastAPI, React app, demo script, test report |
+| 4 — MongoDB, ETL, audit | Merged | `feat/mongo-audit` · #5 | 11,965 surveys, ETL, 573,223 audit records chained and verified |
+| 5 — Innovation features | Merged | `feat/innovation` · #6 | Root cause (planted cause ranks 1st, decoy excluded), what-if, versioned rules |
+| 6 — API, UI, security | Merged | `feat/web-app` · #7 | RLS on 17 tables, FastAPI, React app, demo script, test report |
+| NLP plan | Merged | `docs/nlp-plan` · #8 | [nlp.md](nlp.md), a proposal only |
+| Rescope | PR open | `docs/rescope` | PRD, CLAUDE.md, README and this plan updated for teacher automation |
+| UI motion, landing page | Local only | `feat/ui-motion`, `feat/landing-page` | Animation layer, sign-in redesign, landing page (uncommitted) |
+| 7 — Answer-sheet OCR | Not started | — | See [Phase 7](#phase-7--answer-sheet-ocr-novelty--not-started) |
+| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing--not-started) |
+| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty--not-started) |
+| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf--not-started) |
 
 ## Pending
 
 **Needs action**
-- [ ] Merge PRs #5 → #6 → #7 in order. PR #5 still targets `feat/attainment-engine`, which is
-  already merged, so first retarget it with `gh pr edit 5 --base main`. After each merge, retarget
-  the next PR to `main` the same way.
+- [ ] UI work: `feat/ui-motion` (6 commits) and `feat/landing-page` (uncommitted) exist only on one
+  machine and branched before the PR #5–#7 review fixes. Merge `main` in, run the tests, push and
+  open a PR.
+- [ ] Regenerate [docs/test-report.md](docs/test-report.md): it still records the first run
+  (84 tests); the suite now has 166.
 
-**Needs a decision**
-- [ ] Root-cause depth penalty. When every link has strength 3, path strength does not penalise
-  depth, so in 20–40 student cohorts a depth-2 ancestor sometimes outranks the direct cause.
-  Options: break ties by depth, decay 0.8 per extra level, or keep the PRD formula
-  ([docs/root-cause-evaluation.md](docs/root-cause-evaluation.md)).
-- [ ] Final report (Phase 6, step 5): format and template from the course.
-- [ ] Which NBA / NAAC criteria the report and PRD should cite.
+**Needs a decision** (open questions in the PRD)
+- [ ] Final report: format and template from the course.
+- [ ] OCR accuracy target: what share of marks must be read correctly before the teacher's review?
+- [ ] A sample (blank or synthetic) question paper and answer-sheet cover page, so the OCR matches
+  the college layout.
+- [ ] Who owns the Google Cloud project and OAuth consent screen for the Forms API?
+- [ ] Early-warning target: what recall and precision, and what predicted chance flags a student?
+- [ ] Course-file PDF: which sections, and does the college have a template?
 
 **Later (deferred on purpose)**
+- [ ] NLP on survey comments ([nlp.md](nlp.md)).
 - [ ] Per-course component weights: add a nullable `course_id` to `config_component_weight`. This is
   a data and lookup change only; v1 uses one scheme for every course.
 - [ ] Real course catalogue (course titles, CO statements, CO-PO mappings). The demo values are
@@ -78,6 +90,22 @@ Settled in PRD Section 10; the phases below already apply them.
 | S6 | Absent student scores 0 |
 | S10 | Programme-level PO = plain average of offering-level PO values |
 | S11 | Student role included, limited to own rows by RLS |
+| RC | Root-cause depth penalty: path strength × 0.8 for each level beyond the first (`rc_depth_decay`); see [docs/root-cause-evaluation.md](docs/root-cause-evaluation.md) |
+
+## Decisions (23 Nov 2026) — rescope
+
+Recorded in PRD Section 10 as R1–R8; phases 7–10 below apply them.
+
+| # | Decision |
+| --- | --- |
+| R1 | Purpose: automate teachers' CO-PO work. Accreditation reports (NBA SAR / NAAC SSR) are not a goal |
+| R2 | Novelties: answer-sheet OCR, early-warning prediction, root-cause analysis. What-if, versioned rules and the audit log stay as supporting features |
+| R3 | The coordinator role is called Programme coordinator; same rights (`copo_coordinator`) |
+| R4 | Surveys are real Google Forms created through the Forms API, shared with a WhatsApp share button (no paid sending) |
+| R5 | The form asks college email, USN, name and phone; these match the student, then only a hashed USN is stored |
+| R6 | OCR: one PDF per assessment (page 1 question paper, then each student's cover-page marks table); free local OCR; the teacher confirms every value |
+| R7 | Early warning: logistic regression trained on earlier offerings, re-run after each locked CIE |
+| R8 | Course file is generated as a PDF |
 
 ## Phase 1 — Schema and constraints (week 1) · Member A · ✅ done
 
@@ -190,6 +218,54 @@ Output: demo-ready system.
    weakest-CO ranking, root-cause report, what-if side-by-side, audit verification.
 4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`. ✅
 5. Demo script (`scripts/demo.py`) ✅ and final report (pending, see [Pending](#pending)).
+
+## Phase 7 — Answer-sheet OCR (novelty) · not started
+
+Output: a teacher uploads one PDF and gets the question paper and every student's marks, ready to
+confirm. FR-3.7–3.9, NFR-10.
+
+1. Upload endpoint for one PDF per assessment; split it into page images (local, no outside service).
+2. Page 1 (question paper, printed): OCR with Tesseract, parse each question's number, max marks,
+   CO and Bloom level into draft `assessment_question` and `question_co_map` rows.
+3. Pages 2+ (answer-sheet cover pages): locate the printed marks table, read the USN and each
+   handwritten per-question mark with a handwritten-digit model; keep a confidence per value.
+4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
+   nothing is written to the official tables until the teacher confirms. Confirmed marks go through
+   the existing validation, triggers and locking.
+5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values;
+   accuracy is reported against the target still to be agreed.
+
+## Phase 8 — Google Forms surveys and WhatsApp sharing · not started
+
+Output: a teacher clicks once to create the course-exit survey and once to share it. FR-5.1, 5.3–5.5.
+
+1. Google Cloud project + OAuth consent screen (owner to be decided); store the teacher's token.
+2. Create a form per offering: college email, USN, name, phone, then one 1–5 rating per CO.
+3. WhatsApp share button: a `wa.me` link with the form link and a prefilled message.
+4. Pull responses through the Forms API; accept only enrolled USNs with a college email, one per
+   student; store a hashed USN only (name and phone dropped) in `survey_responses`; the existing
+   ETL turns them into indirect attainment.
+5. Dashboard: response rate, rating distribution per CO, count yet to respond.
+
+## Phase 9 — Weak-student lists and early warning (novelty) · not started
+
+Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
+
+1. Weak-student list per CO: students whose CO score is below `target_pct`, from `student_co_score`.
+2. Early warning: logistic regression per CO on the CIE components available so far, trained on
+   earlier offerings of the synthetic data; re-run after each locked CIE.
+3. Show each flagged student with the CO, the predicted chance and the marks that drove the flag.
+   Advisory only; it never changes official attainment.
+4. Evaluate on held-out offerings after CIE-1 and CIE-2 against the recall/precision target still
+   to be agreed.
+
+## Phase 10 — Course-file PDF · not started
+
+Output: a PDF course file per offering. FR-6.6.
+
+1. Sections (to confirm, or a college template): CO and PO attainment tables, charts, weak COs,
+   root-cause findings, improvement actions.
+2. Every number comes from the database; a test checks the worked-example offering's PDF against it.
 
 ## As built vs plan (2 Nov 2026)
 
