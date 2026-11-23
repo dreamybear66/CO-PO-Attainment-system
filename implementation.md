@@ -25,6 +25,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
+| Combined paper, no CSV | PR open | `feat/ocr-combined-paper` | One scanned PDF per sitting (Part A quiz + Part B test), 20-row cover page, typed EL marks, CSV upload removed; decisions M1-M6 |
 
 ## Pending
 
