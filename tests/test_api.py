@@ -184,3 +184,4 @@ def test_spa_fallback_never_serves_files_outside_dist(built_app):
         r = built_app.get(path)
         assert "do-not-serve" not in r.text and "[fonts]" not in r.text, path
     assert built_app.get("/offerings/1").text == "<html>app</html>"
+    assert built_app.get("/api/no-such-endpoint").status_code == 404     # not the app's page
