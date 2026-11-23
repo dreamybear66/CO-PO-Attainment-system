@@ -8,11 +8,11 @@ finds why a CO is weak, simulates rule changes, and keeps a tamper-evident audit
 live in the database, not in code. It is built to save teachers time, not to produce NBA/NAAC
 accreditation reports.
 
-Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
-(planned) and **prerequisite-aware root-cause analysis** (built).
+Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
+**prerequisite-aware root-cause analysis**, all built.
 
-**Status:** phases 1–8 are built and 188 tests pass. Phases 9–10 (early warning and weak-student
-lists, course-file PDF) were added on 23 Nov 2026 and are not built yet. Google Forms surveys need
+**Status:** phases 1–9 are built and 195 tests pass. Phase 10 (course-file PDF), added on 23 Nov
+2026, is not built yet. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -65,17 +65,22 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   filled in. **Fetch responses** (and a nightly job) checks each response like an in-app survey and
   keeps only a hashed USN and the ratings. The tab shows the response rate and the ratings per CO.
   Needs a one-time Google Cloud setup (see Google Forms surveys below).
+- **Weak-student lists:** an offering's **Students** tab lists, per CO, the students whose CO score
+  is below target (from the marks so far during the term), with **Copy USNs** for remedial classes.
+- **Early warning (novelty):** when a CIE, quiz or EL is locked, a logistic regression trained on
+  earlier offerings of the same course, at the same point of the term, gives each student's chance
+  of ending below target in each CO. Features: the CO marks so far and the student's scores on the
+  prerequisite COs (the root-cause links). Students at or above the rule version's `ew_flag_prob`
+  (default 0.5) are flagged with the reason, e.g. "CO2 marks so far 23% (typical 70%)". It is
+  advice only and never changes official results. Replayed on 2025-26: AUC 0.79 after CIE Test 1
+  ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
 
-### Planned (phases 9–10)
+### Planned (phase 10)
 
-- **Weak-student lists:** students below target in each CO, ready for remedial classes.
-- **Early warning (novelty):** after each locked CIE, a logistic regression trained on earlier
-  offerings predicts which students are likely to miss each CO, and shows the marks behind each flag.
-  It is advisory and never changes official results.
 - **Course-file report:** a PDF per offering with CO and PO attainment, charts, weak COs, root-cause
   findings and improvement actions.
 
@@ -131,7 +136,7 @@ triggers, CHECK constraints and the stored procedure, so the API cannot bypass t
 ## Repository layout
 
 ```
-db/migrations/   001_schema … 011_survey_forms: tables, triggers, views, procedures, indexes, RLS
+db/migrations/   001_schema … 012_early_warning: tables, triggers, views, procedures, indexes, RLS
 db/seed/         worked_example.sql (PRD Section 5)
 datagen/         synthetic programme, marks and surveys; planted root-cause scenario
 api/             FastAPI app: routers/, services/ (marks CSV, surveys, what-if), jobs/ (ETL, audit)
@@ -341,7 +346,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 188 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 195 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
@@ -356,6 +361,7 @@ The results are mapped to the PRD tests in [docs/test-report.md](docs/test-repor
 | [docs/explain/report.md](docs/explain/report.md): index EXPLAIN ANALYZE | `python -m scripts.explain_report` |
 | [docs/root-cause-evaluation.md](docs/root-cause-evaluation.md): detection and false positives | `python -m scripts.evaluate_root_cause` |
 | [docs/ocr-evaluation.md](docs/ocr-evaluation.md): answer-sheet OCR accuracy on synthetic scans | `python -m scripts.evaluate_ocr` |
+| [docs/early-warning-evaluation.md](docs/early-warning-evaluation.md): early warning replayed on 2025-26 | `python -m scripts.evaluate_early_warning` |
 
 ## Contributing
 

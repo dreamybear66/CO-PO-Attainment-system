@@ -4,11 +4,14 @@
 `unlock_request` and `audit_outbox` (PRD Section 9 changes). DDL: `db/migrations/001_schema.sql`. Rendered images: [PNG](er-diagram.png), [SVG](er-diagram.svg)
 (the images show those 29).
 
-The rescope adds two tables in `011_survey_forms.sql`, 31 in all: `google_account` (a teacher's
+The rescope adds four tables, 33 in all. `011_survey_forms.sql`: `google_account` (a teacher's
 encrypted Google refresh token, visible to that user only and not audited) and `survey_form` (the
 Google Form of an offering and its question ids); it also adds `student.email`, the college email a
-survey response's verified email must match. Migration 010 adds `assessment_question.bloom_level` and
-`attainment_config.ocr_review_confidence`.
+survey response's verified email must match. `012_early_warning.sql`: `early_warning_run` (the
+latest early-warning run of an offering: assessments used, model, flag cut-off) and `early_warning`
+(each student's chance of missing each CO, with reasons); it also adds
+`attainment_config.ew_flag_prob` (default 0.5). Migration 010 adds `assessment_question.bloom_level`
+and `attainment_config.ocr_review_confidence`.
 
 ```mermaid
 erDiagram
@@ -59,6 +62,9 @@ erDiagram
     app_user |o--o| google_account : "connects"
     course_offering |o--o| survey_form : "is surveyed by"
     app_user ||--o{ survey_form : owns
+    course_offering |o--o| early_warning_run : "is forecast by"
+    early_warning_run ||--o{ early_warning : predicts
+    course_outcome ||--o{ early_warning : ""
 ```
 
 `audit_outbox` and `audit_anchor` stand alone: the outbox is filled by audit triggers on the audited

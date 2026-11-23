@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–8 are built (PRs open); 188 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–9 are built (PRs open); 195 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -23,7 +23,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
-| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
+| 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
@@ -43,7 +43,9 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
   the college layout.
 - [x] Who owns the Google Cloud project: Krrish's personal Google account (decided 23 Nov 2026).
 - [ ] Create the Google Cloud project and put its OAuth client in `.env` (README: Google Forms setup).
-- [ ] Early-warning target: what recall and precision, and what predicted chance flags a student?
+- [ ] Early-warning target: what recall and precision? The cut-off is 0.5 (decided); at 0.5 after
+  CIE Test 1, recall is 35 % and precision 78 %, at 0.3 69 % and 61 %
+  ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - [ ] Course-file PDF: which sections, and does the college have a template?
 
 **Later (deferred on purpose)**
@@ -71,7 +73,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 
 ```
 db/
-  migrations/        001_schema … 011_survey_forms (tables, triggers, views, procedures, indexes, RLS)
+  migrations/        001_schema … 012_early_warning (tables, triggers, views, procedures, indexes, RLS)
   seed/              worked-example fixture (Section 5 of PRD)
 api/                 FastAPI app (routers, services, mongo, jobs)
 web/                 React + TypeScript app
@@ -282,17 +284,30 @@ Output: a teacher clicks once to create the course-exit survey and once to share
 
 ## Phase 9 — Weak-student lists and early warning (novelty)
 
-Status: not started.
+Status: built on `feat/early-warning` (PR open); 6 tests; replayed on 2025-26 in
+[docs/early-warning-evaluation.md](docs/early-warning-evaluation.md).
 
 Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
-1. Weak-student list per CO: students whose CO score is below `target_pct`, from `student_co_score`.
-2. Early warning: logistic regression per CO on the CIE components available so far, trained on
+1. Weak-student list per CO: students whose CO score is below `target_pct`, from `student_co_score`
+   (`GET /api/offerings/{id}/students`, which also returns the latest early warning).
+2. Early warning: logistic regression on the CIE components available so far, trained on
    earlier offerings of the synthetic data; re-run after each locked CIE.
+   As built (`api/services/early_warning.py`): the "stage" is the locked CIE, quiz and EL
+   assessments (by type and order); training uses earlier finished offerings of the same course
+   with the same assessments, labelled by whether the student missed the CO's target at the end.
+   Features: CO marks so far, and the student's final scores on prerequisite COs (the root-cause
+   links). The whole-stage score was dropped as a feature: it overlaps the CO score and took the
+   wrong sign. The flag cut-off is `attainment_config.ew_flag_prob` (default 0.5). Training runs on
+   the owner connection (it reads other teachers' finished offerings); only the model leaves it.
+   About 0.5 s per run on the demo data. Locking a CIE, quiz or EL re-runs it (best effort).
 3. Show each flagged student with the CO, the predicted chance and the marks that drove the flag.
    Advisory only; it never changes official attainment.
 4. Evaluate on held-out offerings after CIE-1 and CIE-2 against the recall/precision target still
-   to be agreed.
+   to be agreed. `scripts/evaluate_early_warning.py` replays the 64 finished 2025-26 offerings
+   ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)): AUC 0.79 after CIE Test 1
+   and 0.94 after both tests and quizzes; at the 0.5 cut-off, 78 % of flags are right but 35 % of
+   the students who end below target are flagged after CIE Test 1 (69 % at a 0.3 cut-off).
 
 ## Phase 10 — Course-file PDF
 
@@ -320,6 +335,8 @@ Where the build differs from the plan above:
 | OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
+| Early-warning features | CIE components so far | CO marks so far and prerequisite-CO scores; one model per course and stage, trained on the owner connection | the whole-stage score overlapped the CO score and took the wrong sign, which made reasons contradictory |
+| Early-warning trigger | after each locked CIE | after each lock that changed a CIE, quiz or EL, as a background task once the response is sent; saves of one offering serialised by an advisory lock; also a Run button | a failed prediction must never undo a lock; re-locking must not retrain; concurrent runs must not collide (review of #14) |
 | Survey sharing | WhatsApp share button | a `wa.me` link with the form link and a message filled in | free and needs no WhatsApp API; the teacher picks the group |
 | Survey responses | Forms API reference checks | the form collects Google-verified emails; every response must come from the email on record for its USN (`student.email`), then goes through the in-app survey checks; only counts are kept about a fetch | a typed email let anyone answer as a classmate (review of #13); email, name and phone never stored |
 | Google sign-in | signed state | signed state plus a nonce cookie of the browser that started it; creation under a per-offering lock, a half-made form deleted (`drive.file`) | OAuth login CSRF and orphan forms (review of #13) |
@@ -344,3 +361,5 @@ Results of the last run: [docs/test-report.md](docs/test-report.md).
 | Reproducibility | `tests/test_versioned_rules.py` |
 | Surveys and ETL | `tests/test_surveys_etl.py` |
 | Answer-sheet OCR | `tests/test_ocr.py`; accuracy in `docs/ocr-evaluation.md` |
+| Google Forms surveys | `tests/test_survey_forms.py` |
+| Weak students, early warning | `tests/test_early_warning.py`; replay in `docs/early-warning-evaluation.md` |

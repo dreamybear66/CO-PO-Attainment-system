@@ -10,11 +10,12 @@ import { useApi } from '../hooks'
 import { AttainmentTab } from './offering/AttainmentTab'
 import { MarksTab } from './offering/MarksTab'
 import { RootCauseTab } from './offering/RootCauseTab'
+import { StudentsTab } from './offering/StudentsTab'
 import { SurveyTab } from './offering/SurveyTab'
 import type { AttainmentData, OfferingDetail } from './offering/types'
 import { WhatIfTab } from './offering/WhatIfTab'
 
-const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', whatif: 'What-if', survey: 'Survey' } as const
+const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', whatif: 'What-if', students: 'Students', survey: 'Survey' } as const
 type Tab = keyof typeof TABS
 
 export function Offering() {
@@ -84,6 +85,7 @@ export function Offering() {
       {active === 'attainment' && <AttainmentTab offering={d} att={att} canEdit={canEdit} onCompute={compute} allLocked={allLocked} />}
       {active === 'cause' && <RootCauseTab offering={d} att={att.data} canEdit={canEdit} onAction={att.reload} />}
       {active === 'whatif' && <WhatIfTab offering={d} computed={computed} canEdit={canEdit} />}
+      {active === 'students' && <StudentsTab offering={d} canEdit={canEdit} />}
       {active === 'survey' && <SurveyTab offering={d} canEdit={canEdit} />}
       </motion.div>
     </>
