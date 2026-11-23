@@ -10,10 +10,11 @@ import { useApi } from '../hooks'
 import { AttainmentTab } from './offering/AttainmentTab'
 import { MarksTab } from './offering/MarksTab'
 import { RootCauseTab } from './offering/RootCauseTab'
+import { SurveyTab } from './offering/SurveyTab'
 import type { AttainmentData, OfferingDetail } from './offering/types'
 import { WhatIfTab } from './offering/WhatIfTab'
 
-const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', whatif: 'What-if' } as const
+const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', whatif: 'What-if', survey: 'Survey' } as const
 type Tab = keyof typeof TABS
 
 export function Offering() {
@@ -21,9 +22,12 @@ export function Offering() {
   const { user } = useAuth()
   const detail = useApi<OfferingDetail>(`/api/offerings/${id}`)
   const att = useApi<AttainmentData>(`/api/offerings/${id}/attainment`)
-  const [tab, setTab] = useState<Tab | null>(null)
+  // ?tab=survey (and google=connected / google_error=...) arrive back from the Google sign-in.
+  const [query] = useState(() => new URLSearchParams(window.location.search))
+  const [tab, setTab] = useState<Tab | null>(() => (query.get('tab') ?? '') in TABS ? query.get('tab') as Tab : null)
   const [computing, setComputing] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(() =>
+    query.get('google') === 'connected' ? 'Google account connected. You can create the survey form now.' : query.get('google_error'))
   const canEdit = user?.role === 'admin' || user?.role === 'faculty'
 
   const d = detail.data
@@ -80,6 +84,7 @@ export function Offering() {
       {active === 'attainment' && <AttainmentTab offering={d} att={att} canEdit={canEdit} onCompute={compute} allLocked={allLocked} />}
       {active === 'cause' && <RootCauseTab offering={d} att={att.data} canEdit={canEdit} onAction={att.reload} />}
       {active === 'whatif' && <WhatIfTab offering={d} computed={computed} canEdit={canEdit} />}
+      {active === 'survey' && <SurveyTab offering={d} canEdit={canEdit} />}
       </motion.div>
     </>
   )

@@ -334,3 +334,17 @@ tbody tr:nth-child(n + 9), .rows > .row:nth-child(n + 9) { animation-delay: 0.24
 .ocr-flag { background: var(--pill-warning-bg); }
 .ocr-row-flag td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
 .ocr-usn { display: inline-block; margin: 2px 6px 2px 0; }
+
+/* course-exit survey as a Google Form (phase 8) */
+.survey-steps { display: grid; gap: 12px; }
+.survey-steps > div { display: flex; gap: 12px; align-items: baseline; }
+.step-no { flex: none; width: 22px; height: 22px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--raised); border: 1px solid var(--border); font-size: var(--fs-small); font-weight: 600; }
+.survey-link { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.survey-link .input { flex: 1; min-width: 240px; }
+.rating-bar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: var(--raised); }
+.rating-bar span { display: grid; place-items: center; min-width: 4px; font-size: 11px; font-weight: 600; }
+.rating-bar .r1 { background: #c4242a; color: #fff; }
+.rating-bar .r2 { background: #e58b6b; color: #3a0d05; }
+.rating-bar .r3 { background: #d9dcde; color: #353736; }
+.rating-bar .r4 { background: #7fb6c3; color: #0f3f4b; }
+.rating-bar .r5 { background: #1b6c80; color: #fff; }

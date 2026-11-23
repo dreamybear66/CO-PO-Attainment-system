@@ -55,17 +55,19 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   Nothing is saved until the teacher ticks that they checked the highlighted values; the marks then
   go through the same validation as a CSV upload. Everything runs locally and the scans are not
   stored. The cover-page layout is a synthetic stand-in (`api/ocr/layout.py`).
+- **Google Forms surveys:** an offering's **Survey** tab creates the course-exit survey as a Google
+  Form in the teacher's own Google account (college email, USN, name, phone, then one 1–5 rating per
+  CO) and shares it with **Share on WhatsApp**, which opens WhatsApp with the link and a message
+  filled in. **Fetch responses** (and a nightly job) checks each response like an in-app survey and
+  keeps only a hashed USN and the ratings. The tab shows the response rate and the ratings per CO.
+  Needs a one-time Google Cloud setup (see Google Forms surveys below).
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
 
-### Planned (phases 8–10)
+### Planned (phases 9–10)
 
-- **Google Forms surveys:** the course-exit survey is created as a Google Form (college email, USN,
-  name, phone, then one 1–5 rating per CO) and shared with a WhatsApp button that opens WhatsApp with
-  the link filled in. Responses are matched to enrolled students, then only a hashed USN is kept. A
-  dashboard shows the response rate and ratings per CO.
 - **Weak-student lists:** students below target in each CO, ready for remedial classes.
 - **Early warning (novelty):** after each locked CIE, a logistic regression trained on earlier
   offerings predicts which students are likely to miss each CO, and shows the marks behind each flag.
