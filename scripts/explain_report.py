@@ -22,13 +22,10 @@ INDEXES = [
     "course_offering_faculty_idx", "co_attainment_co_idx", "enrollment_usn_idx",
 ]
 
-# The aggregation inside fn_student_co_score, written out so EXPLAIN can see into it.
+# What fn_student_co_score runs, queried directly so EXPLAIN can see into it.
 AGGREGATION = """
-SELECT s.usn, s.co_id, sum(w.weight_pct * s.pct) / sum(w.weight_pct) AS pct
-FROM student_component_co_pct s
-JOIN config_component_weight w ON w.config_id = %(config)s AND w.component = s.component
-WHERE s.offering_id = %(offering)s
-GROUP BY s.usn, s.co_id
+SELECT usn, co_id, pct FROM student_co_score_by_config
+WHERE offering_id = %(offering)s AND config_id = %(config)s
 """
 
 # Root-cause access path: every student's score on one CO across all its offerings.

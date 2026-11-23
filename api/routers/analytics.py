@@ -1,6 +1,8 @@
 """Trends, rankings, programme-level PO and improvement actions (PRD FR-6.1, FR-4.4, FR-4.5).
 
-Queries read the base tables, so row-level security limits faculty to their own offerings.
+Programme-wide figures (result years, weakest COs, programme PO) come from owner-run aggregate
+functions, so every staff role sees the same programme numbers. Course trends and actions read the
+base tables, so row-level security limits faculty to their own offerings there.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,9 +25,7 @@ def courses(user: User = Depends(staff), dbname=Depends(database)):
 @router.get("/academic-years")
 def academic_years(user: User = Depends(staff), dbname=Depends(database)):
     with db.session(user, dbname) as conn:
-        return [r["academic_year"] for r in conn.execute(
-            "SELECT DISTINCT o.academic_year FROM co_attainment ca JOIN course_offering o USING (offering_id) "
-            "ORDER BY 1 DESC")]
+        return [r["y"] for r in conn.execute("SELECT fn_result_years() AS y")]
 
 
 @router.get("/analytics/trend")
@@ -53,32 +53,15 @@ def course_trend(course_id: int, user: User = Depends(staff), dbname=Depends(dat
 def weakest(academic_year: str, limit: int = 10, user: User = Depends(staff), dbname=Depends(database)):
     """Weakest COs of a year across the programme (RANK over the sections' average)."""
     with db.session(user, dbname) as conn:
-        return conn.execute("""
-            WITH yearly AS (
-                SELECT c.course_id, c.code, c.title, co.co_id, co.co_number, co.statement,
-                       round(avg(ca.final_level), 2) AS final_level, count(*) AS sections,
-                       max(cfg.co_target_level) AS target
-                FROM co_attainment ca
-                JOIN course_offering o     ON o.offering_id = ca.offering_id
-                JOIN course c              ON c.course_id = o.course_id
-                JOIN course_outcome co     ON co.co_id = ca.co_id
-                JOIN attainment_config cfg ON cfg.config_id = ca.config_id
-                WHERE o.academic_year = %s
-                GROUP BY c.course_id, c.code, c.title, co.co_id, co.co_number, co.statement
-            )
-            SELECT * FROM (SELECT y.*, rank() OVER (ORDER BY y.final_level) AS weakest_rank FROM yearly y) r
-            WHERE weakest_rank <= %s ORDER BY weakest_rank, code, co_number""", (academic_year, limit)).fetchall()
+        return conn.execute("SELECT * FROM fn_weakest_cos(%s, %s)", (academic_year, limit)).fetchall()
 
 
 @router.get("/analytics/program-po")
 def program_po(user: User = Depends(staff), dbname=Depends(database)):
-    """Programme-level PO per academic year: plain average of offering-level values (S10)."""
+    """Programme-level PO per academic year: plain average of offering-level values (S10), each
+    year against its own rule versions' target."""
     with db.session(user, dbname) as conn:
-        return conn.execute("""
-            SELECT v.po_id, v.po_code, po.type, po.statement, v.academic_year, v.offerings, v.attainment,
-                   (SELECT max(po_target_level) FROM attainment_config) AS target
-            FROM v_program_po_attainment v JOIN program_outcome po USING (po_id)
-            ORDER BY v.academic_year, v.po_id""").fetchall()
+        return conn.execute("SELECT * FROM fn_program_po_attainment()").fetchall()
 
 
 @router.get("/actions")

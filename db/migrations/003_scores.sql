@@ -43,28 +43,46 @@ JOIN assessment a           ON a.assessment_id = aq.assessment_id
 JOIN question_co_map qcm    ON qcm.question_id = sqm.question_id
 GROUP BY e.usn, e.offering_id, qcm.co_id, a.type;
 
--- Step 2 for an explicit rule version: sum(weight x component %) / sum(weight) over the
--- components that test the CO.
+-- The rule versions an offering is scored under: its own (v_offering_config), the base config of
+-- any what-if scenario on it, and the one its official results were computed with (which differs
+-- when a version is added for its term later). Scoring only these, rather than every config,
+-- keeps the shared view below as fast as a formula written for the offering's own config.
+CREATE VIEW v_scoring_config WITH (security_invoker = true) AS
+SELECT offering_id, config_id FROM v_offering_config
+UNION
+SELECT offering_id, base_config_id FROM whatif_scenario
+UNION
+SELECT DISTINCT offering_id, config_id FROM co_attainment;
+
+-- Step 2: sum(weight x component %) / sum(weight) over the components that test the CO, per
+-- applicable rule version. This is the only copy of the formula: the engine reads it for the
+-- offering's (or a what-if scenario's) config, student_co_score for each offering's own config.
+-- Filters on offering_id, co_id or config_id are pushed down into the aggregation.
+CREATE VIEW student_co_score_by_config WITH (security_invoker = true) AS
+SELECT s.usn,
+       s.offering_id,
+       s.co_id,
+       w.config_id,
+       sum(w.weight_pct * s.pct) / sum(w.weight_pct) AS pct
+FROM student_component_co_pct s
+JOIN v_scoring_config k        ON k.offering_id = s.offering_id
+JOIN config_component_weight w ON w.config_id = k.config_id AND w.component = s.component
+GROUP BY s.usn, s.offering_id, s.co_id, w.config_id;
+
+-- Step 2 for an explicit rule version (the offering's own, or a scenario's base config).
 CREATE FUNCTION fn_student_co_score(p_offering_id int, p_config_id int)
 RETURNS TABLE (usn varchar, co_id int, pct numeric)
 LANGUAGE sql STABLE AS $$
-    SELECT s.usn, s.co_id, sum(w.weight_pct * s.pct) / sum(w.weight_pct)
-    FROM student_component_co_pct s
-    JOIN config_component_weight w ON w.config_id = p_config_id AND w.component = s.component
-    WHERE s.offering_id = p_offering_id
-    GROUP BY s.usn, s.co_id
+    SELECT s.usn, s.co_id, s.pct
+    FROM student_co_score_by_config s
+    WHERE s.offering_id = p_offering_id AND s.config_id = p_config_id
 $$;
 
 -- Step 2 with each offering's own rule version; reused by analytics and root-cause queries.
 CREATE VIEW student_co_score WITH (security_invoker = true) AS
-SELECT s.usn,
-       s.offering_id,
-       s.co_id,
-       sum(w.weight_pct * s.pct) / sum(w.weight_pct) AS pct
-FROM student_component_co_pct s
-JOIN v_offering_config oc        ON oc.offering_id = s.offering_id
-JOIN config_component_weight w   ON w.config_id = oc.config_id AND w.component = s.component
-GROUP BY s.usn, s.offering_id, s.co_id;
+SELECT s.usn, s.offering_id, s.co_id, s.pct
+FROM student_co_score_by_config s
+JOIN v_offering_config oc ON oc.offering_id = s.offering_id AND oc.config_id = s.config_id;
 
 -- Step 3 threshold mapping, shared by direct and indirect attainment.
 CREATE FUNCTION fn_level(p_pct numeric, p_l3 numeric, p_l2 numeric, p_l1 numeric) RETURNS smallint

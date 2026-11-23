@@ -24,9 +24,16 @@ export function Actions() {
   const followed = rows.filter((r) => r.level_after !== null)
   const improved = followed.filter((r) => Number(r.change) > 0).length
 
+  const [failed, setFailed] = useState<string | null>(null)
   async function setStatus(id: number, status: Status) {
-    await api(`/api/actions/${id}`, { method: 'PATCH', body: { status } })
-    list.reload()
+    setFailed(null)
+    try {
+      await api(`/api/actions/${id}`, { method: 'PATCH', body: { status } })
+    } catch (e) {
+      setFailed(`Couldn't change the status. ${(e as Error).message}`)
+    } finally {
+      list.reload()
+    }
   }
 
   return (
@@ -38,6 +45,7 @@ export function Actions() {
             {followed.length ? `: ${improved} of ${followed.length} followed-up COs in this view improved.` : '.'}</p>
         </div>
       </div>
+      {failed && <p className="note" role="alert">{failed}</p>}
       <div className="filters">
         <Segmented<Status | 'all'> label="Status" value={filter} onChange={setFilter}
                    options={(['open', 'in_progress', 'done', 'all'] as const).map((s) => ({ value: s, label: s === 'all' ? 'All' : STATUS[s] }))} />

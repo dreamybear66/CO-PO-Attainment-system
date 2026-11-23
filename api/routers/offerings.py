@@ -77,8 +77,8 @@ def offering_detail(offering_id: int, user: User = Depends(staff), dbname=Depend
         cfg = conn.execute("""
             SELECT c.*, (SELECT json_object_agg(component, weight_pct) FROM config_component_weight w
                           WHERE w.config_id = c.config_id) AS component_weights
-            FROM v_offering_config oc JOIN attainment_config c USING (config_id) WHERE oc.offering_id = %s
-        """, (offering_id,)).fetchone()
+            FROM attainment_config c WHERE c.config_id = fn_result_config(%s)
+        """, (offering_id,)).fetchone()     # the rules of the stored results, else the term's version
         enrolled = conn.execute("SELECT count(*) AS n FROM enrollment WHERE offering_id = %s", (offering_id,)).fetchone()["n"]
     return {**head, "enrolled": enrolled, "assessments": assessments, "cos": cos, "config": cfg}
 
@@ -103,9 +103,11 @@ def marks_template(assessment_id: int, user: User = Depends(editors), dbname=Dep
 
 
 @router.post("/assessments/{assessment_id}/marks")
-async def upload_marks(assessment_id: int, file: UploadFile = File(...),
-                       user: User = Depends(editors), dbname=Depends(database)):
-    text = (await file.read()).decode("utf-8", errors="replace")
+def upload_marks(assessment_id: int, file: UploadFile = File(...),
+                 user: User = Depends(editors), dbname=Depends(database)):
+    # A plain def: FastAPI runs it in the threadpool, so parsing a large file, the database work
+    # and any wait on a lock held by a running compute do not stall other requests.
+    text = file.file.read().decode("utf-8", errors="replace")
     locked_msg = "Assessment is locked; marks cannot be changed"
     try:
         with db.session(user, dbname) as conn:

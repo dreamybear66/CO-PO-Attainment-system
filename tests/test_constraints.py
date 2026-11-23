@@ -48,11 +48,20 @@ def test_delete_after_lock(db):
         db.execute("DELETE FROM student_question_mark WHERE enrollment_id = 1 AND question_id = 1")
 
 
-def test_insert_into_locked_assessment(db):
+def test_late_enrollment_into_locked_offering(db):
     db.execute("INSERT INTO student (usn, name, program_id, admission_year, section) VALUES ('1RV25WX099', 'Late', 1, 2025, 'A')")
-    db.execute("INSERT INTO enrollment VALUES (99, 1, '1RV25WX099')")
+    with raises_sqlstate("CP001"):     # the student could never get marks in the locked SEE
+        db.execute("INSERT INTO enrollment VALUES (99, 1, '1RV25WX099')")
+
+
+def test_move_enrollment_into_locked_offering(db):
+    db.execute("""
+        INSERT INTO course_offering VALUES (2, 1, '2025-26', 'even', 1, 'B');
+        INSERT INTO student (usn, name, program_id, admission_year, section) VALUES ('1RV25WX099', 'Late', 1, 2025, 'B');
+        INSERT INTO enrollment VALUES (99, 2, '1RV25WX099');
+    """)
     with raises_sqlstate("CP001"):
-        db.execute("INSERT INTO student_question_mark VALUES (99, 1, 5, false)")
+        db.execute("UPDATE enrollment SET offering_id = 1 WHERE enrollment_id = 99")
 
 
 def test_question_changes_after_lock(db):
@@ -72,8 +81,10 @@ def test_locked_assessment_cannot_be_edited_or_deleted(db):
 # ---------------------------------------------------------------- enrolment and mappings
 
 def test_duplicate_enrollment(db):
+    db.execute("INSERT INTO course_offering VALUES (2, 1, '2025-26', 'even', 1, 'B')")   # no locked assessment
+    db.execute("INSERT INTO enrollment (offering_id, usn) VALUES (2, '1RV25WX001')")
     with raises_sqlstate("23505"):
-        db.execute("INSERT INTO enrollment (offering_id, usn) VALUES (1, '1RV25WX001')")
+        db.execute("INSERT INTO enrollment (offering_id, usn) VALUES (2, '1RV25WX001')")
 
 
 def test_invalid_strength(db):
@@ -92,6 +103,26 @@ def test_question_weights_split_across_cos(open_assessment):
         open_assessment.execute("UPDATE question_co_map SET weight = 0.5 WHERE question_id = 21")
         open_assessment.execute("INSERT INTO question_co_map VALUES (21, 2, 0.5)")
     assert open_assessment.execute("SELECT sum(weight) FROM question_co_map WHERE question_id = 21").fetchone()[0] == 1
+
+
+def test_question_weights_in_equal_thirds(open_assessment):
+    with open_assessment.transaction():   # 3 x 0.333 = 0.999, within the 0.001 tolerance
+        open_assessment.execute("UPDATE question_co_map SET weight = 0.333 WHERE question_id = 21")
+        open_assessment.execute("INSERT INTO question_co_map VALUES (21, 2, 0.333), (21, 3, 0.333)")
+
+
+def test_moving_a_co_tag_rechecks_the_question_it_left(open_assessment):
+    with open_assessment.transaction():
+        open_assessment.execute("""
+            UPDATE question_co_map SET weight = 0.5 WHERE question_id = 21;
+            INSERT INTO question_co_map VALUES (21, 2, 0.5);
+            INSERT INTO assessment_question (question_id, assessment_id, q_no, max_marks) VALUES (22, 2, 'Q2', 10);
+            INSERT INTO question_co_map VALUES (22, 1, 0.5), (22, 3, 0.5);
+        """)
+    with raises_sqlstate("CP004"):        # question 21 would be left with weights summing to 0.5
+        with open_assessment.transaction():
+            open_assessment.execute("DELETE FROM question_co_map WHERE question_id = 22 AND co_id = 3")
+            open_assessment.execute("UPDATE question_co_map SET question_id = 22 WHERE question_id = 21 AND co_id = 2")
 
 
 def test_component_weights_must_sum_to_100(db):
@@ -172,6 +203,12 @@ def test_lock_needs_question_maxima_to_match(db):
     """)
     with raises_sqlstate("CP006"):
         db.execute("UPDATE assessment SET locked = true WHERE assessment_id = 3")
+
+
+def test_assessment_cannot_be_inserted_locked(db):
+    with raises_sqlstate("CP006"):
+        db.execute("INSERT INTO assessment (offering_id, type, name, max_marks, locked, locked_at) "
+                   "VALUES (1, 'SEE', 'SEE 2', 100, true, now())")
 
 
 def test_unlock_needs_approved_request(db):

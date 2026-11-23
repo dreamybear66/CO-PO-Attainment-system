@@ -57,7 +57,14 @@ DIST = config.ROOT / "web" / "dist"
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
+    ROOT_DIST = DIST.resolve()
+
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
-        target = DIST / path
-        return FileResponse(target if path and target.is_file() else DIST / "index.html")
+        """A file of the built app, or index.html for client-side routes. The path is resolved
+        and must stay inside web/dist: '..' segments or an absolute path (C:/...) never reach
+        other files."""
+        target = (ROOT_DIST / path).resolve()
+        if path and target.is_relative_to(ROOT_DIST) and target.is_file():
+            return FileResponse(target)
+        return FileResponse(ROOT_DIST / "index.html")
