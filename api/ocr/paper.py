@@ -5,7 +5,7 @@ synthetic paper (datagen/ocr_samples.py). A CIE paper has two parts, each under 
 "Part A - Quiz" above the quiz questions and "Part B - Test" above the test questions, numbered on
 from one part to the next (Q1-Q5, then Q6-Q11). Every question is tagged with the part it is under
 ("A", "B", or None before any heading). The last three fields are short codes in fixed places,
-so they are taken by position and repaired for the usual OCR confusions (i, l, I and | for 1, O for
+so they are taken by position and repaired for the usual OCR confusions (i, l, I, t and | for 1, O for
 0, a doubled C), while the question text is kept as read. Lines that start like a question but do
 not parse are returned as warnings, so the teacher sees what was skipped.
 """
@@ -32,7 +32,7 @@ SITTINGS: dict[str, dict] = {
     "CIE2": {"label": "CIE 2", "parts": {"A": ("Quiz 2", "CIE_QUIZ"), "B": ("CIE Test 2", "CIE_THEORY")}},
     "SEE": {"label": "SEE", "parts": {"B": ("SEE", "SEE")}},
 }
-CONFUSED = str.maketrans({"I": "1", "i": "1", "L": "1", "l": "1", "|": "1", "!": "1",
+CONFUSED = str.maketrans({"I": "1", "i": "1", "L": "1", "l": "1", "|": "1", "!": "1", "t": "1", "T": "1",
                           "O": "0", "o": "0", "S": "5", "s": "5", "Z": "2", "z": "2", "B": "8"})
 
 

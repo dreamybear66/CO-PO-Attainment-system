@@ -37,11 +37,12 @@ def test_question_lines_are_read_through_ocr_confusions():
     Qi Explain the three-schema architecture 10 coli L2
     Q2 Normalise the relation to BCNF 15 Cco2 L3
     Q3 Write SQL for the given queries 10 C02,CO03 L3
-    Q4 Compare B+ tree and hash indexes 15 CO4 1"""
+    Q4 Compare B+ tree and hash indexes 15 CO4 1
+    Q5 Define a candidate key 2 cot L1"""
     r = paper.parse(text)
     assert r["paper_max"] == 50
     assert [(q["q_no"], q["max_marks"], q["cos"], q["bloom"]) for q in r["questions"]] == [
-        ("Q1", 10, [1], 2), ("Q2", 15, [2], 3), ("Q3", 10, [2, 3], 3), ("Q4", 15, [4], 1)]
+        ("Q1", 10, [1], 2), ("Q2", 15, [2], 3), ("Q3", 10, [2, 3], 3), ("Q4", 15, [4], 1), ("Q5", 2, [1], 1)]
     assert r["warnings"] == []
 
 
