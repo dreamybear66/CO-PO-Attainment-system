@@ -1,7 +1,8 @@
 # Test report
 
 Run on 23 Nov 2026: `python -m pytest`, PostgreSQL 16, MongoDB 8.0.6, Python 3.11, Tesseract 5.4.
-**176 passed, 0 failed** (166 before phase 7, plus 10 for answer-sheet OCR); the run before OCR took 5 min 54 s. The one warning is a Starlette deprecation in the test
+**183 passed, 0 failed** in 3 min 22 s (166 before phase 7, plus 10 for answer-sheet OCR and 7 for
+Google Forms surveys). The one warning is a Starlette deprecation in the test
 client.
 
 ## PRD Section 8 tests
@@ -35,9 +36,9 @@ client.
 
 ## Phases 7–10
 
-Answer-sheet OCR (phase 7) is tested above; its accuracy on synthetic scans is in
-[ocr-evaluation.md](ocr-evaluation.md). The tests for Google Forms surveys, early warning,
-weak-student lists and the course-file PDF (PRD Section 8) will be added with phases 8–10.
+Answer-sheet OCR (phase 7) and Google Forms surveys (phase 8, with Google faked) are tested above;
+OCR accuracy on synthetic scans is in [ocr-evaluation.md](ocr-evaluation.md). The tests for early
+warning, weak-student lists and the course-file PDF (PRD Section 8) will be added with phases 9–10.
 
 ## Demo data run
 

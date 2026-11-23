@@ -11,8 +11,9 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
 (planned) and **prerequisite-aware root-cause analysis** (built).
 
-**Status:** phases 1–7 are built and 176 tests pass. Phases 8–10 (Google Forms surveys, early
-warning and weak-student lists, course-file PDF) were added on 23 Nov 2026 and are not built yet.
+**Status:** phases 1–8 are built and 183 tests pass. Phases 9–10 (early warning and weak-student
+lists, course-file PDF) were added on 23 Nov 2026 and are not built yet. Google Forms surveys need
+a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
 - Requirements: [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard)
@@ -332,7 +333,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 176 tests pass in about six minutes (the OCR tests need Tesseract and the digit model, and are
+All 183 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
