@@ -184,7 +184,7 @@ def test_pdf_is_read_into_questions_usns_and_marks(client, scanned):
 
 
 @needs_ocr
-def test_confirmed_questions_and_marks_are_saved_through_the_usual_checks(client, db, scanned):
+def test_confirmed_questions_are_saved_with_equal_co_weights(client, db, scanned):
     data, key = scanned
     h = login(client, "fac_a")
     body = client.post("/api/assessments/3/ocr", headers=h, files={"file": ("t.pdf", data, "application/pdf")}).json()
@@ -195,13 +195,6 @@ def test_confirmed_questions_and_marks_are_saved_through_the_usual_checks(client
         FROM assessment_question q JOIN question_co_map m USING (question_id) JOIN course_outcome co USING (co_id)
         WHERE q.assessment_id = 3 GROUP BY q.question_id ORDER BY q.q_no""").fetchall()
     assert rows == [("Q1", 2, [1], 1), ("Q2", 3, [2], 1), ("Q3", 4, [2, 3], 1)]
-    # The review screen sends the confirmed values as CSV to the existing marks endpoint.
-    lines = ["usn,Q1,Q2,Q3"]
-    for sheet in body["sheets"]:
-        lines.append(",".join([sheet["usn"], *(str(m["value"]) for m in sheet["marks"])]))
-    lines += [f"{u},AB,AB,AB" for u in body["absent"]]
-    r = client.post("/api/assessments/3/marks", headers=h, files={"file": ("m.csv", "\n".join(lines))})
-    assert r.json() == {"saved": 180}
 
 
 def test_questions_can_only_be_retagged_once_marks_exist(client, db):

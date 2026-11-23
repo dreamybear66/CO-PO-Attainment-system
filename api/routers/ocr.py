@@ -3,9 +3,7 @@
 POST /api/assessments/{id}/ocr        read the PDF; returns suggestions only, saves nothing
 PUT  /api/assessments/{id}/questions  save the confirmed questions, max marks, COs and Bloom levels
 
-Confirmed marks are sent as a CSV to the existing POST /api/assessments/{id}/marks, so they pass
-the same validation, triggers and audit as a hand-made CSV. The PDF and the page images are not
-stored on the server.
+The PDF and the page images are not stored on the server.
 """
 
 from decimal import ROUND_DOWN, Decimal

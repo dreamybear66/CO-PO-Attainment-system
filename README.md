@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** all ten phases are built and 201 tests pass. Google Forms surveys need
+**Status:** all ten phases are built and 202 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -24,8 +24,10 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 
 ### Built
 
-- **Marks capture:** question-wise CSV upload, with every row validated and nothing saved if any row
-  fails. Absent students are marked `AB` and score 0.
+- **Marks capture:** CIE tests, quizzes and the SEE are read from the scanned answer sheets (below);
+  experiential-learning (EL) marks are typed into a per-student table on the Marks tab. Either way
+  the whole batch is validated and nothing is saved if any row fails. Absent students are marked
+  `AB` and score 0. There is no CSV upload.
 - **Locking:** an assessment locks only when every mark is in. Unlocking needs a request approved by
   the HoD, and every rejected edit to locked marks is logged.
 - **Attainment engine:** one stored procedure computes direct, indirect and final CO levels and the
@@ -138,7 +140,7 @@ triggers, CHECK constraints and the stored procedure, so the API cannot bypass t
 db/migrations/   001_schema … 012_early_warning: tables, triggers, views, procedures, indexes, RLS
 db/seed/         worked_example.sql (PRD Section 5)
 datagen/         synthetic programme, marks and surveys; planted root-cause scenario
-api/             FastAPI app: routers/, services/ (marks CSV, surveys, what-if), jobs/ (ETL, audit)
+api/             FastAPI app: routers/, services/ (marks, surveys, what-if), jobs/ (ETL, audit)
 web/             React + TypeScript app (Vite)
 scripts/         setup_db, migrate, demo, explain_report, evaluate_root_cause
 tests/           pytest suites, one per PRD test
@@ -170,7 +172,7 @@ Open http://localhost:8000 and sign in with `DEMO_PASSWORD` from `.env`:
 | Login | Role | Sees |
 | --- | --- | --- |
 | `hod` | HoD (`admin`) | Every offering, unlock approvals, rule versions, audit verification |
-| `fac01` – `fac14` | Faculty | Own offerings only: marks upload, lock, compute, root cause, what-if |
+| `fac01` – `fac14` | Faculty | Own offerings only: scan answer sheets, type EL marks, lock, compute, root cause, what-if |
 | `coordinator` | Programme coordinator | Everything, read-only, plus audit verification |
 | `1rv23is001` (and other USNs) | Student | Own CO scores and course-exit surveys |
 
@@ -345,7 +347,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 201 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 202 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 

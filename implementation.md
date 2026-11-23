@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 201 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 202 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -219,7 +219,8 @@ Output: demo-ready system.
 2. PostgreSQL roles (admin, faculty, coordinator, student) with GRANTs; RLS policies on marks,
    attainment and survey-derived tables (NFR-5). Student policy: own `enrollment` rows only, read-only;
    student screen shows own CO-wise scores.
-3. Screens: CSV marks upload with row errors, lock/unlock request, compute, CO-PO heatmap, CO trend,
+3. Screens: marks entry with row errors (CSV upload until 23 Nov 2026; now scanned sheets and typed
+   EL marks, see Phase 7), lock/unlock request, compute, CO-PO heatmap, CO trend,
    weakest-CO ranking, root-cause report, what-if side-by-side, audit verification.
 4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`. ✅
 5. Demo script (`scripts/demo.py`) ✅ and final report (pending, see [Pending](#pending)).

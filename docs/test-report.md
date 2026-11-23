@@ -1,7 +1,7 @@
 # Test report
 
 Run on 23 Nov 2026: `python -m pytest`, PostgreSQL 16, MongoDB 8.0.6, Python 3.11, Tesseract 5.4.
-**201 passed, 0 failed** (166 before phase 7, plus 15 for answer-sheet OCR, 9 for Google Forms
+**202 passed, 0 failed** (166 before phase 7, plus 15 for answer-sheet OCR, 9 for Google Forms
 surveys, 7 for weak students and early warning and 4 for the course file). The one warning is a Starlette deprecation in the test
 client.
 
@@ -12,7 +12,7 @@ client.
 | Correctness | 16 | pass | Worked example gives CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48. Component weights: 70 / 80 / 90 / 60 % gives 70.0 %, and 68.9 % without a quiz question on the CO. Absent counts as 0. The level follows the stored percentage, and the view uses the offering's rule version. |
 | Improvement actions | 5 | pass | A recompute closes the action of a CO now at target and updates the text of one still below it. Follow-ups link to the next offering of the same course and section within 18 months, whichever is computed first. |
 | Constraints | 27 | pass | Marks outside 0..max, edits/deletes/inserts on locked assessments, question weights ≠ 1, component weights ≠ 100, strengths outside 1–3, cross-course and cross-programme mappings, prerequisite cycles, lock with missing marks, unlock without an approved request, duplicate enrolment: all rejected with their own SQLSTATE. |
-| Access control | 27 | pass | Faculty B sees and changes none of faculty A's rows and cannot compute or analyse A's offerings. The Programme coordinator reads everything and writes nothing. Students see only their own marks and scores. Only the admin refreshes dashboards or computes everything, and setting `app.role` alone grants nothing. API checks cover login, CSV upload, lock, unlock approval, survey submission, audit verification and student pages. |
+| Access control | 28 | pass | Faculty B sees and changes none of faculty A's rows and cannot compute or analyse A's offerings. The Programme coordinator reads everything and writes nothing. Students see only their own marks and scores. Only the admin refreshes dashboards or computes everything, and setting `app.role` alone grants nothing. API checks cover login, typed marks (EL only; all or nothing, row errors listed, a locked assessment refused and logged; the old CSV upload and template endpoints answer 405/404), lock, unlock approval, survey submission, audit verification and student pages. |
 | Audit tamper | 16 | pass | Edited, deleted or rewritten audit documents are reported with the first broken `seq`, including deletion of the newest documents. The writer recovers without duplicates and stops rather than writing over a gap. Refused edits are recorded as `DENIED`. |
 | Performance | — | see report | `docs/explain/report.md`: the 006 indexes make the per-CO path 2.2× faster (185 → 83 ms). The per-offering computation already uses constraint indexes. |
 | Root cause | 15 | pass | Planted cause ranks first and the decoy is excluded; random data gives no cause; small cohorts are not reported; deeper levels are weighted down by `rc_depth_decay`. Detection rates by cohort size and effect are in `docs/root-cause-evaluation.md`. |
@@ -30,7 +30,7 @@ client.
 | --- | --- |
 | Correctness | `test_worked_example.py` (12), `test_component_weights.py` (4) |
 | Improvement actions | `test_improvement_actions.py` (5) |
-| Access control | `test_rls.py` (9), `test_api.py` (14), `test_compute_access.py` (4) |
+| Access control | `test_rls.py` (9), `test_api.py` (15), `test_compute_access.py` (4) |
 | Simulator isolation | `test_whatif_isolation.py` (12), `test_whatif.py` (2) |
 | Answer-sheet OCR | `test_ocr.py` (15) |
 | Google Forms surveys | `test_survey_forms.py` (9) |

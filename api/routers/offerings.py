@@ -1,8 +1,8 @@
 """Offerings, assessments, marks, locking, computation, root cause and what-if (faculty and HoD)."""
 
 import psycopg
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from api import db
@@ -87,35 +87,50 @@ def offering_detail(offering_id: int, user: User = Depends(staff), dbname=Depend
 # ---------------------------------------------------------------- marks and locking
 
 def assessment_or_404(conn, assessment_id: int) -> dict:
-    row = conn.execute("SELECT assessment_id, offering_id, locked FROM assessment WHERE assessment_id = %s",
-                       (assessment_id,)).fetchone()
+    row = conn.execute("SELECT assessment_id, offering_id, locked, type::text AS type, name FROM assessment "
+                       "WHERE assessment_id = %s", (assessment_id,)).fetchone()
     if not row:
         raise HTTPException(404, "Assessment not found")
     return row
 
 
-@router.get("/assessments/{assessment_id}/template", response_class=PlainTextResponse)
-def marks_template(assessment_id: int, user: User = Depends(editors), dbname=Depends(database)):
+@router.get("/assessments/{assessment_id}/marks")
+def get_marks(assessment_id: int, user: User = Depends(staff), dbname=Depends(database)):
+    """Every enrolled student's marks for one assessment (the typed-marks table)."""
     with db.session(user, dbname) as conn:
-        assessment_or_404(conn, assessment_id)
-        csv_text = marks.template(conn, assessment_id)
-    return PlainTextResponse(csv_text, media_type="text/csv",
-                             headers={"Content-Disposition": f'attachment; filename="assessment-{assessment_id}.csv"'})
+        a = assessment_or_404(conn, assessment_id)
+        return {"assessment_id": a["assessment_id"], "name": a["name"], "type": a["type"],
+                "locked": a["locked"], **marks.sheet(conn, assessment_id)}
 
 
-@router.post("/assessments/{assessment_id}/marks")
-def upload_marks(assessment_id: int, file: UploadFile = File(...),
-                 user: User = Depends(editors), dbname=Depends(database)):
-    # A plain def: FastAPI runs it in the threadpool, so parsing a large file, the database work
-    # and any wait on a lock held by a running compute do not stall other requests.
-    text = file.file.read().decode("utf-8", errors="replace")
+class MarkRowIn(BaseModel):
+    usn: str = Field(max_length=20)
+    marks: dict[str, int | float | str | None] = Field(max_length=50)
+
+
+TYPED = {"EL"}      # CIE tests, quizzes and the SEE come from scanned answer sheets
+
+
+@router.put("/assessments/{assessment_id}/marks")
+def type_marks(assessment_id: int, body: list[MarkRowIn], user: User = Depends(editors), dbname=Depends(database)):
+    """Typed marks, for experiential learning: [{usn, marks: {Q1: n | 'AB'}}]. All or nothing:
+    any row error returns 422 with every problem and saves nothing."""
+    # A plain def: FastAPI runs it in the threadpool, so the database work and any wait on a lock
+    # held by a running compute do not stall other requests.
+    if len(body) > 2000:
+        raise HTTPException(413, "At most 2000 rows at once")
     locked_msg = "Assessment is locked; marks cannot be changed"
     try:
         with db.session(user, dbname) as conn:
-            if assessment_or_404(conn, assessment_id)["locked"]:
+            a = assessment_or_404(conn, assessment_id)
+            if a["type"] not in TYPED:
+                raise HTTPException(422, "Marks are typed for experiential learning only; CIE tests, quizzes "
+                                         "and the SEE are read from the scanned answer sheets")
+            if a["locked"]:
                 saved = None
             else:
-                rows, errors = marks.parse(conn, assessment_id, text)
+                rows, errors = marks.validate(conn, assessment_id, [
+                    {"row": i, "usn": r.usn, "marks": r.marks} for i, r in enumerate(body, start=1)])
                 if errors:
                     return JSONResponse({"detail": f"{len(errors)} problem(s); nothing was saved",
                                          "errors": errors}, status_code=422)

@@ -1,81 +1,88 @@
-"""Question-wise marks upload from CSV (PRD FR-3.3).
+"""Question-wise marks: the one validated path into `student_question_mark` (PRD FR-3.3).
 
-Expected columns: `usn`, then one column per question named by its q_no (Q1, Q2, ...).
-A cell holds the marks, or AB for an absent student. The whole file is validated first and
-nothing is written if any row has an error; the database triggers check again on insert.
+Marks arrive two ways: typed in the app (experiential learning) and confirmed from scanned answer
+sheets (CIE tests, quizzes and the SEE). Both hand `validate` a batch of rows
+`{"row": n, "usn": "1RV...", "marks": {"Q1": 7, "Q2": "AB"}}`: a value is a number of marks, or AB
+for an absent student. The whole batch is checked first and nothing is written if any row has an
+error; the database triggers check again on insert, and every change reaches the audit chain.
 """
 
-import csv
-import io
+from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 
 ABSENT = {"AB", "A", "ABSENT"}
 
 
-def template(conn, assessment_id: int) -> str:
-    qs = [r["q_no"] for r in conn.execute(
-        "SELECT q_no FROM assessment_question WHERE assessment_id = %s ORDER BY question_id", (assessment_id,))]
-    usns = [r["usn"] for r in conn.execute(
-        "SELECT e.usn FROM enrollment e JOIN assessment a ON a.offering_id = e.offering_id "
-        "WHERE a.assessment_id = %s ORDER BY e.usn", (assessment_id,))]
-    out = io.StringIO()
-    w = csv.writer(out, lineterminator="\n")
-    w.writerow(["usn", *qs])
-    for u in usns:
-        w.writerow([u, *[""] * len(qs)])
-    return out.getvalue()
+def questions(conn, assessment_id: int) -> dict[str, tuple[int, Decimal]]:
+    """q_no -> (question_id, max_marks), in question order."""
+    return {r["q_no"]: (r["question_id"], r["max_marks"]) for r in conn.execute(
+        "SELECT q_no, question_id, max_marks FROM assessment_question WHERE assessment_id = %s "
+        "ORDER BY question_id", (assessment_id,))}
 
 
-def parse(conn, assessment_id: int, text: str) -> tuple[list[tuple], list[dict]]:
-    """Returns (rows to upsert, errors). Each error: {row, usn, column, message}."""
-    questions = {r["q_no"]: (r["question_id"], r["max_marks"]) for r in conn.execute(
-        "SELECT q_no, question_id, max_marks FROM assessment_question WHERE assessment_id = %s", (assessment_id,))}
-    enrolled = {r["usn"]: r["enrollment_id"] for r in conn.execute(
+def enrolled(conn, assessment_id: int) -> dict[str, int]:
+    """USN -> enrollment_id for the assessment's offering."""
+    return {r["usn"]: r["enrollment_id"] for r in conn.execute(
         "SELECT e.usn, e.enrollment_id FROM enrollment e JOIN assessment a ON a.offering_id = e.offering_id "
         "WHERE a.assessment_id = %s", (assessment_id,))}
+
+
+def _value(cell) -> tuple[Decimal | None, bool, str | None]:
+    """(marks, absent, problem) of one cell."""
+    if cell is None or (isinstance(cell, str) and not cell.strip()):
+        return None, False, "Empty"
+    if isinstance(cell, bool):
+        return None, False, f"'{cell}' is not a number or AB"
+    if isinstance(cell, str):
+        if cell.strip().upper() in ABSENT:
+            return None, True, None
+        text = cell.strip()
+    else:
+        text = str(cell)                                  # str() keeps 2.5 as 2.5, not a binary fraction
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        return None, False, f"'{cell}' is not a number or AB"
+    if not value.is_finite():                             # NaN, sNaN and Infinity
+        return None, False, f"'{cell}' is not a number or AB"
+    return value, False, None
+
+
+def validate(conn, assessment_id: int, entries: list[dict],
+             label: Callable[[str], str] = lambda q: q) -> tuple[list[tuple], list[dict]]:
+    """Returns (rows to upsert, errors). Each error: {row, usn, column, message}; `label` names a
+    question in the errors (the scan uses the paper's numbering). A question left out of a row is
+    not touched."""
+    qs = questions(conn, assessment_id)
+    students = enrolled(conn, assessment_id)
     errors: list[dict] = []
     rows: list[tuple] = []
-
-    reader = csv.DictReader(io.StringIO(text.lstrip("﻿")))
-    header = [h.strip() for h in (reader.fieldnames or [])]
-    if not header or header[0].lower() != "usn":
-        return [], [{"row": 1, "usn": None, "column": None, "message": "First column must be 'usn'"}]
-    unknown = [h for h in header[1:] if h not in questions]
-    if unknown:
-        errors.append({"row": 1, "usn": None, "column": ", ".join(unknown),
-                       "message": "Not a question of this assessment"})
-    columns = [h for h in header[1:] if h in questions]
-
     seen = set()
-    for line_no, raw in enumerate(reader, start=2):
-        rec = {k.strip(): (v or "").strip() for k, v in raw.items() if k}
-        usn = rec.get(header[0], "").upper()
-        if usn not in enrolled:
-            errors.append({"row": line_no, "usn": usn, "column": "usn", "message": "Not enrolled in this offering"})
+    for entry in entries:
+        line, usn = entry.get("row"), (entry.get("usn") or "").strip().upper()
+        if usn not in students:
+            errors.append({"row": line, "usn": usn, "column": "usn", "message": "Not enrolled in this offering"})
             continue
         if usn in seen:
-            errors.append({"row": line_no, "usn": usn, "column": "usn", "message": "Appears more than once"})
+            errors.append({"row": line, "usn": usn, "column": "usn", "message": "Appears more than once"})
             continue
         seen.add(usn)
-        for col in columns:
-            qid, qmax = questions[col]
-            cell = rec.get(col, "")
-            if cell.upper() in ABSENT:
-                rows.append((enrolled[usn], qid, None, True))
+        for q_no, cell in entry.get("marks", {}).items():
+            if q_no not in qs:
+                errors.append({"row": line, "usn": usn, "column": label(q_no),
+                               "message": "Not a question of this assessment"})
                 continue
-            try:
-                value = Decimal(cell)
-            except InvalidOperation:
-                value = None
-            if value is None or not value.is_finite():         # also NaN, sNaN and Infinity
-                errors.append({"row": line_no, "usn": usn, "column": col,
-                               "message": "Empty" if not cell else f"'{cell}' is not a number or AB"})
-                continue
-            if not 0 <= value <= qmax:
-                errors.append({"row": line_no, "usn": usn, "column": col,
-                               "message": f"{value} is outside 0 to {qmax}"})
-                continue
-            rows.append((enrolled[usn], qid, value, False))
+            qid, qmax = qs[q_no]
+            value, absent, problem = _value(cell)
+            if problem:
+                errors.append({"row": line, "usn": usn, "column": label(q_no), "message": problem})
+            elif absent:
+                rows.append((students[usn], qid, None, True))
+            elif not 0 <= value <= qmax:
+                errors.append({"row": line, "usn": usn, "column": label(q_no),
+                               "message": f"{value} is outside 0 to {qmax.normalize():f}"})
+            else:
+                rows.append((students[usn], qid, value, False))
     return rows, errors
 
 
@@ -92,3 +99,27 @@ def save(conn, rows: list[tuple]) -> int:
               IS DISTINCT FROM (EXCLUDED.marks_obtained, EXCLUDED.is_absent)
     """, (list(cols[0]), list(cols[1]), list(cols[2]), list(cols[3])))
     return len(rows)
+
+
+def sheet(conn, assessment_id: int) -> dict:
+    """Every enrolled student's marks for the assessment, for the typed-marks table:
+    {questions: [{q_no, max_marks}], students: [{usn, name, marks: {q_no: n | 'AB' | None}}]}."""
+    qs = conn.execute("SELECT q_no, max_marks FROM assessment_question WHERE assessment_id = %s "
+                      "ORDER BY question_id", (assessment_id,)).fetchall()
+    people = conn.execute("""
+        SELECT e.usn, s.name, e.enrollment_id FROM enrollment e
+        JOIN assessment a ON a.offering_id = e.offering_id JOIN student s ON s.usn = e.usn
+        WHERE a.assessment_id = %s ORDER BY e.usn""", (assessment_id,)).fetchall()
+    got = {}
+    for r in conn.execute("""
+            SELECT m.enrollment_id, q.q_no, m.marks_obtained, m.is_absent
+            FROM student_question_mark m JOIN assessment_question q USING (question_id)
+            WHERE q.assessment_id = %s""", (assessment_id,)):
+        v = "AB" if r["is_absent"] else r["marks_obtained"]
+        got[(r["enrollment_id"], r["q_no"])] = int(v) if isinstance(v, Decimal) and v == v.to_integral() else (
+            float(v) if isinstance(v, Decimal) else v)
+    return {
+        "questions": [{"q_no": q["q_no"], "max_marks": float(q["max_marks"])} for q in qs],
+        "students": [{"usn": p["usn"], "name": p["name"],
+                      "marks": {q["q_no"]: got.get((p["enrollment_id"], q["q_no"])) for q in qs}} for p in people],
+    }
