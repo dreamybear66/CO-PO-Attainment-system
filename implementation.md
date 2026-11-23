@@ -31,8 +31,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7â€
 - [ ] UI work: `feat/ui-motion` (6 commits) and `feat/landing-page` (uncommitted) exist only on one
   machine and branched before the PR #5â€“#7 review fixes. Merge `main` in, run the tests, push and
   open a PR.
-- [ ] Regenerate [docs/test-report.md](docs/test-report.md): it still records the first run
-  (84 tests); the suite now has 166.
+- [x] Regenerate [docs/test-report.md](docs/test-report.md): done 23 Nov 2026, 166 passed (was
+  the first run, 84 tests).
 
 **Needs a decision** (open questions in the PRD)
 - [ ] Final report: format and template from the course.
