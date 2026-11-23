@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** all ten phases are built and 200 tests pass. Google Forms surveys need
+**Status:** all ten phases are built and 201 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -345,7 +345,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 200 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 201 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 

@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 200 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 201 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -237,6 +237,9 @@ confirm. FR-3.7–3.9, NFR-10.
    CO and Bloom level into draft `assessment_question` and `question_co_map` rows
    (`api/ocr/paper.py`). The page is enlarged and binarised first, and the short codes at the end
    of each line are taken by position and repaired for OCR confusions (i/l/I for 1, O for 0).
+   A CIE paper holds both parts: questions under a "Part A - Quiz" heading and under a "Part B -
+   Test" heading (numbered on across parts) are tagged with their part; the heading is matched
+   loosely ("PartA", "Part A: Quiz", "Part 8").
 3. Pages 2+ (answer-sheet cover pages): locate the printed marks table, read the USN and each
    handwritten per-question mark with a handwritten-digit model; keep a confidence per value.
    The model is an MLP trained on MNIST's first 60,000 digits (`scripts/train_digits.py`,

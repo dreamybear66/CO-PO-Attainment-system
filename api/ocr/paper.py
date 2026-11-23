@@ -1,7 +1,10 @@
 """Read the printed question paper (page 1) with Tesseract.
 
 Each question line reads `Q<n>  <question text>  <max marks>  CO<a>[,CO<b>]  L<bloom>`, as in the
-synthetic paper (datagen/ocr_samples.py). The last three fields are short codes in fixed places,
+synthetic paper (datagen/ocr_samples.py). A CIE paper has two parts, each under a heading line:
+"Part A - Quiz" above the quiz questions and "Part B - Test" above the test questions, numbered on
+from one part to the next (Q1-Q5, then Q6-Q11). Every question is tagged with the part it is under
+("A", "B", or None before any heading). The last three fields are short codes in fixed places,
 so they are taken by position and repaired for the usual OCR confusions (i, l, I and | for 1, O for
 0, a doubled C), while the question text is kept as read. Lines that start like a question but do
 not parse are returned as warnings, so the teacher sees what was skipped.
@@ -19,6 +22,8 @@ QUESTION = re.compile(
     r"^\s*(?P<q>Q\S{1,3})\s+(?P<text>.+?)\s+(?P<max>[\dOoIl|]{1,2})\s+"
     r"(?P<cos>\S+(?:\s*[,/&;]\s*\S+)*)\s+(?P<bl>(?:[Ll|]\s?)?[1-6Iil|])\s*$")   # the L is sometimes lost
 STARTS_LIKE_QUESTION = re.compile(r"^\s*Q\S?\d", re.I)
+# "Part A - Quiz", "PartA", "PART B: Test", "Part - B", "Part 8" (B read as 8).
+PART = re.compile(r"^\W*p\s*a\s*r\s*t\s*[-:.]?\s*(?P<part>[AB8])(?![a-z0-9])", re.I)
 MAX_MARKS = re.compile(r"max\.?\s*marks\s*[:\-]?\s*(\d{1,3})", re.I)
 CONFUSED = str.maketrans({"I": "1", "i": "1", "L": "1", "l": "1", "|": "1", "!": "1",
                           "O": "0", "o": "0", "S": "5", "s": "5", "Z": "2", "z": "2", "B": "8"})
@@ -45,9 +50,13 @@ def _co_numbers(field: str) -> list[int] | None:
 def parse(text: str) -> dict:
     questions, warnings = [], []
     paper_max = None
+    part = None
     for raw in text.splitlines():
-        line = raw.replace("—", "-").strip()
+        line = raw.replace("—", "-").replace("–", "-").strip()
         if not line:
+            continue
+        if h := PART.match(line):
+            part = "B" if h["part"].upper() in "B8" else "A"
             continue
         if paper_max is None and (m := MAX_MARKS.search(line)):
             paper_max = int(m.group(1))
@@ -58,7 +67,7 @@ def parse(text: str) -> dict:
         bloom = _number(m["bl"][-1]) if m else None
         if m and q_no and max_marks and cos and bloom and 1 <= bloom <= 6:
             questions.append({"q_no": f"Q{q_no}", "text": m["text"].strip(), "max_marks": max_marks,
-                              "cos": cos, "bloom": bloom})
+                              "cos": cos, "bloom": bloom, "part": part})
         elif STARTS_LIKE_QUESTION.match(line):
             warnings.append(f"Could not read the question line: “{line}”")
     seen, unique = set(), []

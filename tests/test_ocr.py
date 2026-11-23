@@ -45,6 +45,24 @@ def test_question_lines_are_read_through_ocr_confusions():
     assert r["warnings"] == []
 
 
+def test_part_headings_tag_each_question_through_ocr_noise():
+    text = """IS243 Database Management Systems
+    CIE 1    Max. marks: 60
+    PartA — Quiz
+    Q1 Define a candidate key 2 CO1 L1
+    Q2 Name two isolation levels 2 CO2 L1
+    Part 8: Test
+    Q3 Normalise the relation to BCNF 10 CO2 L3
+    Q4 Write SQL for the given queries 10 CO3 L3"""
+    r = paper.parse(text)
+    assert [(q["q_no"], q["part"]) for q in r["questions"]] == [("Q1", "A"), ("Q2", "A"), ("Q3", "B"), ("Q4", "B")]
+    assert r["paper_max"] == 60 and r["warnings"] == []
+    for heading in ("Part A - Quiz", "Part A: Quiz", "PART - A", "part a quiz"):
+        assert paper.parse(f"{heading}\nQ1 Define 2 CO1 L1")["questions"][0]["part"] == "A", heading
+    # A paper with no headings (an SEE) leaves the part open.
+    assert paper.parse("Q1 Explain 10 CO1 L2")["questions"][0]["part"] is None
+
+
 def test_unreadable_question_line_is_reported_not_dropped():
     r = paper.parse("Q1 Explain 10 CO1 L2\nQ2 smudged line with no codes\nQ1 again 5 CO2 L1")
     assert [q["q_no"] for q in r["questions"]] == ["Q1"]
