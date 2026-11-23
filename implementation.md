@@ -238,8 +238,9 @@ confirm. FR-3.7–3.9, NFR-10.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
    the existing validation, triggers and locking.
-5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values;
-   accuracy is reported against the target still to be agreed.
+5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values
+   by `datagen/ocr_samples.py`, using MNIST's 10,000 held-out digits as handwriting; accuracy is
+   reported against the target still to be agreed.
 
 ## Phase 8 — Google Forms surveys and WhatsApp sharing
 

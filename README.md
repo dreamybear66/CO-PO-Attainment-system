@@ -195,6 +195,11 @@ The 2023 batch carries a planted root-cause story: Data Structures CO2 → DBMS 
 in C CO5 as a decoy (`datagen/catalog.py`). All data, including course titles, CO statements and
 CO-PO mappings, is synthetic.
 
+For answer-sheet OCR, `python -m datagen.ocr_samples --assessment-id N` writes a scanned-looking PDF
+for that assessment to `samples/`: a printed question paper, then one cover page per enrolled
+student with the marks written in MNIST digits the model never trained on, slightly rotated and
+noised. A JSON answer key with every true value is written next to it.
+
 ### Computing attainment
 
 ```sql
