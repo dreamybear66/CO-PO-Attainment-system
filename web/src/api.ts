@@ -1,6 +1,6 @@
 // Thin fetch wrapper: bearer token, JSON in and out, the API's own error messages.
 
-export type RowError = { row: number; usn: string | null; column: string | null; message: string }
+export type RowError = { row: number | null; usn: string | null; column: string | null; message: string }
 export class ApiError extends Error {
   status: number
   code?: string
