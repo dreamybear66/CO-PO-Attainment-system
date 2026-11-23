@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–9 are built (PRs open); 189 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 192 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -24,7 +24,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
-| 10 — Course-file PDF | In progress | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
+| 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
 
@@ -311,7 +311,8 @@ Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
 ## Phase 10 — Course-file PDF
 
-Status: in progress on `feat/course-file`; report and tests done.
+Status: built on `feat/course-file` (PR open); 3 tests. Sections follow PRD FR-6.6 until the
+college template (open question) is known; only `render` would change.
 
 Output: a PDF course file per offering. FR-6.6.
 
@@ -365,3 +366,4 @@ Results of the last run: [docs/test-report.md](docs/test-report.md).
 | Answer-sheet OCR | `tests/test_ocr.py`; accuracy in `docs/ocr-evaluation.md` |
 | Google Forms surveys | `tests/test_survey_forms.py` |
 | Weak students, early warning | `tests/test_early_warning.py`; replay in `docs/early-warning-evaluation.md` |
+| Course file | `tests/test_course_file.py` |
