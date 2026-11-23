@@ -308,3 +308,46 @@
 @media (prefers-reduced-motion: reduce) {
   .lp *, .lp *::before, .lp *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
 }
+
+/* ---------------------------------------------------------------- cursor effects (usePointerFx)
+   Only with a mouse or trackpad, and never when the visitor asks for reduced motion. Variables come
+   from Landing.tsx: --px/--py run from -0.5 to 0.5 across the element, --mx/--my are pixels. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  /* the hero picture leans toward the cursor; quick while followed, slow to settle */
+  [data-tilt] { transform: perspective(1100px) rotateX(calc(var(--py, 0) * -7deg)) rotateY(calc(var(--px, 0) * 9deg));
+                transition: transform 700ms var(--lp-ease); transform-style: preserve-3d; will-change: transform; }
+  [data-tilt].is-hot { transition-duration: 160ms; }
+
+  /* a soft light that follows the cursor over tiles, cards and the hero picture */
+  [data-glow] { position: relative; isolation: isolate; }
+  [data-glow]::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0;
+                       background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / 0.38), transparent 62%);
+                       transition: opacity 350ms ease; }
+  [data-glow].is-hot::after { opacity: 1; }
+  .lp-board > li[data-glow] { transition: transform 300ms var(--lp-ease); }
+  .lp-board > li[data-glow].is-hot { transform: translateY(-3px); }
+  .lp-tile[data-glow] { transition: transform 400ms var(--lp-ease); }
+  .lp-tile[data-glow].is-hot { transform: scale(1.015); }
+
+  /* buttons drift a little toward the cursor */
+  [data-magnet] { transform: translate(calc(var(--px, 0) * 10px), calc(var(--py, 0) * 8px));
+                  transition: transform 450ms var(--lp-ease), background-color 150ms ease; }
+  [data-magnet].is-hot { transition-duration: 120ms, 150ms; }
+  .lp-btn[data-magnet]:active { transform: translate(calc(var(--px, 0) * 10px), calc(var(--py, 0) * 8px)) scale(0.97); }
+
+  /* parallax: the staircase moves against the cursor, the screenshots with it */
+  [data-track] .lp-hero-stairs { translate: calc(var(--px, 0) * -18px) calc(var(--py, 0) * -12px); transition: translate 900ms var(--lp-ease); }
+  [data-track] .lp-views-stairs { translate: calc(var(--px, 0) * -14px) calc(var(--py, 0) * -10px); transition: translate 900ms var(--lp-ease); }
+  .lp-views-stage[data-track] img[data-on="true"] { translate: calc(var(--px, 0) * 10px) calc(var(--py, 0) * 8px); transition: opacity 300ms ease, transform 300ms var(--lp-ease), translate 700ms var(--lp-ease); }
+}
+
+/* ---------------------------------------------------------------- smoother motion */
+@media (prefers-reduced-motion: no-preference) {
+  .lp-anim [data-reveal] > * { transition-duration: 900ms; transition-delay: calc(var(--i, 0) * 90ms); }
+  .lp-acc-panel { transition: flex-grow 600ms var(--lp-ease); }
+  .lp-views-stage img { transition: opacity 450ms ease, transform 450ms var(--lp-ease); }
+  .lp-views-list button:hover { transform: translateX(4px); }
+}
+
+/* the headline is a sentence now, so a step smaller than the old two-word title */
+.lp-hero-copy h1 { font-size: clamp(40px, 5.4vw, 84px); line-height: 1.02; text-wrap: balance; }
