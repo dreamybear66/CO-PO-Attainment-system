@@ -2,7 +2,7 @@
 
 import psycopg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from api import db
@@ -10,7 +10,7 @@ from api.auth import database, require
 from api.db import User
 from api.errors import message
 from api.routers import students
-from api.services import early_warning, marks, whatif
+from api.services import course_file, early_warning, marks, whatif
 
 router = APIRouter(prefix="/api")
 staff = require("admin", "faculty", "coordinator")
@@ -206,6 +206,21 @@ def attainment(conn, offering_id: int) -> dict:
         WHERE f.offering_id = %s OR f.follow_up_offering_id = %s
         ORDER BY f.offering_id = %s, co.co_number""", (offering_id, offering_id, offering_id)).fetchall()
     return {"cos": cos, "pos": pos, "map": cells, "actions": actions}
+
+
+@router.get("/offerings/{offering_id}/course-file.pdf")
+def course_file_pdf(offering_id: int, user: User = Depends(staff), dbname=Depends(database)):
+    """The course-file report of an offering (phase 10, FR-6.6), from its computed results."""
+    with db.session(user, dbname) as conn:
+        visible_offering(conn, offering_id)
+        try:
+            data = course_file.gather(conn, offering_id)
+        except course_file.NoResults as exc:
+            raise HTTPException(409, str(exc)) from None
+    pdf = course_file.render(data)
+    h = data["head"]
+    name = f"{h['code']}-{h['academic_year']}-{h['term']}-{h['section']}-course-file.pdf"
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.get("/offerings/{offering_id}/attainment")

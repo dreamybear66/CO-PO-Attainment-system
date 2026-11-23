@@ -24,7 +24,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
-| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
+| 10 — Course-file PDF | In progress | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
 
@@ -311,13 +311,18 @@ Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
 ## Phase 10 — Course-file PDF
 
-Status: not started.
+Status: in progress on `feat/course-file`; report and tests done.
 
 Output: a PDF course file per offering. FR-6.6.
 
 1. Sections (to confirm, or a college template): CO and PO attainment tables, charts, weak COs,
-   root-cause findings, improvement actions.
-2. Every number comes from the database; a test checks the worked-example offering's PDF against it.
+   root-cause findings, improvement actions. As built (`api/services/course_file.py`, drawn with
+   PyMuPDF, no new dependency): rules used, assessments, CO attainment table and chart, course-exit
+   survey, PO attainment table and chart, COs below target with students below target and likely
+   upstream causes, improvement actions; page numbers, headers repeat across pages.
+   `GET /api/offerings/{id}/course-file.pdf` (any staff role that can see the offering).
+2. Every number comes from the database; a test checks the worked-example offering's PDF against it
+   (`tests/test_course_file.py`).
 
 ## As built vs plan (2 Nov 2026)
 
