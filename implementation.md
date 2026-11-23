@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 202 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 205 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -108,9 +108,20 @@ Recorded in PRD Section 10 as R1–R8; phases 7–10 below apply them.
 | R3 | The coordinator role is called Programme coordinator; same rights (`copo_coordinator`) |
 | R4 | Surveys are real Google Forms created through the Forms API, shared with a WhatsApp share button (no paid sending) |
 | R5 | The form asks college email, USN, name and phone; these match the student, then only a hashed USN is stored |
-| R6 | OCR: one PDF per assessment (page 1 question paper, then each student's cover-page marks table); free local OCR; the teacher confirms every value |
+| R6 | OCR: one PDF per assessment (page 1 question paper, then each student's cover-page marks table); free local OCR; the teacher confirms every value. Superseded by M2: one PDF per sitting |
 | R7 | Early warning: logistic regression trained on earlier offerings, re-run after each locked CIE |
 | R8 | Course file is generated as a PDF |
+
+## Decisions (23 Nov 2026) — marks entry and the combined question paper
+
+| # | Decision |
+| --- | --- |
+| M1 | The CSV marks upload (upload endpoint, template endpoint, buttons) is removed. CIE tests, quizzes and the SEE are entered by scanning; experiential learning is typed in the app. One validated save path (`api/services/marks.py`) serves both |
+| M2 | One scanned PDF per sitting, picked by the teacher: CIE 1, CIE 2 or SEE. A CIE paper has "Part A - Quiz" and "Part B - Test" headings, numbered on across parts; an SEE paper has no Part A |
+| M3 | The cover page has 20 mark rows (two columns of ten); every sheet carries the marks of both parts, each in the row of its paper number |
+| M4 | CIE n fills `Quiz n` (Part A, CIE_QUIZ) and `CIE Test n` (Part B, CIE_THEORY); the SEE fills `SEE`. A missing assessment is created from the paper with max marks = the part's sum. Within each assessment the questions are renumbered from Q1 in paper order (chosen over keeping the paper numbers, so every assessment reads Q1.. as the demo data and typed marks do) |
+| M5 | EL marks are typed into a per-student table (`PUT /api/assessments/{id}/marks`, all or nothing, row errors returned); an EL assessment is added on the Marks tab with its questions |
+| M6 | Confirming scanned marks only saves them; locking and computing stay separate, manual steps |
 
 ## Phase 1 — Schema and constraints (week 1) · Member A · ✅ done
 
@@ -227,13 +238,15 @@ Output: demo-ready system.
 
 ## Phase 7 — Answer-sheet OCR (novelty)
 
-Status: built on `feat/answer-sheet-ocr` (PR open). 10 tests; accuracy in
+Status: built on `feat/answer-sheet-ocr` (merged, #12); reworked on `feat/ocr-combined-paper` for
+one PDF per sitting with both parts (decisions M1-M6 above). 18 tests; accuracy in
 [docs/ocr-evaluation.md](docs/ocr-evaluation.md).
 
 Output: a teacher uploads one PDF and gets the question paper and every student's marks, ready to
 confirm. FR-3.7–3.9, NFR-10.
 
-1. Upload endpoint for one PDF per assessment; split it into page images (local, no outside service).
+1. Upload endpoint for one PDF per sitting (CIE 1, CIE 2 or SEE, picked by the teacher); split it
+   into page images (local, no outside service).
 2. Page 1 (question paper, printed): OCR with Tesseract, parse each question's number, max marks,
    CO and Bloom level into draft `assessment_question` and `question_co_map` rows
    (`api/ocr/paper.py`). The page is enlarged and binarised first, and the short codes at the end
@@ -255,10 +268,16 @@ confirm. FR-3.7–3.9, NFR-10.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
    the existing validation, triggers and locking. API (`api/routers/ocr.py`): `POST
-   /api/assessments/{id}/ocr` reads the PDF and returns suggestions only; `PUT
-   /api/assessments/{id}/questions` saves the confirmed questions (replaced while no marks exist,
-   only retagged after), with equal CO weights; confirmed marks go to the existing CSV endpoint.
-   The PDF and page images are not stored.
+   /api/offerings/{id}/scan?sitting=CIE1|CIE2|SEE` reads the PDF and returns suggestions only: the
+   questions with their part and number within their assessment, both parts' marks per sheet, the
+   students without a sheet and which assessments will be created or filled. `POST
+   /api/offerings/{id}/scan/confirm` saves in one transaction: it creates a missing `Quiz n`, `CIE
+   Test n` or `SEE` (max marks = its part's sum), saves each part's questions renumbered from Q1
+   (replaced while no marks exist, only retagged after; equal CO weights; `api/services/questions.py`),
+   then the marks through `api/services/marks.py`, with AB for students without a sheet who have
+   no marks yet (or all of them, if the teacher opts in). Saving does not lock or compute. The PDF
+   and page images are not stored. Experiential-learning marks are typed instead (`PUT
+   /api/assessments/{id}/marks`, EL only); the CSV upload was removed.
 5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values
    by `datagen/ocr_samples.py`, using MNIST's 10,000 held-out digits as handwriting; accuracy is
    reported against the target still to be agreed. `scripts/evaluate_ocr.py` writes
@@ -344,7 +363,10 @@ Where the build differs from the plan above:
 | Audit capture | `pg_notify` listener | transactional outbox (S8) + `pg_notify` wake-up | no change is lost when MongoDB or the writer is down |
 | Course prerequisites | — | acyclic-graph trigger | keeps the CO-dependency check meaningful |
 | UI | React + charting library | React + taste-skill `charts.js`, style `framed-sheet` | follows the taste-skill app-screen rules |
-| OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
+| OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and marks paths and their audit |
+| Marks entry | CSV upload per assessment | scanned sheets per sitting (CIE, SEE) and a typed table for EL; no CSV (M1) | teachers scan anyway; a second hand-made path only added work and errors |
+| OCR unit of upload | one PDF per assessment | one PDF per sitting: the quiz and the test of a CIE share a paper and a cover page (M2-M4) | the quiz and the test are sat together; one scan instead of two |
+| Assessment max marks | set when the assessment is created | follows the sum of its questions while no marks exist | lock needs them equal; the paper is the source of the maxima |
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
 | Course-file fonts | built-in PDF fonts | FiraGO (pymupdf-fonts, open licence) embedded and subset; characters it lacks shown as `?` | base-14 fonts garble symbols and non-Latin text (review of #15) |

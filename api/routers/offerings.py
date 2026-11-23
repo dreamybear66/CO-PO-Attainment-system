@@ -1,4 +1,6 @@
-"""Offerings, assessments, marks, locking, computation, root cause and what-if (faculty and HoD)."""
+"""Offerings, assessments, typed marks, locking, computation, root cause and what-if (faculty and HoD)."""
+
+from typing import Literal
 
 import psycopg
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -11,6 +13,7 @@ from api.db import User
 from api.errors import message
 from api.routers import students
 from api.services import course_file, early_warning, marks, whatif
+from api.services import questions as qsvc
 
 router = APIRouter(prefix="/api")
 staff = require("admin", "faculty", "coordinator")
@@ -85,6 +88,28 @@ def offering_detail(offering_id: int, user: User = Depends(staff), dbname=Depend
 
 
 # ---------------------------------------------------------------- marks and locking
+
+class AssessmentIn(BaseModel):
+    type: Literal["EL"] = "EL"           # CIE tests, quizzes and the SEE are created by scanning their paper
+    name: str = Field(default="Experiential Learning", min_length=2, max_length=60)
+    questions: list[qsvc.QuestionIn] = Field(min_length=1, max_length=20)
+
+
+@router.post("/offerings/{offering_id}/assessments", status_code=201)
+def create_assessment(offering_id: int, body: AssessmentIn, user: User = Depends(editors), dbname=Depends(database)):
+    """An experiential-learning assessment with its questions; its maximum is their sum."""
+    with db.session(user, dbname) as conn:
+        o = visible_offering(conn, offering_id)
+        aid = conn.execute("INSERT INTO assessment (offering_id, type, name, max_marks) VALUES (%s, %s, %s, %s) "
+                           "RETURNING assessment_id",
+                           (offering_id, body.type, body.name.strip(), sum(q.max_marks for q in body.questions))
+                           ).fetchone()["assessment_id"]
+        try:
+            qsvc.replace(conn, aid, o["course_id"], body.questions)
+        except qsvc.QuestionError as exc:
+            raise HTTPException(exc.status, exc.detail) from None
+    return {"assessment_id": aid}
+
 
 def assessment_or_404(conn, assessment_id: int) -> dict:
     row = conn.execute("SELECT assessment_id, offering_id, locked, type::text AS type, name FROM assessment "

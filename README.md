@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** all ten phases are built and 202 tests pass. Google Forms surveys need
+**Status:** all ten phases are built and 205 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -25,7 +25,8 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 ### Built
 
 - **Marks capture:** CIE tests, quizzes and the SEE are read from the scanned answer sheets (below);
-  experiential-learning (EL) marks are typed into a per-student table on the Marks tab. Either way
+  experiential-learning (EL) marks are typed into a per-student table on the Marks tab (an EL
+  assessment is added there with its questions, maxima and COs). Either way
   the whole batch is validated and nothing is saved if any row fails. Absent students are marked
   `AB` and score 0. There is no CSV upload.
 - **Locking:** an assessment locks only when every mark is in. Unlocking needs a request approved by
@@ -48,18 +49,25 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   hash-chained MongoDB log with a daily anchor and a verifier.
 - **Access control:** PostgreSQL row-level security per role (HoD, faculty, coordinator, student).
   Faculty see only their own offerings and students only their own rows.
-- **Answer-sheet OCR (novelty):** upload one scanned PDF per assessment ("Read PDF" on the Marks
-  tab). Page 1 is the question paper: Tesseract reads each question's number, max marks, COs and
-  Bloom level. Every later page is a student's cover page: the corner squares straighten the scan
-  and a digit model trained on MNIST reads the USN and the handwritten marks. Each mark is chosen
-  from 0 to its question's maximum and each USN among the enrolled students, so most misreads
-  cannot happen; anything unsure, a total that does not add up, or a duplicate USN is highlighted.
-  Nothing is saved until the teacher ticks that they checked the highlighted values; the marks then
-  go through the same validation as a CSV upload. Each mark comes from its own question's row, an
-  unreadable page can be typed in or skipped, and a student with no sheet in this PDF is saved as
-  absent only if they have no marks yet (one class can be scanned in several PDFs). The highlight
-  threshold is the rule version's `ocr_review_confidence` (default 0.90). Everything runs locally and the scans are not
-  stored. The cover-page layout is a synthetic stand-in with 20 mark rows (`api/ocr/layout.py`).
+- **Answer-sheet OCR (novelty):** scan one PDF per sitting: on the Marks tab, pick CIE 1, CIE 2 or
+  SEE and choose "Scan answer sheets". Page 1 is the question paper. A CIE paper holds both parts,
+  the quiz under "Part A - Quiz" and the test under "Part B - Test", numbered on across parts
+  (Q1-Q5, then Q6-Q11); an SEE paper is one list. Tesseract reads each question's number, max
+  marks, COs, Bloom level and part. Every later page is a student's cover page with one mark row
+  per paper question (Q1-Q20): the corner squares straighten the scan and a digit model trained on
+  MNIST reads the USN and the handwritten marks. CIE n fills `Quiz n` with Part A and `CIE Test n`
+  with Part B; the SEE fills `SEE`. An assessment the offering does not have yet is created from the
+  paper, and inside each assessment the questions are numbered from Q1 in paper order (paper Q6, the
+  first test question, is `CIE Test 1` Q1). Each mark is chosen from 0 to its question's maximum
+  and each USN among the enrolled students, so most misreads cannot happen; anything unsure, a
+  total that does not add up, or a duplicate USN is highlighted. Nothing is saved until the teacher
+  ticks that they checked the highlighted values; then both parts' questions and marks are saved in
+  one transaction, through the same validation as typed marks. Locking and computing stay separate
+  steps. Each mark comes from its own question's row, an unreadable page can be typed in or
+  skipped, and a student with no sheet in this PDF is saved as absent only if they have no marks yet
+  (one class can be scanned in several PDFs). The highlight threshold is the rule version's
+  `ocr_review_confidence` (default 0.90). Everything runs locally and the scans are not stored. The
+  cover-page layout is a synthetic stand-in with 20 mark rows (`api/ocr/layout.py`).
 - **Google Forms surveys:** an offering's **Survey** tab creates the course-exit survey as a Google
   Form in the teacher's own Google account (college email, USN, name, phone, then one 1–5 rating per
   CO) and shares it with **Share on WhatsApp**, which opens WhatsApp with the link and a message
@@ -349,7 +357,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 202 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 205 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
