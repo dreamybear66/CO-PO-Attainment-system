@@ -35,8 +35,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const loc = useLocation()
-  // close the phone drawer on navigation and on Escape
-  useEffect(() => { setOpen(false) }, [loc.pathname])
+  // close the phone drawer on navigation and on Escape; loc.key also changes when the link of the
+  // current page is tapped, which keeps the same pathname
+  useEffect(() => { setOpen(false) }, [loc.key])
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
