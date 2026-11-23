@@ -1,11 +1,14 @@
 """Synthetic scanned PDFs for answer-sheet OCR (phase 7).
 
-  python -m datagen.ocr_samples --assessment-id 42 [--database copo] [--seed 7] [--out samples/a42.pdf]
+  python -m datagen.ocr_samples --offering-id 42 --sitting CIE1 [--database copo] [--seed 7] [--out samples/x.pdf]
 
-Page 1 is a printed question paper; each later page is one student's cover page (api/ocr/layout.py)
-with marks "handwritten" from MNIST's held-out digits, which the digit model never saw. Pages are
-rasterised and lightly rotated, shifted and noised like a scan, then saved as JPEG pages in an
-image-only PDF.
+One PDF per sitting (CIE1, CIE2 or SEE). Page 1 is a printed question paper: for a CIE, Part A (the
+quiz) and Part B (the test) under their headings, numbered on across parts; for the SEE, one list.
+The questions are the offering's saved ones ('Quiz 1' and 'CIE Test 1' for CIE1, 'SEE' for SEE),
+or a typical paper when an assessment does not exist yet. Each later page is one student's cover
+page (api/ocr/layout.py) with marks for every question of both parts "handwritten" from MNIST's
+held-out digits, which the digit model never saw. Pages are rasterised and lightly rotated, shifted
+and noised like a scan, then saved as JPEG pages in an image-only PDF.
 An answer key (<out>.json) records every true value, for scripts/evaluate_ocr.py.
 
 Everything is synthetic: no real question paper, answer sheet or student mark is used.
@@ -23,6 +26,11 @@ import numpy as np
 from api.ocr import layout
 
 STEMS = [
+    "Define a candidate key",
+    "Name two isolation levels",
+    "State the closure of an attribute set",
+    "Give an example of a weak entity",
+    "What does ACID stand for",
     "Explain the three-schema architecture",
     "Normalise the relation to BCNF",
     "Write SQL for the given queries",
@@ -38,20 +46,24 @@ STEMS = [
 
 @dataclass
 class Question:
-    q_no: str
+    q_no: str                             # as numbered on the paper
     max_marks: int
     cos: list[int]
     bloom: int
     text: str = ""
+    part: str | None = None               # "A" (quiz) or "B" (test) on a CIE paper; None prints no heading
 
 
 @dataclass
 class Paper:
     code: str
     title: str
-    assessment: str
+    heading: str                          # "CIE 1", "SEE", ...
     max_marks: int
     questions: list[Question]
+
+
+PART_HEADINGS = {"A": "Part A - Quiz", "B": "Part B - Test"}
 
 
 @dataclass
@@ -82,11 +94,16 @@ def question_paper(doc: fitz.Document, paper: Paper) -> np.ndarray:
     put(60, 70, "RV College of Engineering, Bengaluru", 13)
     put(60, 90, "Department of Information Science and Engineering")
     put(60, 115, f"{paper.code} {paper.title}")
-    put(60, 133, f"{paper.assessment}    Max. marks: {paper.max_marks}")
+    put(60, 133, f"{paper.heading}    Max. marks: {paper.max_marks}")
     y = 170
     put(60, y, "Q.No"); put(100, y, "Question"); put(422, y, "Marks"); put(468, y, "CO"); put(535, y, "BL")
     page.draw_line((55, y + 6), (560, y + 6), width=0.6)
+    part = None
     for q in paper.questions:
+        if q.part and q.part != part:
+            part = q.part
+            y += 26
+            put(60, y, PART_HEADINGS[part], 11.5)
         y += 24
         put(60, y, q.q_no)
         put(100, y, q.text)
@@ -200,27 +217,44 @@ def random_key(paper: Paper, usns: list[str], rng: np.random.Generator, absent_s
 
 # ---------------------------------------------------------------- from the database
 
-def paper_from_db(conn, assessment_id: int, rng: np.random.Generator) -> tuple[Paper, list[str]]:
-    a = conn.execute("""
-        SELECT a.name, a.max_marks, c.code, c.title, a.offering_id
-        FROM assessment a JOIN course_offering o USING (offering_id) JOIN course c USING (course_id)
-        WHERE a.assessment_id = %s""", (assessment_id,)).fetchone()
-    if not a:
-        raise SystemExit(f"assessment {assessment_id} not found")
-    rows = conn.execute("""
-        SELECT q.q_no, q.max_marks, coalesce(q.bloom_level, 0) AS bloom,
-               array_agg(co.co_number ORDER BY co.co_number) AS cos
-        FROM assessment_question q
-        JOIN question_co_map m USING (question_id) JOIN course_outcome co USING (co_id)
-        WHERE q.assessment_id = %s GROUP BY q.question_id ORDER BY q.question_id""", (assessment_id,)).fetchall()
-    if not rows or len(rows) > layout.MAX_QUESTIONS:
-        raise SystemExit(f"assessment {assessment_id} needs 1 to {layout.MAX_QUESTIONS} tagged questions")
-    questions = [Question(q_no=r["q_no"], max_marks=int(r["max_marks"]), cos=list(r["cos"]),
-                          bloom=int(r["bloom"]) or int(rng.integers(1, 5)), text=STEMS[i % len(STEMS)])
-                 for i, r in enumerate(rows)]
+# A typical paper per part, used when the assessment does not exist yet: (maxima, COs to cycle).
+TYPICAL = {"CIE1": {"A": ([2] * 5, [1, 2, 3]), "B": ([10, 10, 10, 10, 5, 5], [1, 2, 3])},
+           "CIE2": {"A": ([2] * 5, [3, 4, 5]), "B": ([10, 10, 10, 10, 5, 5], [3, 4, 5])},
+           "SEE": {"B": ([10] * 10, [1, 2, 3, 4, 5])}}
+
+
+def paper_from_db(conn, offering_id: int, sitting: str, rng: np.random.Generator) -> tuple[Paper, list[str]]:
+    from api.ocr.paper import SITTINGS
+    o = conn.execute("""
+        SELECT c.code, c.title, c.course_id FROM course_offering o JOIN course c USING (course_id)
+        WHERE o.offering_id = %s""", (offering_id,)).fetchone()
+    if not o:
+        raise SystemExit(f"offering {offering_id} not found")
+    course_cos = [r["co_number"] for r in conn.execute(
+        "SELECT co_number FROM course_outcome WHERE course_id = %s ORDER BY co_number", (o["course_id"],))]
+    questions: list[Question] = []
+    for part, (name, _) in SITTINGS[sitting]["parts"].items():
+        rows = conn.execute("""
+            SELECT q.max_marks, coalesce(q.bloom_level, 0) AS bloom, array_agg(co.co_number ORDER BY co.co_number) AS cos
+            FROM assessment a JOIN assessment_question q USING (assessment_id)
+            JOIN question_co_map m USING (question_id) JOIN course_outcome co USING (co_id)
+            WHERE a.offering_id = %s AND a.name = %s GROUP BY q.question_id ORDER BY q.question_id""",
+                            (offering_id, name)).fetchall()
+        if not rows:
+            maxima, cos = TYPICAL[sitting][part]
+            cos = [c for c in cos if c in course_cos] or course_cos[:1]
+            rows = [{"max_marks": m, "bloom": 0, "cos": [cos[i % len(cos)]]} for i, m in enumerate(maxima)]
+        for r in rows:
+            i = len(questions)
+            questions.append(Question(q_no=f"Q{i + 1}", max_marks=int(r["max_marks"]), cos=list(r["cos"]),
+                                      bloom=int(r["bloom"]) or int(rng.integers(1, 5)), text=STEMS[i % len(STEMS)],
+                                      part=part if sitting != "SEE" else None))
+    if len(questions) > layout.MAX_QUESTIONS:
+        raise SystemExit(f"the {sitting} paper has {len(questions)} questions; the cover page has {layout.MAX_QUESTIONS} rows")
     usns = [r["usn"] for r in conn.execute(
-        "SELECT usn FROM enrollment WHERE offering_id = %s ORDER BY usn", (a["offering_id"],))]
-    return Paper(a["code"], a["title"], a["name"], int(a["max_marks"]), questions), usns
+        "SELECT usn FROM enrollment WHERE offering_id = %s ORDER BY usn", (offering_id,))]
+    heading = SITTINGS[sitting]["label"]
+    return Paper(o["code"], o["title"], heading, sum(q.max_marks for q in questions), questions), usns
 
 
 def main() -> None:
@@ -230,15 +264,16 @@ def main() -> None:
     from api import config
 
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--assessment-id", type=int, required=True)
+    p.add_argument("--offering-id", type=int, required=True)
+    p.add_argument("--sitting", choices=["CIE1", "CIE2", "SEE"], required=True)
     p.add_argument("--database", default=None)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args()
     rng = np.random.default_rng(args.seed)
     with psycopg.connect(config.owner_dsn(args.database), row_factory=dict_row) as conn:
-        paper, usns = paper_from_db(conn, args.assessment_id, rng)
-    out = args.out or config.ROOT / "samples" / f"assessment-{args.assessment_id}.pdf"
+        paper, usns = paper_from_db(conn, args.offering_id, args.sitting, rng)
+    out = args.out or config.ROOT / "samples" / f"offering-{args.offering_id}-{args.sitting.lower()}.pdf"
     key = random_key(paper, usns, rng)
     build_pdf(key, out, seed=args.seed)
     print(f"wrote {out} ({len(key.sheets) + 1} pages, {len(key.absent)} absent) and {out.with_suffix('.json').name}")
