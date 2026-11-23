@@ -125,7 +125,7 @@ triggers, CHECK constraints and the stored procedure, so the API cannot bypass t
 ## Repository layout
 
 ```
-db/migrations/   001_schema … 010_question_bloom: tables, triggers, views, procedures, indexes, RLS
+db/migrations/   001_schema … 011_survey_forms: tables, triggers, views, procedures, indexes, RLS
 db/seed/         worked_example.sql (PRD Section 5)
 datagen/         synthetic programme, marks and surveys; planted root-cause scenario
 api/             FastAPI app: routers/, services/ (marks CSV, surveys, what-if), jobs/ (ETL, audit)

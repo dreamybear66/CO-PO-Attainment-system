@@ -1,7 +1,12 @@
 # ER diagram
 
 29 tables: the 25 from the source design plus `config_component_weight`, `whatif_po_result`,
-`unlock_request` and `audit_outbox` (PRD Section 9 changes). DDL: `db/migrations/001_schema.sql`. Rendered images: [PNG](er-diagram.png), [SVG](er-diagram.svg).
+`unlock_request` and `audit_outbox` (PRD Section 9 changes). DDL: `db/migrations/001_schema.sql`. Rendered images: [PNG](er-diagram.png), [SVG](er-diagram.svg)
+(the images show those 29).
+
+The rescope adds two tables in `011_survey_forms.sql`, 31 in all: `google_account` (a teacher's
+encrypted Google refresh token, visible to that user only and not audited) and `survey_form` (the
+Google Form of an offering and its question ids). Migration 010 adds `assessment_question.bloom_level`.
 
 ```mermaid
 erDiagram
@@ -49,6 +54,9 @@ erDiagram
     student |o--o| app_user : "logs in as"
     assessment ||--o{ unlock_request : "unlock asked for"
     app_user ||--o{ unlock_request : "requests / decides"
+    app_user |o--o| google_account : "connects"
+    course_offering |o--o| survey_form : "is surveyed by"
+    app_user ||--o{ survey_form : owns
 ```
 
 `audit_outbox` and `audit_anchor` stand alone: the outbox is filled by audit triggers on the audited

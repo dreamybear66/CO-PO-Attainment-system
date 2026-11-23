@@ -70,7 +70,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 
 ```
 db/
-  migrations/        001_schema … 010_question_bloom (tables, triggers, views, procedures, indexes, RLS)
+  migrations/        001_schema … 011_survey_forms (tables, triggers, views, procedures, indexes, RLS)
   seed/              worked-example fixture (Section 5 of PRD)
 api/                 FastAPI app (routers, services, mongo, jobs)
 web/                 React + TypeScript app
