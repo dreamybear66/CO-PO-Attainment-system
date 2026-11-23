@@ -233,7 +233,9 @@ def predict(owner_pg, offering_id: int, keys: list[tuple[str, int]] | None = Non
     for row, p, zrow in zip(rows, proba, zt):
         effects = dict(zip(names, model.coef_[0] * zrow))
         shown = {"co_so_far": row["co_so_far"] if row["co_so_far"] is not None else row["overall"], "prereq": row["prereq"]}
-        reasons = [{"feature": f, "label": SHOWN[f].format(co=co_number[row["co_id"]]),
+        labels = dict(SHOWN, co_so_far="CO{co} marks so far" if row["co_so_far"] is not None
+                      else "All marks so far (CO{co} not tested yet)")
+        reasons = [{"feature": f, "label": labels[f].format(co=co_number[row["co_id"]]),
                     "value": round(shown[f], 1), "typical": round(typical[f], 1), "effect": round(float(e), 3)}
                    for f, e in sorted(effects.items(), key=lambda kv: -kv[1])
                    if f in SHOWN and e > MIN_EFFECT and shown[f] is not None]

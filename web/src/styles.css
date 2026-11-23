@@ -348,3 +348,6 @@ tbody tr:nth-child(n + 9), .rows > .row:nth-child(n + 9) { animation-delay: 0.24
 .rating-bar .r3 { background: #d9dcde; color: #353736; }
 .rating-bar .r4 { background: #7fb6c3; color: #0f3f4b; }
 .rating-bar .r5 { background: #1b6c80; color: #fff; }
+
+/* weak-student lists (phase 9) */
+.weak-list { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 0; font-size: var(--fs-small); }
