@@ -71,15 +71,14 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   (default 0.5) are flagged with the reason, e.g. "CO2 marks so far 23% (typical 70%)". It is
   advice only and never changes official results. Replayed on 2025-26: AUC 0.79 after CIE Test 1
   ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
+- **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
+  report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
+  with a chart, COs below target with how many students are below target and the likely upstream
+  causes, and the improvement actions. Every figure comes from the database.
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
-
-### Planned (phase 10)
-
-- **Course-file report:** a PDF per offering with CO and PO attainment, charts, weak COs, root-cause
-  findings and improvement actions.
 
 ## How attainment is calculated
 

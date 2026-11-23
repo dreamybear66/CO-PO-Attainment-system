@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE_OUT, Notice, Spinner, Tabs } from '../components/motion'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, ApiError } from '../api'
+import { api, ApiError, download } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, SkeletonRows } from '../components/States'
 import { int, term, when } from '../format'
@@ -68,6 +68,13 @@ export function Offering() {
         </div>
         <div className="actions">
           {lastComputed && <span className="stamp" style={{ alignSelf: 'center' }}>Computed {when(lastComputed)}</span>}
+          {computed && (
+            <button className="btn" title="The course file of this offering, from its computed results"
+                    onClick={() => download(`/api/offerings/${id}/course-file.pdf`, `${d.code}-${d.academic_year}-${d.section}-course-file.pdf`)
+                      .catch((e) => setNotice((e as Error).message))}>
+              Course file (PDF)
+            </button>
+          )}
           {canEdit && (
             <button className="btn primary" onClick={compute} disabled={computing || !allLocked}
                     title={allLocked ? undefined : 'Lock every assessment first'}>
