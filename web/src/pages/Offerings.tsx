@@ -1,3 +1,4 @@
+import { Meter, NumberTicker, Segmented } from '../components/motion'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
@@ -57,22 +58,21 @@ export function Offerings() {
         <select id="year" className="input" value={activeYear ?? ''} onChange={(e) => setYear(e.target.value)}>
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
-        <div className="segmented" role="group" aria-label="Show">
-          {(Object.keys(VIEWS) as View[]).map((v) => (
-            <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>{VIEWS[v]}</button>
-          ))}
-        </div>
+        <Segmented label="Show" value={view} onChange={setView}
+                   options={(Object.keys(VIEWS) as View[]).map((v) => ({ value: v, label: VIEWS[v] }))} />
         <span className="spacer" />
         <span className="stamp">{user?.role === 'faculty' ? 'Your offerings' : 'All sections of the programme'}</span>
       </div>
 
       <div className="kpis" aria-label={`Totals for ${activeYear ?? ''}`}>
-        <div className="kpi"><div className="kpi-label">Offerings</div><div className="kpi-value num">{int(totals.offerings)}</div><div className="delta">course sections in {activeYear}</div></div>
-        <div className="kpi"><div className="kpi-label">Assessments locked</div><div className="kpi-value num">{int(totals.locked)}<small>of {int(totals.assessments)}</small></div><div className="delta">locked marks can no longer change</div></div>
-        <div className="kpi"><div className="kpi-label">Attainment computed</div><div className="kpi-value num">{int(totals.computed)}<small>of {int(totals.offerings)}</small></div><div className="delta">offerings with CO and PO results</div></div>
+        <div className="kpi"><div className="kpi-label">Offerings</div><div className="kpi-value num"><NumberTicker value={totals.offerings} /></div><div className="delta">course sections in {activeYear}</div></div>
+        <div className="kpi"><div className="kpi-label">Assessments locked</div><div className="kpi-value num"><NumberTicker value={totals.locked} /><small>of {int(totals.assessments)}</small></div>
+          <Meter value={totals.locked} max={totals.assessments} label="Share of assessments locked" /><div className="delta">locked marks can no longer change</div></div>
+        <div className="kpi"><div className="kpi-label">Attainment computed</div><div className="kpi-value num"><NumberTicker value={totals.computed} /><small>of {int(totals.offerings)}</small></div>
+          <Meter value={totals.computed} max={totals.offerings} label="Share of offerings computed" /><div className="delta">offerings with CO and PO results</div></div>
         <div className="kpi"><div className="kpi-label">COs below target</div>
           {totals.computed
-            ? <><div className={`kpi-value num ${totals.below ? 'below' : ''}`}>{int(totals.below)}</div><div className="delta">each has an improvement action</div></>
+            ? <><div className={`kpi-value num ${totals.below ? 'below' : ''}`}><NumberTicker value={totals.below} /></div><div className="delta">each has an improvement action</div></>
             : <><div className="kpi-value dash">—</div><div className="delta">shown once attainment is computed</div></>}
         </div>
       </div>

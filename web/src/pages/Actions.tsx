@@ -1,3 +1,4 @@
+import { Segmented } from '../components/motion'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
@@ -46,11 +47,8 @@ export function Actions() {
       </div>
       {failed && <p className="note" role="alert">{failed}</p>}
       <div className="filters">
-        <div className="segmented" role="group" aria-label="Status">
-          {(['open', 'in_progress', 'done', 'all'] as const).map((s) => (
-            <button key={s} aria-pressed={filter === s} onClick={() => setFilter(s)}>{s === 'all' ? 'All' : STATUS[s]}</button>
-          ))}
-        </div>
+        <Segmented<Status | 'all'> label="Status" value={filter} onChange={setFilter}
+                   options={(['open', 'in_progress', 'done', 'all'] as const).map((s) => ({ value: s, label: s === 'all' ? 'All' : STATUS[s] }))} />
         <span className="spacer" /><span className="stamp num">{int(rows.length)} actions</span>
       </div>
       <section className="panel" aria-label="Actions">

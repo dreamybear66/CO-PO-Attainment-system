@@ -47,7 +47,9 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 - **Access control:** PostgreSQL row-level security per role (HoD, faculty, coordinator, student).
   Faculty see only their own offerings and students only their own rows.
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
-  what-if, trends, improvement actions, rules and audit, and a student view.
+  what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
+  Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
+  CO-PO network, and every animation respects the reduced-motion setting.
 
 ### Planned (phases 7–10)
 

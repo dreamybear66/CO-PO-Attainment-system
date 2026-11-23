@@ -1,3 +1,5 @@
+import { AnimatePresence, motion } from 'motion/react'
+import { EASE_OUT, Notice, Spinner, Tabs } from '../components/motion'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
@@ -64,23 +66,21 @@ export function Offering() {
           {canEdit && (
             <button className="btn primary" onClick={compute} disabled={computing || !allLocked}
                     title={allLocked ? undefined : 'Lock every assessment first'}>
-              {computing ? 'Computing…' : computed ? 'Recompute attainment' : 'Compute attainment'}
+              {computing ? <><Spinner />Computing…</> : computed ? 'Recompute attainment' : 'Compute attainment'}
             </button>
           )}
         </div>
       </div>
-      {notice && <p className="note" role="status" style={{ marginBottom: 16 }}>{notice}</p>}
+      <AnimatePresence>{notice && <Notice key={notice}>{notice}</Notice>}</AnimatePresence>
 
-      <div className="tabs" role="tablist" aria-label="Offering">
-        {(Object.keys(TABS) as Tab[]).map((t) => (
-          <button key={t} role="tab" aria-selected={active === t} onClick={() => setTab(t)}>{TABS[t]}</button>
-        ))}
-      </div>
+      <Tabs label="Offering" tabs={TABS} value={active} onChange={setTab} />
 
+      <motion.div key={active} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_OUT }}>
       {active === 'marks' && <MarksTab offering={d} canEdit={canEdit} onChange={detail.reload} />}
       {active === 'attainment' && <AttainmentTab offering={d} att={att} canEdit={canEdit} onCompute={compute} allLocked={allLocked} />}
       {active === 'cause' && <RootCauseTab offering={d} att={att.data} canEdit={canEdit} onAction={att.reload} />}
       {active === 'whatif' && <WhatIfTab offering={d} computed={computed} canEdit={canEdit} />}
+      </motion.div>
     </>
   )
 }

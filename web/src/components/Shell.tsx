@@ -1,7 +1,9 @@
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ROLE_NAMES, useAuth, type Role } from '../auth'
 import { UNLOCKS_CHANGED, useApi } from '../hooks'
+import { EASE_OUT, SPRING } from './motion'
 
 const icon = {
   offerings: <path d="M3 4.5h10M3 8h10M3 11.5h6" />,
@@ -33,6 +35,15 @@ export function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const loc = useLocation()
+  // close the phone drawer on navigation and on Escape; loc.key also changes when the link of the
+  // current page is tapped, which keeps the same pathname
+  useEffect(() => { setOpen(false) }, [loc.key])
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
   const pending = useApi<unknown[]>(user?.role === 'admin' ? '/api/unlock-requests' : null)
   const reloadPending = pending.reload
   useEffect(() => {
@@ -54,23 +65,44 @@ export function Shell({ children }: { children: ReactNode }) {
     { to: '/settings', label: 'Rules and audit', d: icon.settings, roles: ['admin', 'coordinator'] },
   ]
   const item = (n: Nav) => n.roles.includes(user.role) && (
-    <NavLink key={n.to} to={n.to} end className="nav-item" onClick={() => setOpen(false)}>
-      <Icon d={n.d} />{n.label}
-      {n.count ? <span className="count num" aria-label={`${n.count} unlock requests waiting`}>{n.count}</span> : null}
+    <NavLink key={n.to} to={n.to} end className="nav-item">
+      {({ isActive }) => {
+        // an offering page belongs to the Offerings item
+        const on = isActive || (n.to === '/' && loc.pathname.startsWith('/offerings'))
+        return (
+          <>
+            {on && <motion.span className="nav-pill" layoutId="nav-pill" transition={SPRING} aria-hidden="true" />}
+            <Icon d={n.d} /><span className="nav-label">{n.label}</span>
+            {n.count ? <span className="count num" aria-label={`${n.count} unlock requests waiting`}>{n.count}</span> : null}
+          </>
+        )
+      }}
     </NavLink>
   )
   const initials = user.username.slice(0, 2).toUpperCase()
+  // one transition per screen; switching tabs inside an offering does not replay it
+  const screen = loc.pathname.split('/').slice(0, 3).join('/')
 
   return (
     <div className="app">
+      <AnimatePresence>
+        {open && <motion.div className="scrim" onClick={() => setOpen(false)} aria-hidden="true"
+                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />}
+      </AnimatePresence>
       <aside className={`sidebar ${open ? 'open' : ''}`} aria-label="Main">
         <div className="brand">
           <Mark />
           <div><b>CO-PO Attainment</b><span>Dept. of ISE · RVCE</span></div>
         </div>
-        <button className="btn ghost menu-toggle" style={{ justifySelf: 'end' }} onClick={() => setOpen(false)}>Close</button>
+        <button className="btn ghost menu-toggle" style={{ alignSelf: 'flex-end', marginTop: -40 }} onClick={() => setOpen(false)}>Close</button>
         {nav.map(item)}
-        <div className="bottom">{bottom.map(item)}</div>
+        <div className="bottom">
+          {bottom.map(item)}
+          <div className="me">
+            <span className="avatar" aria-hidden="true">{initials}</span>
+            <span className="me-text"><span className="id">{user.username}</span><span className="small muted">{ROLE_NAMES[user.role]}</span></span>
+          </div>
+        </div>
       </aside>
       <header className="topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -79,12 +111,15 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="scope">B.E. Information Science and Engineering · {loc.pathname.startsWith('/me') ? 'Student view' : 'Outcome-based education'}</span>
         </div>
         <div className="who">
-          <span className="avatar" aria-hidden="true">{initials}</span>
-          <span className="hide-phone"><span className="id">{user.username}</span> <span className="muted">· {ROLE_NAMES[user.role]}</span></span>
+          <span className="avatar phone-only" aria-hidden="true">{initials}</span>
           <button className="btn ghost small" onClick={logout}>Sign out</button>
         </div>
       </header>
-      <main className="sheet">{children}</main>
+      <main className="sheet">
+        <motion.div key={screen} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: EASE_OUT }}>
+          {children}
+        </motion.div>
+      </main>
     </div>
   )
 }

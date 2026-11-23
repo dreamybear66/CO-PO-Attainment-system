@@ -1,3 +1,4 @@
+import { Segmented } from '../components/motion'
 import { useMemo, useState } from 'react'
 import { Chart } from '../components/Chart'
 import { Empty, ErrorBox, SkeletonRows } from '../components/States'
@@ -59,9 +60,7 @@ export function Trends() {
         <section className="panel span-8" aria-labelledby="t-trend">
           <header>
             <h2 id="t-trend"><span className="id">{selected?.code}</span> CO{coNo} final level by year</h2>
-            <div className="segmented" role="group" aria-label="CO">
-              {coNumbers.map((n) => <button key={n} aria-pressed={coNo === n} onClick={() => setCoNo(n)}>CO{n}</button>)}
-            </div>
+            <Segmented label="CO" value={coNo} onChange={setCoNo} options={coNumbers.map((n) => ({ value: n, label: `CO${n}` }))} />
           </header>
           <p className="small muted" style={{ marginBottom: 8 }}>{coStatement ? `${coStatement}. ` : ''}{finding}</p>
           {trend.error ? <ErrorBox message={trend.error} onRetry={trend.reload} />

@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { level } from '../format'
+import { gsap, reducedMotion, useGSAP } from './gsap'
 import type { CoRow } from './CoLadder'
 
 export type PoRow = { po_id: number; code: string; type: string; statement: string; attainment: string | number; target: string | number }
@@ -7,8 +9,16 @@ export type MapCell = { co_id: number; po_id: number; strength: number }
 /** CO x PO: mapping strength as a one-hue tint, each CO's final level, each PO's attainment below. */
 export function CoPoMatrix({ cos, pos, map }: { cos: CoRow[]; pos: PoRow[]; map: MapCell[] }) {
   const strength = new Map(map.map((m) => [`${m.co_id}:${m.po_id}`, m.strength]))
+  const ref = useRef<HTMLDivElement>(null)
+  useGSAP(() => {
+    if (reducedMotion()) return
+    const q = gsap.utils.selector(ref)
+    gsap.timeline()
+      .from(q('td.cell'), { opacity: 0, scale: 0.6, duration: 0.45, ease: 'back.out(1.6)', stagger: { each: 0.012, grid: 'auto', from: 'start' }, clearProps: 'transform,opacity' })
+      .from(q('tfoot td'), { opacity: 0, y: 6, stagger: 0.03, duration: 0.35 }, '-=0.3')
+  }, { scope: ref, dependencies: [cos, pos, map] })
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" ref={ref}>
       <table className="matrix">
         <caption className="visually-hidden">CO-PO mapping strengths with CO final levels and PO attainment</caption>
         <thead>

@@ -1,3 +1,4 @@
+import { Segmented } from '../components/motion'
 import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
@@ -91,9 +92,8 @@ function SurveyCard({ survey, onDone }: { survey: Survey; onDone: () => void }) 
               <div className="row" key={c.co_id} style={{ flexWrap: 'wrap' }}>
                 <span className="id" style={{ width: 40 }}>CO{c.co_number}</span>
                 <span className="grow">{c.statement}</span>
-                <div className="segmented" role="group" aria-label={`Rating for CO${c.co_number}`}>
-                  {[1, 2, 3, 4, 5].map((n) => <button key={n} aria-pressed={ratings[c.co_id] === n} onClick={() => setRatings({ ...ratings, [c.co_id]: n })}>{n}</button>)}
-                </div>
+                <Segmented label={`Rating for CO${c.co_number}`} value={ratings[c.co_id] ?? null} onChange={(n) => setRatings({ ...ratings, [c.co_id]: n })}
+                           options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: n }))} />
               </div>
             ))}
           </div>
