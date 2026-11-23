@@ -20,7 +20,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | NLP plan | Merged | `docs/nlp-plan` · #8 | [nlp.md](nlp.md), a proposal only |
 | Rescope | PR open | `docs/rescope` | PRD, CLAUDE.md, README and this plan updated for teacher automation |
 | UI motion | PR open | `feat/ui-motion` | Motion/GSAP animation layer, animated sign-in; `main` merged in |
-| Landing page | Local only | `feat/landing-page` | Landing page, uncommitted |
+| Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
 | 7 — Answer-sheet OCR | Not started | — | See [Phase 7](#phase-7--answer-sheet-ocr-novelty--not-started) |
 | 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing--not-started) |
 | 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty--not-started) |
@@ -31,8 +31,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 **Needs action**
 - [x] `feat/ui-motion`: `main` merged in (conflicts in `Shell.tsx` and `RootCauseTab.tsx`), web
   build and API tests pass, PR opened.
-- [ ] `feat/landing-page`: the landing page is uncommitted and sits on `feat/ui-motion`; commit it
-  once its owner says it is ready, then open a PR after the UI-motion PR.
+- [x] `feat/landing-page`: committed, `feat/ui-motion` merged in, copy updated for the rescope,
+  PR opened after the UI-motion PR.
 - [x] Regenerate [docs/test-report.md](docs/test-report.md): done 23 Nov 2026, 166 passed (was
   the first run, 84 tests).
 

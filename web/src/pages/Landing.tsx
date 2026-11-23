@@ -95,16 +95,19 @@ const SCREENS = [
   },
 ]
 
+// Counts from docs/test-report.md (23 Nov 2026 run: 166 passed).
 const TESTS: [string, number, string][] = [
-  ['Correctness', 13, 'Worked example: CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48.'],
-  ['Constraints', 23, 'Out-of-range marks, locked edits, bad weights and cycles all rejected.'],
-  ['Access control', 18, 'Faculty see only their offerings; students only their own rows.'],
-  ['Audit tamper', 7, 'An edited or deleted audit record is reported at its seq.'],
-  ['Root cause', 6, 'The planted cause ranks first; the decoy is excluded.'],
-  ['Surveys and ETL', 7, 'Reference checks, one response per student, idempotent load.'],
-  ['Simulator isolation', 4, 'What-if runs leave official tables unchanged.'],
+  ['Correctness', 16, 'Worked example: CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48.'],
+  ['Constraints', 27, 'Out-of-range marks, locked edits, bad weights and cycles all rejected.'],
+  ['Access control', 27, 'Faculty see only their offerings; students only their own rows.'],
+  ['Surveys and ETL', 24, 'Reference checks, one response per student, idempotent load.'],
+  ['Audit tamper', 16, 'An edited or deleted audit record is reported at its seq.'],
+  ['Root cause', 15, 'The planted cause ranks first; the decoy is excluded.'],
+  ['Simulator isolation', 14, 'What-if runs leave official tables unchanged.'],
+  ['Synthetic data', 10, 'Same seed, same data; the planted cause stands out.'],
+  ['Concurrency', 8, 'A second compute waits or is refused; a failed run keeps the last result.'],
+  ['Improvement actions', 5, 'Actions close once a CO reaches target; follow-ups link to the next offering.'],
   ['Reproducibility', 4, 'Old rule versions reproduce old numbers exactly.'],
-  ['Concurrency', 2, 'A second compute waits or is refused; a failed run keeps the last result.'],
 ]
 
 export function Landing() {
@@ -149,8 +152,9 @@ function Hero() {
       <div className="lp-hero-copy">
         <h1 id="lp-title">CO-PO attainment</h1>
         <p className="lp-lede">
-          A PostgreSQL and MongoDB system that turns question-wise marks and course-exit surveys into Course
-          Outcome and Programme Outcome levels for NBA accreditation, with the rules kept in the database.
+          A PostgreSQL and MongoDB system that takes CO-PO work off a teacher's hands: it turns question-wise
+          marks and course-exit surveys into Course Outcome and Programme Outcome levels, explains why a CO is
+          weak, and keeps the rules in the database.
         </p>
         <div className="lp-hero-actions">
           <Link to="/login" className="lp-btn">Sign in to the demo</Link>
@@ -353,7 +357,7 @@ function Tests() {
     <section className="lp-tests" id="tests" aria-labelledby="lp-tests-h">
       <ul className="lp-board" data-reveal>
         <li className="lp-board-head" style={{ '--i': 0 } as React.CSSProperties}>
-          <h2 id="lp-tests-h">84 tests, all passing</h2>
+          <h2 id="lp-tests-h">{TESTS.reduce((sum, [, n]) => sum + n, 0)} tests, all passing</h2>
           <p>
             Each one rebuilds a test database. The demo data is a synthetic ISE programme: 1,440 students,
             280 offerings, 556,800 question-wise marks and 11,965 surveys.

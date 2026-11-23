@@ -1,7 +1,7 @@
 # ER diagram
 
 29 tables: the 25 from the source design plus `config_component_weight`, `whatif_po_result`,
-`unlock_request` and `audit_outbox` (PRD Section 9 changes). DDL: `db/migrations/001_schema.sql`.
+`unlock_request` and `audit_outbox` (PRD Section 9 changes). DDL: `db/migrations/001_schema.sql`. Rendered images: [PNG](er-diagram.png), [SVG](er-diagram.svg).
 
 ```mermaid
 erDiagram
