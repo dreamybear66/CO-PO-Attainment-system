@@ -2,12 +2,18 @@
 
 DBMS (CD252IA) project, Dept. of ISE, RV College of Engineering — Team 2.
 
-A PostgreSQL + MongoDB system that computes Course Outcome (CO) and Program Outcome (PO) attainment
-from question-wise marks and course-exit surveys. It finds why a CO is weak, simulates rule changes,
-and keeps a tamper-evident audit trail. The rules live in the database, not in code.
+A PostgreSQL + MongoDB system that takes a teacher's CO-PO work off their hands. It computes Course
+Outcome (CO) and Program Outcome (PO) attainment from question-wise marks and course-exit surveys,
+finds why a CO is weak, simulates rule changes, and keeps a tamper-evident audit trail. The rules
+live in the database, not in code. It is built to save teachers time, not to produce NBA/NAAC
+accreditation reports.
 
-**Status:** all six build phases are done and 166 tests pass. What's left is tracked in
-[implementation.md](implementation.md#pending).
+Three features go beyond automation: **answer-sheet OCR** (planned), **early-warning prediction**
+(planned) and **prerequisite-aware root-cause analysis** (built).
+
+**Status:** phases 1–6 are built and 166 tests pass. Phases 7–10 (OCR, Google Forms surveys, early
+warning and weak-student lists, course-file PDF) were added on 23 Nov 2026 and are not built yet.
+What's left is tracked in [implementation.md](implementation.md#pending).
 
 - Requirements: [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard)
 - Build plan and progress: [implementation.md](implementation.md)
@@ -15,6 +21,8 @@ and keeps a tamper-evident audit trail. The rules live in the database, not in c
 - Test results: [docs/test-report.md](docs/test-report.md)
 
 ## Features
+
+### Built
 
 - **Marks capture:** question-wise CSV upload, with every row validated and nothing saved if any row
   fails. Absent students are marked `AB` and score 0.
@@ -40,6 +48,23 @@ and keeps a tamper-evident audit trail. The rules live in the database, not in c
   Faculty see only their own offerings and students only their own rows.
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view.
+
+### Planned (phases 7–10)
+
+- **Answer-sheet OCR (novelty):** upload one PDF per assessment. Page 1 is the question paper; OCR
+  reads each question's number, max marks, CO and Bloom level. The next pages are each student's
+  answer-sheet cover page; OCR reads the handwritten per-question marks. Every value is shown on a
+  review screen and saved only after the teacher confirms it. OCR runs locally with free tools.
+- **Google Forms surveys:** the course-exit survey is created as a Google Form (college email, USN,
+  name, phone, then one 1–5 rating per CO) and shared with a WhatsApp button that opens WhatsApp with
+  the link filled in. Responses are matched to enrolled students, then only a hashed USN is kept. A
+  dashboard shows the response rate and ratings per CO.
+- **Weak-student lists:** students below target in each CO, ready for remedial classes.
+- **Early warning (novelty):** after each locked CIE, a logistic regression trained on earlier
+  offerings predicts which students are likely to miss each CO, and shows the marks behind each flag.
+  It is advisory and never changes official results.
+- **Course-file report:** a PDF per offering with CO and PO attainment, charts, weak COs, root-cause
+  findings and improvement actions.
 
 ## How attainment is calculated
 
@@ -126,7 +151,7 @@ Open http://localhost:8000 and sign in with `DEMO_PASSWORD` from `.env`:
 | --- | --- | --- |
 | `hod` | HoD (`admin`) | Every offering, unlock approvals, rule versions, audit verification |
 | `fac01` – `fac14` | Faculty | Own offerings only: marks upload, lock, compute, root cause, what-if |
-| `coordinator` | Coordinator | Everything, read-only, plus audit verification |
+| `coordinator` | Programme coordinator | Everything, read-only, plus audit verification |
 | `1rv23is001` (and other USNs) | Student | Own CO scores and course-exit surveys |
 
 API docs are at http://localhost:8000/docs. For UI development, run `npm run dev` in `web/` (Vite

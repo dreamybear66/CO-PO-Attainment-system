@@ -15,7 +15,7 @@ surveys, rules live in `attainment_config`, and only synthetic data is committed
 | 2 | Theme extraction | All comments for an offering | Ranked themes ("too fast", "needs more labs", "unclear notes") per CO | Gives faculty concrete improvement actions |
 | 3 | Improvement-action drafting | Weak CO + root-cause result + top themes | Suggested text for the auto-created improvement action | Saves faculty time; faculty edits before saving |
 | 4 | Question → CO / Bloom-level tagging | Question text from the question paper | Suggested CO and Bloom level for each question | Catches wrongly mapped questions before marks are entered |
-| 5 | CO statement quality check | CO statements | Flags vague verbs ("understand", "know") and suggests measurable ones | Better-written outcomes, as NBA expects |
+| 5 | CO statement quality check | CO statements | Flags vague verbs ("understand", "know") and suggests measurable ones | Better-written, measurable outcomes |
 | 6 | CO–PO mapping suggestions | CO statement + PO statements | Suggested strength (1–3) for each CO-PO pair | Starting point for the mapping matrix |
 
 Recommended order: **1 → 2 → 3**, then 4–6. Features 1–3 build on the survey pipeline that already
