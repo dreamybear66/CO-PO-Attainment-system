@@ -13,7 +13,7 @@ from decimal import ROUND_DOWN, Decimal
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field, field_validator
 
-from api import config, db
+from api import db
 from api.auth import database, require
 from api.db import User
 from api.ocr import layout, reader
@@ -67,6 +67,13 @@ def read_answer_sheets(assessment_id: int, file: UploadFile = File(...),
         marks_entered = _marks_entered(conn, assessment_id)
         enrolled = [r["usn"] for r in conn.execute(
             "SELECT usn FROM enrollment WHERE offering_id = %s ORDER BY usn", (a["offering_id"],))]
+        with_marks = {r["usn"] for r in conn.execute("""
+            SELECT DISTINCT e.usn FROM student_question_mark m JOIN enrollment e USING (enrollment_id)
+            JOIN assessment_question q USING (question_id) WHERE q.assessment_id = %s""", (assessment_id,))}
+        rule = conn.execute("""
+            SELECT ac.ocr_review_confidence FROM v_offering_config oc JOIN attainment_config ac USING (config_id)
+            WHERE oc.offering_id = %s""", (a["offering_id"],)).fetchone()
+        threshold = float(rule["ocr_review_confidence"]) if rule else reader.DEFAULT_REVIEW_CONFIDENCE
     # The database work is done; OCR runs outside the transaction.
     try:
         raw = reader.read_pdf(data, n_questions=layout.MAX_QUESTIONS)   # every row; paired below
@@ -80,8 +87,11 @@ def read_answer_sheets(assessment_id: int, file: UploadFile = File(...),
     else:
         questions = [{**q, "cos": list(q["cos"]), "text": ""} for q in existing]
         warnings.append("No questions were read on page 1; the assessment's saved questions are used")
-    if len(questions) > layout.MAX_QUESTIONS:
-        warnings.append(f"The cover page has {layout.MAX_QUESTIONS} mark rows; only Q1-Q{layout.MAX_QUESTIONS} are read")
+    beyond = [q["q_no"] for q in questions if reader.cover_row(q) is None]
+    if beyond:
+        warnings.append(f"The cover page has rows for Q1-Q{layout.MAX_QUESTIONS} only, so {', '.join(beyond)} "
+                        "cannot be read or saved here; enter those marks by CSV")
+        questions = [q for q in questions if reader.cover_row(q) is not None]
     for q in questions:
         q["problems"] = [f"CO{c} is not a CO of this course" for c in q["cos"] if c not in cos]
         if not 0 < q["max_marks"] <= 99:
@@ -95,7 +105,7 @@ def read_answer_sheets(assessment_id: int, file: UploadFile = File(...),
     def norm(qs):
         return [(q["q_no"], int(q["max_marks"]), sorted(q["cos"]), q["bloom"]) for q in qs]
 
-    review = reader.review(raw, questions[:layout.MAX_QUESTIONS], enrolled, config.ocr_review_confidence())
+    review = reader.review(raw, questions, enrolled, threshold)
     return {
         "assessment": {"assessment_id": a["assessment_id"], "name": a["name"], "max_marks": a["max_marks"]},
         "paper": {"questions": questions, "warnings": warnings, "paper_max": paper["paper_max"],
@@ -103,7 +113,9 @@ def read_answer_sheets(assessment_id: int, file: UploadFile = File(...),
                   "saved": existing, "marks_entered": marks_entered},
         "sheets": review["sheets"],
         "absent": review["absent"],
-        "threshold": config.ocr_review_confidence(),
+        # Students with no sheet in this PDF who already have marks: saved as AB only if the teacher says so.
+        "absent_with_marks": sorted(set(review["absent"]) & with_marks),
+        "threshold": threshold,
     }
 
 

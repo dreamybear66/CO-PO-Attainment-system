@@ -10,6 +10,7 @@ import numpy as np
 from api.ocr import digits, layout, paper, sheet
 
 MAX_PAGES = 400
+DEFAULT_REVIEW_CONFIDENCE = 0.90       # attainment_config.ocr_review_confidence's default, for tools without a database
 
 
 class OcrError(ValueError):
@@ -47,6 +48,12 @@ def read_pdf(data: bytes, n_questions: int | None = None) -> dict:
     return {"paper": qp, "sheets": sheets}
 
 
+def cover_row(q: dict) -> int | None:
+    """Cover-page row of a question: Q1 is row 0. None for a number the cover page has no row for."""
+    n = q["q_no"][1:]
+    return int(n) - 1 if n.isdigit() and 1 <= int(n) <= layout.MAX_QUESTIONS else None
+
+
 def _assign_usns(sheets: list[dict], candidates: list[str]) -> dict[int, tuple[str, float]]:
     """page -> (USN, confidence). Every enrolled USN goes to at most one sheet: the pairing with the
     highest total likelihood (Hungarian algorithm), so one misread digit does not give two sheets
@@ -69,7 +76,9 @@ def _assign_usns(sheets: list[dict], candidates: list[str]) -> dict[int, tuple[s
 def review(raw: dict, questions: list[dict], enrolled: list[str], threshold: float) -> dict:
     """Pick a value for everything on the cover pages and say what the teacher should check.
 
-    questions: [{q_no, max_marks}] in cover-page order (Q1 first). enrolled: the offering's USNs.
+    questions: [{q_no, max_marks}]. Each is read from its own cover-page row by number (Q3 from row 3),
+    so a question line page 1 could not read never shifts the others; questions beyond the cover
+    page's rows are left out. enrolled: the offering's USNs.
     Each USN is chosen among the enrolled ones and each mark among 0..its maximum, by how well
     they explain the digit probabilities; `confidence` is that choice's share of the probability.
     A value below `threshold` is marked `check`.
@@ -81,14 +90,20 @@ def review(raw: dict, questions: list[dict], enrolled: list[str], threshold: flo
     for s in raw["sheets"]:
         item = {"page": s["page"], "problems": []}
         if not s["aligned"]:
-            item.update(usn=None, usn_confidence=0.0, usn_image=s["image"], marks=[], total=None,
-                        check=True)
-            item["problems"].append("The corner squares were not found; enter this sheet by hand")
+            # One empty, flagged input per question, so the teacher can type the marks or skip the page.
+            item.update(usn=None, usn_confidence=0.0, usn_image=s["image"], total=None, check=True,
+                        marks=[{"q_no": q["q_no"], "value": None, "blank": True, "confidence": 0.0,
+                                "check": True, "image": None} for q in questions if cover_row(q) is not None])
+            item["problems"].append("The corner squares were not found; type this sheet's marks or skip the page")
             out.append(item)
             continue
         usn, usn_conf = usns.get(s["page"], (None, 0.0))
         marks = []
-        for q, m in zip(questions, s["marks"]):
+        for q in questions:
+            row = cover_row(q)
+            if row is None or row >= len(s["marks"]):
+                continue
+            m = s["marks"][row]
             value, conf = digits.best_number(m["probas"], int(q["max_marks"]))
             marks.append({"q_no": q["q_no"], "value": 0 if value is None else value,
                           "blank": value is None, "confidence": round(conf, 3),

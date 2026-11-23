@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
 (planned) and **prerequisite-aware root-cause analysis** (built).
 
-**Status:** phases 1–8 are built and 183 tests pass. Phases 9–10 (early warning and weak-student
+**Status:** phases 1–8 are built and 186 tests pass. Phases 9–10 (early warning and weak-student
 lists, course-file PDF) were added on 23 Nov 2026 and are not built yet. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
@@ -54,7 +54,10 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   from 0 to its question's maximum and each USN among the enrolled students, so most misreads
   cannot happen; anything unsure, a total that does not add up, or a duplicate USN is highlighted.
   Nothing is saved until the teacher ticks that they checked the highlighted values; the marks then
-  go through the same validation as a CSV upload. Everything runs locally and the scans are not
+  go through the same validation as a CSV upload. Each mark comes from its own question's row, an
+  unreadable page can be typed in or skipped, and a student with no sheet in this PDF is saved as
+  absent only if they have no marks yet (one class can be scanned in several PDFs). The highlight
+  threshold is the rule version's `ocr_review_confidence` (default 0.90). Everything runs locally and the scans are not
   stored. The cover-page layout is a synthetic stand-in (`api/ocr/layout.py`).
 - **Google Forms surveys:** an offering's **Survey** tab creates the course-exit survey as a Google
   Form in the teacher's own Google account (college email, USN, name, phone, then one 1–5 rating per
@@ -333,7 +336,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 183 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 186 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
