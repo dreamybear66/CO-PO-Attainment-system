@@ -251,7 +251,9 @@ confirm. FR-3.7–3.9, NFR-10.
    The PDF and page images are not stored.
 5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values
    by `datagen/ocr_samples.py`, using MNIST's 10,000 held-out digits as handwriting; accuracy is
-   reported against the target still to be agreed.
+   reported against the target still to be agreed. `scripts/evaluate_ocr.py` writes
+   [docs/ocr-evaluation.md](docs/ocr-evaluation.md): on 240 synthetic sheets, question papers read
+   exactly, 97.6-97.8 % of marks and 100 % of USNs right, and no wrong value left unflagged.
 
 ## Phase 8 — Google Forms surveys and WhatsApp sharing
 

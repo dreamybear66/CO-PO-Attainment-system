@@ -317,6 +317,7 @@ The results are mapped to the PRD tests in [docs/test-report.md](docs/test-repor
 | --- | --- |
 | [docs/explain/report.md](docs/explain/report.md): index EXPLAIN ANALYZE | `python -m scripts.explain_report` |
 | [docs/root-cause-evaluation.md](docs/root-cause-evaluation.md): detection and false positives | `python -m scripts.evaluate_root_cause` |
+| [docs/ocr-evaluation.md](docs/ocr-evaluation.md): answer-sheet OCR accuracy on synthetic scans | `python -m scripts.evaluate_ocr` |
 
 ## Contributing
 

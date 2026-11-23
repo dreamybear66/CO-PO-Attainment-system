@@ -138,19 +138,20 @@ def write_number(img, boxes, value, digits_by_label, rng, width, pad: str = " ")
             _write_digit(img, box, pool[int(rng.integers(len(pool)))], rng)
 
 
-def scan(img: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """A light imitation of a scanner: small rotation and shift, blur, grain."""
+def scan(img: np.ndarray, rng: np.random.Generator, rough: float = 1.0) -> np.ndarray:
+    """A light imitation of a scanner: small rotation and shift, blur, grain. rough scales the
+    rotation (up to 1 degree), shift (12 px) and grain (sd 6) for harder scans."""
     h, w = img.shape
-    m = cv2.getRotationMatrix2D((w / 2, h / 2), float(rng.uniform(-1.0, 1.0)), float(rng.uniform(0.985, 1.015)))
-    m[:, 2] += rng.uniform(-12, 12, size=2)
+    m = cv2.getRotationMatrix2D((w / 2, h / 2), float(rng.uniform(-1.0, 1.0) * rough), float(rng.uniform(0.985, 1.015)))
+    m[:, 2] += rng.uniform(-12, 12, size=2) * rough
     out = cv2.warpAffine(img, m, (w, h), borderValue=255)
     out = cv2.GaussianBlur(out, (3, 3), 0)
-    noise = rng.normal(0, 6, out.shape)
+    noise = rng.normal(0, 6 * rough, out.shape)
     return np.clip(out.astype(np.float32) + noise, 0, 255).astype(np.uint8)
 
 
 def build_pdf(key: Key, out: Path, seed: int = 7, digits: np.ndarray | None = None,
-              labels: np.ndarray | None = None) -> Path:
+              labels: np.ndarray | None = None, rough: float = 1.0, jpeg_quality: int = 80) -> Path:
     """Write the scanned PDF for `key` (and its answer key as JSON next to it)."""
     from api.ocr.digits import TRAIN_SIZE, load_mnist
     rng = np.random.default_rng(seed)
@@ -160,7 +161,7 @@ def build_pdf(key: Key, out: Path, seed: int = 7, digits: np.ndarray | None = No
     by_label = {d: held_out[0][held_out[1] == d] for d in range(10)}
 
     scratch = fitz.open()
-    pages = [scan(question_paper(scratch, key.paper), rng)]
+    pages = [scan(question_paper(scratch, key.paper), rng, rough)]
     for sheet in key.sheets:
         img = cover_blank(scratch)
         write_number(img, layout.USN_YEAR, int(sheet.usn[3:5]), by_label, rng, 2, "0")
@@ -170,12 +171,12 @@ def build_pdf(key: Key, out: Path, seed: int = 7, digits: np.ndarray | None = No
         sheet.total = sum(sheet.marks.values())
         write_number(img, layout.TOTAL, sheet.total, by_label, rng, 3)
         sheet.page = len(pages) + 1
-        pages.append(scan(img, rng))
+        pages.append(scan(img, rng, rough))
 
     pdf = fitz.open()
     for img in pages:
         # JPEG, as scanners save: a noisy page as PNG is ~1.8 MB, as JPEG ~0.2 MB.
-        ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
         page = pdf.new_page(width=layout.PAGE_W, height=layout.PAGE_H)
         page.insert_image(page.rect, stream=jpg.tobytes())
     out.parent.mkdir(parents=True, exist_ok=True)
