@@ -23,7 +23,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
-| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
+| 9 — Weak students, early warning | In progress | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
@@ -282,13 +282,22 @@ Output: a teacher clicks once to create the course-exit survey and once to share
 
 ## Phase 9 — Weak-student lists and early warning (novelty)
 
-Status: not started.
+Status: in progress on `feat/early-warning`; backend and tests done.
 
 Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
-1. Weak-student list per CO: students whose CO score is below `target_pct`, from `student_co_score`.
-2. Early warning: logistic regression per CO on the CIE components available so far, trained on
+1. Weak-student list per CO: students whose CO score is below `target_pct`, from `student_co_score`
+   (`GET /api/offerings/{id}/students`, which also returns the latest early warning).
+2. Early warning: logistic regression on the CIE components available so far, trained on
    earlier offerings of the synthetic data; re-run after each locked CIE.
+   As built (`api/services/early_warning.py`): the "stage" is the locked CIE, quiz and EL
+   assessments (by type and order); training uses earlier finished offerings of the same course
+   with the same assessments, labelled by whether the student missed the CO's target at the end.
+   Features: CO marks so far, and the student's final scores on prerequisite COs (the root-cause
+   links). The whole-stage score was dropped as a feature: it overlaps the CO score and took the
+   wrong sign. The flag cut-off is `attainment_config.ew_flag_prob` (default 0.5). Training runs on
+   the owner connection (it reads other teachers' finished offerings); only the model leaves it.
+   About 0.5 s per run on the demo data. Locking a CIE, quiz or EL re-runs it (best effort).
 3. Show each flagged student with the CO, the predicted chance and the marks that drove the flag.
    Advisory only; it never changes official attainment.
 4. Evaluate on held-out offerings after CIE-1 and CIE-2 against the recall/precision target still

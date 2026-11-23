@@ -9,7 +9,8 @@ from api import db
 from api.auth import database, require
 from api.db import User
 from api.errors import message
-from api.services import marks, whatif
+from api.routers import students
+from api.services import early_warning, marks, whatif
 
 router = APIRouter(prefix="/api")
 staff = require("admin", "faculty", "coordinator")
@@ -141,8 +142,12 @@ def record_denied(user: User, dbname, table: str, key: dict, detail: str) -> Non
 @router.post("/assessments/{assessment_id}/lock")
 def lock(assessment_id: int, user: User = Depends(editors), dbname=Depends(database)):
     with db.session(user, dbname) as conn:
-        assessment_or_404(conn, assessment_id)
+        a = assessment_or_404(conn, assessment_id)
+        kind = conn.execute("SELECT type::text AS t FROM assessment WHERE assessment_id = %s", (assessment_id,)).fetchone()["t"]
         conn.execute("UPDATE assessment SET locked = true WHERE assessment_id = %s AND NOT locked", (assessment_id,))
+    # Phase 9: a newly locked CIE, quiz or EL refreshes the early warning (best effort, after commit).
+    if kind in early_warning.STAGE_TYPES:
+        students.refresh_after_lock(user, dbname, a["offering_id"])
     return {"locked": True}
 
 
