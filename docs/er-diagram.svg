@@ -1,0 +1,736 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2470" height="1450" viewBox="0 0 2470 1450" font-family="Segoe UI, Arial, sans-serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="50" y="52" font-size="30" font-weight="700" fill="#0f172a">CO-PO Attainment Management System: ER diagram</text>
+<text x="50" y="82" font-size="16" fill="#475569">PostgreSQL schema, 29 tables, 48 foreign keys. PK = primary key, FK = foreign key. Lines run from the FK column (many side, crow's foot) to the referenced key (one side, bar).</text>
+<rect x="1190" y="36" width="16" height="16" rx="3" fill="#475569"/><text x="1212" y="49" font-size="14" fill="#334155">Organisation &amp; users</text>
+<rect x="1395" y="36" width="16" height="16" rx="3" fill="#15803d"/><text x="1417" y="49" font-size="14" fill="#334155">Curriculum &amp; outcomes</text>
+<rect x="1600" y="36" width="16" height="16" rx="3" fill="#c2410c"/><text x="1622" y="49" font-size="14" fill="#334155">Teaching, marks &amp; locking</text>
+<rect x="1805" y="36" width="16" height="16" rx="3" fill="#7c3aed"/><text x="1827" y="49" font-size="14" fill="#334155">Rules &amp; results</text>
+<rect x="2010" y="36" width="16" height="16" rx="3" fill="#0e7490"/><text x="2032" y="49" font-size="14" fill="#334155">What-if simulator</text>
+<rect x="2215" y="36" width="16" height="16" rx="3" fill="#b91c1c"/><text x="2237" y="49" font-size="14" fill="#334155">Audit</text>
+<path d="M50,299.5 L36,299.5 C-13.340000000000003,299.5 -13.340000000000003,160.5 36,160.5 L50,160.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M38,299.5 L50,293.5 M38,299.5 L50,305.5 M38,299.5 L50,299.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M43,154.5 L43,166.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M470,179.5 L456,179.5 C402.5,179.5 387.5,160.5 334,160.5 L320,160.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M458,179.5 L470,173.5 M458,179.5 L470,185.5 M458,179.5 L470,179.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M327,154.5 L327,166.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M50,476.5 L36,476.5 C-16.760000000000005,476.5 -16.760000000000005,280.5 36,280.5 L50,280.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M38,476.5 L50,470.5 M38,476.5 L50,482.5 M38,476.5 L50,476.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M43,274.5 L43,286.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M470,413.5 L456,413.5 C402.5,413.5 387.5,280.5 334,280.5 L320,280.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M458,413.5 L470,407.5 M458,413.5 L470,419.5 M458,413.5 L470,413.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M327,274.5 L327,286.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M470,514.5 L456,514.5 C403.24,514.5 403.24,318.5 456,318.5 L470,318.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M458,514.5 L470,508.5 M458,514.5 L470,520.5 M458,514.5 L470,514.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M463,312.5 L463,324.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M470,533.5 L456,533.5 C402.1,533.5 402.1,318.5 456,318.5 L470,318.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M458,533.5 L470,527.5 M458,533.5 L470,539.5 M458,533.5 L470,533.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M463,312.5 L463,324.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M890,179.5 L876,179.5 C822.5,179.5 807.5,318.5 754,318.5 L740,318.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,179.5 L890,173.5 M878,179.5 L890,185.5 M878,179.5 L890,179.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M747,312.5 L747,324.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M890,236.5 L876,236.5 C822.5,236.5 807.5,160.5 754,160.5 L740,160.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,236.5 L890,230.5 M878,236.5 L890,242.5 M878,236.5 L890,236.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M747,154.5 L747,166.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M890,375.5 L876,375.5 C822.1,375.5 822.1,160.5 876,160.5 L890,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,375.5 L890,369.5 M878,375.5 L890,381.5 M878,375.5 L890,375.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M883,154.5 L883,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M890,394.5 L876,394.5 C633.5,394.5 576.5,438.5 334,438.5 L320,438.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,394.5 L890,388.5 M878,394.5 L890,400.5 M878,394.5 L890,394.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M327,432.5 L327,444.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M1310,356.5 L1296,356.5 C864.5,356.5 765.5,280.5 334,280.5 L320,280.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1298,356.5 L1310,350.5 M1298,356.5 L1310,362.5 M1298,356.5 L1310,356.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M327,274.5 L327,286.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M1310,179.5 L1296,179.5 C1053.5,179.5 996.5,318.5 754,318.5 L740,318.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1298,179.5 L1310,173.5 M1298,179.5 L1310,185.5 M1298,179.5 L1310,179.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M747,312.5 L747,324.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M1310,514.5 L1296,514.5 C1233.76,514.5 1233.76,160.5 1296,160.5 L1310,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1298,514.5 L1310,508.5 M1298,514.5 L1310,520.5 M1298,514.5 L1310,514.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1303,154.5 L1303,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M1310,533.5 L1296,533.5 C1243.24,533.5 1243.24,337.5 1296,337.5 L1310,337.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1298,533.5 L1310,527.5 M1298,533.5 L1310,539.5 M1298,533.5 L1310,533.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1303,331.5 L1303,343.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M1730,179.5 L1716,179.5 C1473.5,179.5 1416.5,160.5 1174,160.5 L1160,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1718,179.5 L1730,173.5 M1718,179.5 L1730,185.5 M1718,179.5 L1730,179.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,154.5 L1167,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M1730,394.5 L1716,394.5 C1660.96,394.5 1660.96,160.5 1716,160.5 L1730,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1718,394.5 L1730,388.5 M1718,394.5 L1730,400.5 M1718,394.5 L1730,394.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1723,154.5 L1723,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M1730,533.5 L1716,533.5 C1665.52,533.5 1665.52,375.5 1716,375.5 L1730,375.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1718,533.5 L1730,527.5 M1718,533.5 L1730,539.5 M1718,533.5 L1730,533.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1723,369.5 L1723,381.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M1730,552.5 L1716,552.5 C1662.5,552.5 1647.5,160.5 1594,160.5 L1580,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1718,552.5 L1730,546.5 M1718,552.5 L1730,558.5 M1718,552.5 L1730,552.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1587,154.5 L1587,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M1730,672.5 L1716,672.5 C1473.5,672.5 1416.5,356.5 1174,356.5 L1160,356.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1718,672.5 L1730,666.5 M1718,672.5 L1730,678.5 M1718,672.5 L1730,672.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,350.5 L1167,362.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M1730,691.5 L1716,691.5 C1656.04,691.5 1656.04,375.5 1716,375.5 L1730,375.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1718,691.5 L1730,685.5 M1718,691.5 L1730,697.5 M1718,691.5 L1730,691.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1723,369.5 L1723,381.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M470,653.5 L456,653.5 C402.5,653.5 387.5,280.5 334,280.5 L320,280.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M458,653.5 L470,647.5 M458,653.5 L470,659.5 M458,653.5 L470,653.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M327,274.5 L327,286.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M470,982.5 L456,982.5 C394.12,982.5 394.12,634.5 456,634.5 L470,634.5" fill="none" stroke="#7c3aed" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M458,982.5 L470,976.5 M458,982.5 L470,988.5 M458,982.5 L470,982.5" stroke="#7c3aed" stroke-width="1.6" fill="none"/>
+<path d="M463,628.5 L463,640.5" stroke="#7c3aed" stroke-width="1.8"/>
+<path d="M2150,160.5 L2136,160.5 C1704.5,160.5 1605.5,160.5 1174,160.5 L1160,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,160.5 L2150,154.5 M2138,160.5 L2150,166.5 M2138,160.5 L2150,160.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,154.5 L1167,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M2150,179.5 L2136,179.5 C1893.5,179.5 1836.5,160.5 1594,160.5 L1580,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,179.5 L2150,173.5 M2138,179.5 L2150,185.5 M2138,179.5 L2150,179.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1587,154.5 L1587,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M2150,198.5 L2136,198.5 C1515.5,198.5 1374.5,634.5 754,634.5 L740,634.5" fill="none" stroke="#7c3aed" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,198.5 L2150,192.5 M2138,198.5 L2150,204.5 M2138,198.5 L2150,198.5" stroke="#7c3aed" stroke-width="1.6" fill="none"/>
+<path d="M747,628.5 L747,640.5" stroke="#7c3aed" stroke-width="1.8"/>
+<path d="M2150,590.5 L2136,590.5 C1704.5,590.5 1605.5,160.5 1174,160.5 L1160,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,590.5 L2150,584.5 M2138,590.5 L2150,596.5 M2138,590.5 L2150,590.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,154.5 L1167,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M2150,609.5 L2136,609.5 C1893.5,609.5 1836.5,160.5 1594,160.5 L1580,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,609.5 L2150,603.5 M2138,609.5 L2150,615.5 M2138,609.5 L2150,609.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1587,154.5 L1587,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M2150,413.5 L2136,413.5 C1704.5,413.5 1605.5,160.5 1174,160.5 L1160,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,413.5 L2150,407.5 M2138,413.5 L2150,419.5 M2138,413.5 L2150,413.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,154.5 L1167,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M2150,432.5 L2136,432.5 C1893.5,432.5 1836.5,337.5 1594,337.5 L1580,337.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,432.5 L2150,426.5 M2138,432.5 L2150,438.5 M2138,432.5 L2150,432.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1587,331.5 L1587,343.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M2150,451.5 L2136,451.5 C1515.5,451.5 1374.5,634.5 754,634.5 L740,634.5" fill="none" stroke="#7c3aed" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,451.5 L2150,445.5 M2138,451.5 L2150,457.5 M2138,451.5 L2150,451.5" stroke="#7c3aed" stroke-width="1.6" fill="none"/>
+<path d="M747,628.5 L747,640.5" stroke="#7c3aed" stroke-width="1.8"/>
+<path d="M2150,805.5 L2136,805.5 C1893.5,805.5 1836.5,160.5 1594,160.5 L1580,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,805.5 L2150,799.5 M2138,805.5 L2150,811.5 M2138,805.5 L2150,805.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1587,154.5 L1587,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M2150,824.5 L2136,824.5 C1704.5,824.5 1605.5,160.5 1174,160.5 L1160,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,824.5 L2150,818.5 M2138,824.5 L2150,830.5 M2138,824.5 L2150,824.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,154.5 L1167,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M2150,862.5 L2136,862.5 C1515.5,862.5 1374.5,160.5 754,160.5 L740,160.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,862.5 L2150,856.5 M2138,862.5 L2150,868.5 M2138,862.5 L2150,862.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M747,154.5 L747,166.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M2150,919.5 L2136,919.5 C1704.5,919.5 1605.5,160.5 1174,160.5 L1160,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M2138,919.5 L2150,913.5 M2138,919.5 L2150,925.5 M2138,919.5 L2150,919.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1167,154.5 L1167,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M1310,653.5 L1296,653.5 C1225.42,653.5 1225.42,160.5 1296,160.5 L1310,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1298,653.5 L1310,647.5 M1298,653.5 L1310,659.5 M1298,653.5 L1310,653.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1303,154.5 L1303,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M1310,672.5 L1296,672.5 C1224.28,672.5 1224.28,160.5 1296,160.5 L1310,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1298,672.5 L1310,666.5 M1298,672.5 L1310,678.5 M1298,672.5 L1310,672.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1303,154.5 L1303,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M320,691.5 L334,691.5 C387.5,691.5 402.5,160.5 456,160.5 L470,160.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M332,691.5 L320,685.5 M332,691.5 L320,697.5 M332,691.5 L320,691.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M463,154.5 L463,166.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M50,710.5 L36,710.5 C-21.319999999999993,710.5 -21.319999999999993,438.5 36,438.5 L50,438.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M38,710.5 L50,704.5 M38,710.5 L50,716.5 M38,710.5 L50,710.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M43,432.5 L43,444.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M890,514.5 L876,514.5 C813.76,514.5 813.76,160.5 876,160.5 L890,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,514.5 L890,508.5 M878,514.5 L890,520.5 M878,514.5 L890,514.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M883,154.5 L883,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M890,533.5 L876,533.5 C822.5,533.5 807.5,634.5 754,634.5 L740,634.5" fill="none" stroke="#7c3aed" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,533.5 L890,527.5 M878,533.5 L890,539.5 M878,533.5 L890,533.5" stroke="#7c3aed" stroke-width="1.6" fill="none"/>
+<path d="M747,628.5 L747,640.5" stroke="#7c3aed" stroke-width="1.8"/>
+<path d="M890,552.5 L876,552.5 C633.5,552.5 576.5,615.5 334,615.5 L320,615.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,552.5 L890,546.5 M878,552.5 L890,558.5 M878,552.5 L890,552.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M327,609.5 L327,621.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M890,843.5 L876,843.5 C814.12,843.5 814.12,495.5 876,495.5 L890,495.5" fill="none" stroke="#0e7490" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,843.5 L890,837.5 M878,843.5 L890,849.5 M878,843.5 L890,843.5" stroke="#0e7490" stroke-width="1.6" fill="none"/>
+<path d="M883,489.5 L883,501.5" stroke="#0e7490" stroke-width="1.8"/>
+<path d="M1160,862.5 L1174,862.5 C1227.5,862.5 1242.5,160.5 1296,160.5 L1310,160.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1172,862.5 L1160,856.5 M1172,862.5 L1160,868.5 M1172,862.5 L1160,862.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1303,154.5 L1303,166.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M890,1039.5 L876,1039.5 C802.36,1039.5 802.36,495.5 876,495.5 L890,495.5" fill="none" stroke="#0e7490" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M878,1039.5 L890,1033.5 M878,1039.5 L890,1045.5 M878,1039.5 L890,1039.5" stroke="#0e7490" stroke-width="1.6" fill="none"/>
+<path d="M883,489.5 L883,501.5" stroke="#0e7490" stroke-width="1.8"/>
+<path d="M1160,1058.5 L1174,1058.5 C1227.5,1058.5 1242.5,337.5 1296,337.5 L1310,337.5" fill="none" stroke="#15803d" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M1172,1058.5 L1160,1052.5 M1172,1058.5 L1160,1064.5 M1172,1058.5 L1160,1058.5" stroke="#15803d" stroke-width="1.6" fill="none"/>
+<path d="M1303,331.5 L1303,343.5" stroke="#15803d" stroke-width="1.8"/>
+<path d="M320,830.5 L334,830.5 C954.5,830.5 1095.5,160.5 1716,160.5 L1730,160.5" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M332,830.5 L320,824.5 M332,830.5 L320,836.5 M332,830.5 L320,830.5" stroke="#c2410c" stroke-width="1.6" fill="none"/>
+<path d="M1723,154.5 L1723,166.5" stroke="#c2410c" stroke-width="1.8"/>
+<path d="M50,849.5 L36,849.5 C-19.039999999999992,849.5 -19.039999999999992,615.5 36,615.5 L50,615.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M38,849.5 L50,843.5 M38,849.5 L50,855.5 M38,849.5 L50,849.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M43,609.5 L43,621.5" stroke="#475569" stroke-width="1.8"/>
+<path d="M50,906.5 L36,906.5 C-22.460000000000008,906.5 -22.460000000000008,615.5 36,615.5 L50,615.5" fill="none" stroke="#475569" stroke-width="1.6" stroke-opacity="0.55"/>
+<path d="M38,906.5 L50,900.5 M38,906.5 L50,912.5 M38,906.5 L50,906.5" stroke="#475569" stroke-width="1.6" fill="none"/>
+<path d="M43,609.5 L43,621.5" stroke="#475569" stroke-width="1.8"/>
+<g><rect x="50" y="120" width="270" height="74" rx="7" fill="#ffffff" stroke="#475569" stroke-width="1.6"/>
+<path d="M50,150 V127 Q50,120 57,120 H313 Q320,120 320,127 V150 Z" fill="#475569"/>
+<text x="60" y="140" font-size="15" font-weight="700" fill="#ffffff">department</text>
+<text x="58" y="164" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="96" y="164" font-size="13" font-weight="700" fill="#0f172a">dept_id</text>
+<text x="312" y="164" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="169" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="183" font-size="13" font-weight="400" fill="#0f172a">name</text>
+<text x="312" y="183" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+</g>
+<g><rect x="50" y="240" width="270" height="112" rx="7" fill="#ffffff" stroke="#475569" stroke-width="1.6"/>
+<path d="M50,270 V247 Q50,240 57,240 H313 Q320,240 320,247 V270 Z" fill="#475569"/>
+<text x="60" y="260" font-size="15" font-weight="700" fill="#ffffff">program</text>
+<text x="58" y="284" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="96" y="284" font-size="13" font-weight="700" fill="#0f172a">program_id</text>
+<text x="312" y="284" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="289" width="267" height="19" fill="#f8fafc"/>
+<text x="58" y="303" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="303" font-size="13" font-weight="400" fill="#0f172a">dept_id</text>
+<text x="312" y="303" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="96" y="322" font-size="13" font-weight="400" fill="#0f172a">name</text>
+<text x="312" y="322" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="51.5" y="327" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="341" font-size="13" font-weight="400" fill="#0f172a">degree</text>
+<text x="312" y="341" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+</g>
+<g><rect x="50" y="398" width="270" height="131" rx="7" fill="#ffffff" stroke="#475569" stroke-width="1.6"/>
+<path d="M50,428 V405 Q50,398 57,398 H313 Q320,398 320,405 V428 Z" fill="#475569"/>
+<text x="60" y="418" font-size="15" font-weight="700" fill="#ffffff">student</text>
+<text x="58" y="442" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="96" y="442" font-size="13" font-weight="700" fill="#0f172a">usn</text>
+<text x="312" y="442" font-size="11.5" fill="#64748b" text-anchor="end">varchar</text>
+<rect x="51.5" y="447" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="461" font-size="13" font-weight="400" fill="#0f172a">name</text>
+<text x="312" y="461" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="58" y="480" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="480" font-size="13" font-weight="400" fill="#0f172a">program_id</text>
+<text x="312" y="480" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="485" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="499" font-size="13" font-weight="400" fill="#0f172a">admission_year</text>
+<text x="312" y="499" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="96" y="518" font-size="13" font-weight="400" fill="#0f172a">section</text>
+<text x="312" y="518" font-size="11.5" fill="#64748b" text-anchor="end">char</text>
+</g>
+<g><rect x="50" y="575" width="270" height="150" rx="7" fill="#ffffff" stroke="#475569" stroke-width="1.6"/>
+<path d="M50,605 V582 Q50,575 57,575 H313 Q320,575 320,582 V605 Z" fill="#475569"/>
+<text x="60" y="595" font-size="15" font-weight="700" fill="#ffffff">app_user</text>
+<text x="58" y="619" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="96" y="619" font-size="13" font-weight="700" fill="#0f172a">user_id</text>
+<text x="312" y="619" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="624" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="638" font-size="13" font-weight="400" fill="#0f172a">username</text>
+<text x="312" y="638" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="96" y="657" font-size="13" font-weight="400" fill="#0f172a">password_hash</text>
+<text x="312" y="657" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="51.5" y="662" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="676" font-size="13" font-weight="400" fill="#0f172a">role</text>
+<text x="312" y="676" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="58" y="695" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="695" font-size="13" font-weight="400" fill="#0f172a">faculty_id</text>
+<text x="312" y="695" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="700" width="267" height="19" fill="#f8fafc"/>
+<text x="58" y="714" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="714" font-size="13" font-weight="400" fill="#0f172a">usn</text>
+<text x="312" y="714" font-size="11.5" fill="#64748b" text-anchor="end">varchar</text>
+</g>
+<g><rect x="50" y="771" width="270" height="188" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M50,801 V778 Q50,771 57,771 H313 Q320,771 320,778 V801 Z" fill="#c2410c"/>
+<text x="60" y="791" font-size="15" font-weight="700" fill="#ffffff">unlock_request</text>
+<text x="58" y="815" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="96" y="815" font-size="13" font-weight="700" fill="#0f172a">request_id</text>
+<text x="312" y="815" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="820" width="267" height="19" fill="#f8fafc"/>
+<text x="58" y="834" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="834" font-size="13" font-weight="400" fill="#0f172a">assessment_id</text>
+<text x="312" y="834" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="58" y="853" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="853" font-size="13" font-weight="400" fill="#0f172a">requested_by</text>
+<text x="312" y="853" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="51.5" y="858" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="872" font-size="13" font-weight="400" fill="#0f172a">reason</text>
+<text x="312" y="872" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="96" y="891" font-size="13" font-weight="400" fill="#0f172a">status</text>
+<text x="312" y="891" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="51.5" y="896" width="267" height="19" fill="#f8fafc"/>
+<text x="58" y="910" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="96" y="910" font-size="13" font-weight="400" fill="#0f172a">decided_by</text>
+<text x="312" y="910" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="96" y="929" font-size="13" font-weight="400" fill="#0f172a">requested_at</text>
+<text x="312" y="929" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+<rect x="51.5" y="934" width="267" height="19" fill="#f8fafc"/>
+<text x="96" y="948" font-size="13" font-weight="400" fill="#0f172a">decided_at</text>
+<text x="312" y="948" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="470" y="120" width="270" height="112" rx="7" fill="#ffffff" stroke="#475569" stroke-width="1.6"/>
+<path d="M470,150 V127 Q470,120 477,120 H733 Q740,120 740,127 V150 Z" fill="#475569"/>
+<text x="480" y="140" font-size="15" font-weight="700" fill="#ffffff">faculty</text>
+<text x="478" y="164" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="516" y="164" font-size="13" font-weight="700" fill="#0f172a">faculty_id</text>
+<text x="732" y="164" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="471.5" y="169" width="267" height="19" fill="#f8fafc"/>
+<text x="478" y="183" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="516" y="183" font-size="13" font-weight="400" fill="#0f172a">dept_id</text>
+<text x="732" y="183" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="516" y="202" font-size="13" font-weight="400" fill="#0f172a">name</text>
+<text x="732" y="202" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="471.5" y="207" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="221" font-size="13" font-weight="400" fill="#0f172a">email</text>
+<text x="732" y="221" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+</g>
+<g><rect x="470" y="278" width="270" height="150" rx="7" fill="#ffffff" stroke="#15803d" stroke-width="1.6"/>
+<path d="M470,308 V285 Q470,278 477,278 H733 Q740,278 740,285 V308 Z" fill="#15803d"/>
+<text x="480" y="298" font-size="15" font-weight="700" fill="#ffffff">course</text>
+<text x="478" y="322" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="516" y="322" font-size="13" font-weight="700" fill="#0f172a">course_id</text>
+<text x="732" y="322" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="471.5" y="327" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="341" font-size="13" font-weight="400" fill="#0f172a">code</text>
+<text x="732" y="341" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="516" y="360" font-size="13" font-weight="400" fill="#0f172a">title</text>
+<text x="732" y="360" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="471.5" y="365" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="379" font-size="13" font-weight="400" fill="#0f172a">credits</text>
+<text x="732" y="379" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="516" y="398" font-size="13" font-weight="400" fill="#0f172a">semester</text>
+<text x="732" y="398" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<rect x="471.5" y="403" width="267" height="19" fill="#f8fafc"/>
+<text x="478" y="417" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="516" y="417" font-size="13" font-weight="400" fill="#0f172a">program_id</text>
+<text x="732" y="417" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+</g>
+<g><rect x="470" y="474" width="270" height="74" rx="7" fill="#ffffff" stroke="#15803d" stroke-width="1.6"/>
+<path d="M470,504 V481 Q470,474 477,474 H733 Q740,474 740,481 V504 Z" fill="#15803d"/>
+<text x="480" y="494" font-size="15" font-weight="700" fill="#ffffff">course_prerequisite</text>
+<text x="478" y="518" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="516" y="518" font-size="13" font-weight="700" fill="#0f172a">course_id</text>
+<text x="732" y="518" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="471.5" y="523" width="267" height="19" fill="#f8fafc"/>
+<text x="478" y="537" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="516" y="537" font-size="13" font-weight="700" fill="#0f172a">prereq_course_id</text>
+<text x="732" y="537" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+</g>
+<g><rect x="470" y="594" width="270" height="302" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.6"/>
+<path d="M470,624 V601 Q470,594 477,594 H733 Q740,594 740,601 V624 Z" fill="#7c3aed"/>
+<text x="480" y="614" font-size="15" font-weight="700" fill="#ffffff">attainment_config</text>
+<text x="478" y="638" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="516" y="638" font-size="13" font-weight="700" fill="#0f172a">config_id</text>
+<text x="732" y="638" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="471.5" y="643" width="267" height="19" fill="#f8fafc"/>
+<text x="478" y="657" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="516" y="657" font-size="13" font-weight="400" fill="#0f172a">program_id</text>
+<text x="732" y="657" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="516" y="676" font-size="13" font-weight="400" fill="#0f172a">target_pct</text>
+<text x="732" y="676" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="471.5" y="681" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="695" font-size="13" font-weight="400" fill="#0f172a">l3_pct</text>
+<text x="732" y="695" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="516" y="714" font-size="13" font-weight="400" fill="#0f172a">l2_pct</text>
+<text x="732" y="714" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="471.5" y="719" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="733" font-size="13" font-weight="400" fill="#0f172a">l1_pct</text>
+<text x="732" y="733" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="516" y="752" font-size="13" font-weight="400" fill="#0f172a">direct_weight</text>
+<text x="732" y="752" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="471.5" y="757" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="771" font-size="13" font-weight="400" fill="#0f172a">indirect_weight</text>
+<text x="732" y="771" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="516" y="790" font-size="13" font-weight="400" fill="#0f172a">co_target_level</text>
+<text x="732" y="790" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="471.5" y="795" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="809" font-size="13" font-weight="400" fill="#0f172a">po_target_level</text>
+<text x="732" y="809" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="516" y="828" font-size="13" font-weight="400" fill="#0f172a">rc_min_n</text>
+<text x="732" y="828" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="471.5" y="833" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="847" font-size="13" font-weight="400" fill="#0f172a">rc_min_r</text>
+<text x="732" y="847" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="516" y="866" font-size="13" font-weight="400" fill="#0f172a">valid_from</text>
+<text x="732" y="866" font-size="11.5" fill="#64748b" text-anchor="end">date</text>
+<rect x="471.5" y="871" width="267" height="19" fill="#f8fafc"/>
+<text x="516" y="885" font-size="13" font-weight="400" fill="#0f172a">valid_to</text>
+<text x="732" y="885" font-size="11.5" fill="#64748b" text-anchor="end">date</text>
+</g>
+<g><rect x="470" y="942" width="270" height="93" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.6"/>
+<path d="M470,972 V949 Q470,942 477,942 H733 Q740,942 740,949 V972 Z" fill="#7c3aed"/>
+<text x="480" y="962" font-size="15" font-weight="700" fill="#ffffff">config_component_weight</text>
+<text x="478" y="986" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="516" y="986" font-size="13" font-weight="700" fill="#0f172a">config_id</text>
+<text x="732" y="986" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="471.5" y="991" width="267" height="19" fill="#f8fafc"/>
+<text x="478" y="1005" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="516" y="1005" font-size="13" font-weight="700" fill="#0f172a">component</text>
+<text x="732" y="1005" font-size="11.5" fill="#64748b" text-anchor="end">enum</text>
+<text x="516" y="1024" font-size="13" font-weight="400" fill="#0f172a">weight_pct</text>
+<text x="732" y="1024" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+</g>
+<g><rect x="890" y="120" width="270" height="150" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M890,150 V127 Q890,120 897,120 H1153 Q1160,120 1160,127 V150 Z" fill="#c2410c"/>
+<text x="900" y="140" font-size="15" font-weight="700" fill="#ffffff">course_offering</text>
+<text x="898" y="164" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="936" y="164" font-size="13" font-weight="700" fill="#0f172a">offering_id</text>
+<text x="1152" y="164" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="169" width="267" height="19" fill="#f8fafc"/>
+<text x="898" y="183" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="183" font-size="13" font-weight="400" fill="#0f172a">course_id</text>
+<text x="1152" y="183" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="936" y="202" font-size="13" font-weight="400" fill="#0f172a">academic_year</text>
+<text x="1152" y="202" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="891.5" y="207" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="221" font-size="13" font-weight="400" fill="#0f172a">term</text>
+<text x="1152" y="221" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="898" y="240" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="240" font-size="13" font-weight="400" fill="#0f172a">faculty_id</text>
+<text x="1152" y="240" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="245" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="259" font-size="13" font-weight="400" fill="#0f172a">section</text>
+<text x="1152" y="259" font-size="11.5" fill="#64748b" text-anchor="end">char</text>
+</g>
+<g><rect x="890" y="316" width="270" height="93" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M890,346 V323 Q890,316 897,316 H1153 Q1160,316 1160,323 V346 Z" fill="#c2410c"/>
+<text x="900" y="336" font-size="15" font-weight="700" fill="#ffffff">enrollment</text>
+<text x="898" y="360" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="936" y="360" font-size="13" font-weight="700" fill="#0f172a">enrollment_id</text>
+<text x="1152" y="360" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="365" width="267" height="19" fill="#f8fafc"/>
+<text x="898" y="379" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="379" font-size="13" font-weight="400" fill="#0f172a">offering_id</text>
+<text x="1152" y="379" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="898" y="398" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="398" font-size="13" font-weight="400" fill="#0f172a">usn</text>
+<text x="1152" y="398" font-size="11.5" fill="#64748b" text-anchor="end">varchar</text>
+</g>
+<g><rect x="890" y="455" width="270" height="302" rx="7" fill="#ffffff" stroke="#0e7490" stroke-width="1.6"/>
+<path d="M890,485 V462 Q890,455 897,455 H1153 Q1160,455 1160,462 V485 Z" fill="#0e7490"/>
+<text x="900" y="475" font-size="15" font-weight="700" fill="#ffffff">whatif_scenario</text>
+<text x="898" y="499" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="936" y="499" font-size="13" font-weight="700" fill="#0f172a">scenario_id</text>
+<text x="1152" y="499" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="504" width="267" height="19" fill="#f8fafc"/>
+<text x="898" y="518" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="518" font-size="13" font-weight="400" fill="#0f172a">offering_id</text>
+<text x="1152" y="518" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="898" y="537" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="537" font-size="13" font-weight="400" fill="#0f172a">base_config_id</text>
+<text x="1152" y="537" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="542" width="267" height="19" fill="#f8fafc"/>
+<text x="898" y="556" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="936" y="556" font-size="13" font-weight="400" fill="#0f172a">created_by</text>
+<text x="1152" y="556" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="936" y="575" font-size="13" font-weight="400" fill="#0f172a">name</text>
+<text x="1152" y="575" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="891.5" y="580" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="594" font-size="13" font-weight="400" fill="#0f172a">target_pct</text>
+<text x="1152" y="594" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="936" y="613" font-size="13" font-weight="400" fill="#0f172a">l3_pct</text>
+<text x="1152" y="613" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="891.5" y="618" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="632" font-size="13" font-weight="400" fill="#0f172a">l2_pct</text>
+<text x="1152" y="632" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="936" y="651" font-size="13" font-weight="400" fill="#0f172a">l1_pct</text>
+<text x="1152" y="651" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="891.5" y="656" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="670" font-size="13" font-weight="400" fill="#0f172a">direct_weight</text>
+<text x="1152" y="670" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="936" y="689" font-size="13" font-weight="400" fill="#0f172a">indirect_weight</text>
+<text x="1152" y="689" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="891.5" y="694" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="708" font-size="13" font-weight="400" fill="#0f172a">co_target_level</text>
+<text x="1152" y="708" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="936" y="727" font-size="13" font-weight="400" fill="#0f172a">po_target_level</text>
+<text x="1152" y="727" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="891.5" y="732" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="746" font-size="13" font-weight="400" fill="#0f172a">created_at</text>
+<text x="1152" y="746" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="890" y="803" width="270" height="150" rx="7" fill="#ffffff" stroke="#0e7490" stroke-width="1.6"/>
+<path d="M890,833 V810 Q890,803 897,803 H1153 Q1160,803 1160,810 V833 Z" fill="#0e7490"/>
+<text x="900" y="823" font-size="15" font-weight="700" fill="#ffffff">whatif_result</text>
+<text x="898" y="847" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="936" y="847" font-size="13" font-weight="700" fill="#0f172a">scenario_id</text>
+<text x="1152" y="847" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="852" width="267" height="19" fill="#f8fafc"/>
+<text x="898" y="866" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="936" y="866" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="1152" y="866" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="936" y="885" font-size="13" font-weight="400" fill="#0f172a">pct_attained</text>
+<text x="1152" y="885" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="891.5" y="890" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="904" font-size="13" font-weight="400" fill="#0f172a">direct_level</text>
+<text x="1152" y="904" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<text x="936" y="923" font-size="13" font-weight="400" fill="#0f172a">indirect_level</text>
+<text x="1152" y="923" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<rect x="891.5" y="928" width="267" height="19" fill="#f8fafc"/>
+<text x="936" y="942" font-size="13" font-weight="400" fill="#0f172a">final_level</text>
+<text x="1152" y="942" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+</g>
+<g><rect x="890" y="999" width="270" height="93" rx="7" fill="#ffffff" stroke="#0e7490" stroke-width="1.6"/>
+<path d="M890,1029 V1006 Q890,999 897,999 H1153 Q1160,999 1160,1006 V1029 Z" fill="#0e7490"/>
+<text x="900" y="1019" font-size="15" font-weight="700" fill="#ffffff">whatif_po_result</text>
+<text x="898" y="1043" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="936" y="1043" font-size="13" font-weight="700" fill="#0f172a">scenario_id</text>
+<text x="1152" y="1043" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="891.5" y="1048" width="267" height="19" fill="#f8fafc"/>
+<text x="898" y="1062" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="936" y="1062" font-size="13" font-weight="700" fill="#0f172a">po_id</text>
+<text x="1152" y="1062" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="936" y="1081" font-size="13" font-weight="400" fill="#0f172a">attainment</text>
+<text x="1152" y="1081" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+</g>
+<g><rect x="1310" y="120" width="270" height="131" rx="7" fill="#ffffff" stroke="#15803d" stroke-width="1.6"/>
+<path d="M1310,150 V127 Q1310,120 1317,120 H1573 Q1580,120 1580,127 V150 Z" fill="#15803d"/>
+<text x="1320" y="140" font-size="15" font-weight="700" fill="#ffffff">course_outcome</text>
+<text x="1318" y="164" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="1356" y="164" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="1572" y="164" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1311.5" y="169" width="267" height="19" fill="#f8fafc"/>
+<text x="1318" y="183" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="1356" y="183" font-size="13" font-weight="400" fill="#0f172a">course_id</text>
+<text x="1572" y="183" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1356" y="202" font-size="13" font-weight="400" fill="#0f172a">co_number</text>
+<text x="1572" y="202" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<rect x="1311.5" y="207" width="267" height="19" fill="#f8fafc"/>
+<text x="1356" y="221" font-size="13" font-weight="400" fill="#0f172a">statement</text>
+<text x="1572" y="221" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="1356" y="240" font-size="13" font-weight="400" fill="#0f172a">bloom_level</text>
+<text x="1572" y="240" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+</g>
+<g><rect x="1310" y="297" width="270" height="131" rx="7" fill="#ffffff" stroke="#15803d" stroke-width="1.6"/>
+<path d="M1310,327 V304 Q1310,297 1317,297 H1573 Q1580,297 1580,304 V327 Z" fill="#15803d"/>
+<text x="1320" y="317" font-size="15" font-weight="700" fill="#ffffff">program_outcome</text>
+<text x="1318" y="341" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="1356" y="341" font-size="13" font-weight="700" fill="#0f172a">po_id</text>
+<text x="1572" y="341" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1311.5" y="346" width="267" height="19" fill="#f8fafc"/>
+<text x="1318" y="360" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="1356" y="360" font-size="13" font-weight="400" fill="#0f172a">program_id</text>
+<text x="1572" y="360" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1356" y="379" font-size="13" font-weight="400" fill="#0f172a">code</text>
+<text x="1572" y="379" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="1311.5" y="384" width="267" height="19" fill="#f8fafc"/>
+<text x="1356" y="398" font-size="13" font-weight="400" fill="#0f172a">type</text>
+<text x="1572" y="398" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="1356" y="417" font-size="13" font-weight="400" fill="#0f172a">statement</text>
+<text x="1572" y="417" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+</g>
+<g><rect x="1310" y="474" width="270" height="93" rx="7" fill="#ffffff" stroke="#15803d" stroke-width="1.6"/>
+<path d="M1310,504 V481 Q1310,474 1317,474 H1573 Q1580,474 1580,481 V504 Z" fill="#15803d"/>
+<text x="1320" y="494" font-size="15" font-weight="700" fill="#ffffff">co_po_map</text>
+<text x="1318" y="518" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1356" y="518" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="1572" y="518" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1311.5" y="523" width="267" height="19" fill="#f8fafc"/>
+<text x="1318" y="537" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1356" y="537" font-size="13" font-weight="700" fill="#0f172a">po_id</text>
+<text x="1572" y="537" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1356" y="556" font-size="13" font-weight="400" fill="#0f172a">strength</text>
+<text x="1572" y="556" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+</g>
+<g><rect x="1310" y="613" width="270" height="93" rx="7" fill="#ffffff" stroke="#15803d" stroke-width="1.6"/>
+<path d="M1310,643 V620 Q1310,613 1317,613 H1573 Q1580,613 1580,620 V643 Z" fill="#15803d"/>
+<text x="1320" y="633" font-size="15" font-weight="700" fill="#ffffff">co_dependency</text>
+<text x="1318" y="657" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1356" y="657" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="1572" y="657" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1311.5" y="662" width="267" height="19" fill="#f8fafc"/>
+<text x="1318" y="676" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1356" y="676" font-size="13" font-weight="700" fill="#0f172a">prereq_co_id</text>
+<text x="1572" y="676" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1356" y="695" font-size="13" font-weight="400" fill="#0f172a">strength</text>
+<text x="1572" y="695" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+</g>
+<g><rect x="1730" y="120" width="270" height="169" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M1730,150 V127 Q1730,120 1737,120 H1993 Q2000,120 2000,127 V150 Z" fill="#c2410c"/>
+<text x="1740" y="140" font-size="15" font-weight="700" fill="#ffffff">assessment</text>
+<text x="1738" y="164" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="1776" y="164" font-size="13" font-weight="700" fill="#0f172a">assessment_id</text>
+<text x="1992" y="164" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1731.5" y="169" width="267" height="19" fill="#f8fafc"/>
+<text x="1738" y="183" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="1776" y="183" font-size="13" font-weight="400" fill="#0f172a">offering_id</text>
+<text x="1992" y="183" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1776" y="202" font-size="13" font-weight="400" fill="#0f172a">type</text>
+<text x="1992" y="202" font-size="11.5" fill="#64748b" text-anchor="end">enum</text>
+<rect x="1731.5" y="207" width="267" height="19" fill="#f8fafc"/>
+<text x="1776" y="221" font-size="13" font-weight="400" fill="#0f172a">name</text>
+<text x="1992" y="221" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="1776" y="240" font-size="13" font-weight="400" fill="#0f172a">max_marks</text>
+<text x="1992" y="240" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="1731.5" y="245" width="267" height="19" fill="#f8fafc"/>
+<text x="1776" y="259" font-size="13" font-weight="400" fill="#0f172a">locked</text>
+<text x="1992" y="259" font-size="11.5" fill="#64748b" text-anchor="end">bool</text>
+<text x="1776" y="278" font-size="13" font-weight="400" fill="#0f172a">locked_at</text>
+<text x="1992" y="278" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="1730" y="335" width="270" height="112" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M1730,365 V342 Q1730,335 1737,335 H1993 Q2000,335 2000,342 V365 Z" fill="#c2410c"/>
+<text x="1740" y="355" font-size="15" font-weight="700" fill="#ffffff">assessment_question</text>
+<text x="1738" y="379" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="1776" y="379" font-size="13" font-weight="700" fill="#0f172a">question_id</text>
+<text x="1992" y="379" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1731.5" y="384" width="267" height="19" fill="#f8fafc"/>
+<text x="1738" y="398" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="1776" y="398" font-size="13" font-weight="400" fill="#0f172a">assessment_id</text>
+<text x="1992" y="398" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1776" y="417" font-size="13" font-weight="400" fill="#0f172a">q_no</text>
+<text x="1992" y="417" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="1731.5" y="422" width="267" height="19" fill="#f8fafc"/>
+<text x="1776" y="436" font-size="13" font-weight="400" fill="#0f172a">max_marks</text>
+<text x="1992" y="436" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+</g>
+<g><rect x="1730" y="493" width="270" height="93" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M1730,523 V500 Q1730,493 1737,493 H1993 Q2000,493 2000,500 V523 Z" fill="#c2410c"/>
+<text x="1740" y="513" font-size="15" font-weight="700" fill="#ffffff">question_co_map</text>
+<text x="1738" y="537" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1776" y="537" font-size="13" font-weight="700" fill="#0f172a">question_id</text>
+<text x="1992" y="537" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1731.5" y="542" width="267" height="19" fill="#f8fafc"/>
+<text x="1738" y="556" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1776" y="556" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="1992" y="556" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1776" y="575" font-size="13" font-weight="400" fill="#0f172a">weight</text>
+<text x="1992" y="575" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+</g>
+<g><rect x="1730" y="632" width="270" height="112" rx="7" fill="#ffffff" stroke="#c2410c" stroke-width="1.6"/>
+<path d="M1730,662 V639 Q1730,632 1737,632 H1993 Q2000,632 2000,639 V662 Z" fill="#c2410c"/>
+<text x="1740" y="652" font-size="15" font-weight="700" fill="#ffffff">student_question_mark</text>
+<text x="1738" y="676" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1776" y="676" font-size="13" font-weight="700" fill="#0f172a">enrollment_id</text>
+<text x="1992" y="676" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="1731.5" y="681" width="267" height="19" fill="#f8fafc"/>
+<text x="1738" y="695" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="1776" y="695" font-size="13" font-weight="700" fill="#0f172a">question_id</text>
+<text x="1992" y="695" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="1776" y="714" font-size="13" font-weight="400" fill="#0f172a">marks_obtained</text>
+<text x="1992" y="714" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="1731.5" y="719" width="267" height="19" fill="#f8fafc"/>
+<text x="1776" y="733" font-size="13" font-weight="400" fill="#0f172a">is_absent</text>
+<text x="1992" y="733" font-size="11.5" fill="#64748b" text-anchor="end">bool</text>
+</g>
+<g><rect x="2150" y="120" width="270" height="207" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.6"/>
+<path d="M2150,150 V127 Q2150,120 2157,120 H2413 Q2420,120 2420,127 V150 Z" fill="#7c3aed"/>
+<text x="2160" y="140" font-size="15" font-weight="700" fill="#ffffff">co_attainment</text>
+<text x="2158" y="164" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="2196" y="164" font-size="13" font-weight="700" fill="#0f172a">offering_id</text>
+<text x="2412" y="164" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="169" width="267" height="19" fill="#f8fafc"/>
+<text x="2158" y="183" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="2196" y="183" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="2412" y="183" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="2158" y="202" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="2196" y="202" font-size="13" font-weight="400" fill="#0f172a">config_id</text>
+<text x="2412" y="202" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="207" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="221" font-size="13" font-weight="400" fill="#0f172a">students</text>
+<text x="2412" y="221" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="2196" y="240" font-size="13" font-weight="400" fill="#0f172a">pct_attained</text>
+<text x="2412" y="240" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<rect x="2151.5" y="245" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="259" font-size="13" font-weight="400" fill="#0f172a">direct_level</text>
+<text x="2412" y="259" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<text x="2196" y="278" font-size="13" font-weight="400" fill="#0f172a">indirect_level</text>
+<text x="2412" y="278" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<rect x="2151.5" y="283" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="297" font-size="13" font-weight="400" fill="#0f172a">final_level</text>
+<text x="2412" y="297" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="2196" y="316" font-size="13" font-weight="400" fill="#0f172a">computed_at</text>
+<text x="2412" y="316" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="2150" y="373" width="270" height="131" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.6"/>
+<path d="M2150,403 V380 Q2150,373 2157,373 H2413 Q2420,373 2420,380 V403 Z" fill="#7c3aed"/>
+<text x="2160" y="393" font-size="15" font-weight="700" fill="#ffffff">po_attainment</text>
+<text x="2158" y="417" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="2196" y="417" font-size="13" font-weight="700" fill="#0f172a">offering_id</text>
+<text x="2412" y="417" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="422" width="267" height="19" fill="#f8fafc"/>
+<text x="2158" y="436" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="2196" y="436" font-size="13" font-weight="700" fill="#0f172a">po_id</text>
+<text x="2412" y="436" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="2158" y="455" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="2196" y="455" font-size="13" font-weight="400" fill="#0f172a">config_id</text>
+<text x="2412" y="455" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="460" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="474" font-size="13" font-weight="400" fill="#0f172a">attainment</text>
+<text x="2412" y="474" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="2196" y="493" font-size="13" font-weight="400" fill="#0f172a">computed_at</text>
+<text x="2412" y="493" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="2150" y="550" width="270" height="150" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.6"/>
+<path d="M2150,580 V557 Q2150,550 2157,550 H2413 Q2420,550 2420,557 V580 Z" fill="#7c3aed"/>
+<text x="2160" y="570" font-size="15" font-weight="700" fill="#ffffff">indirect_attainment</text>
+<text x="2158" y="594" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="2196" y="594" font-size="13" font-weight="700" fill="#0f172a">offering_id</text>
+<text x="2412" y="594" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="599" width="267" height="19" fill="#f8fafc"/>
+<text x="2158" y="613" font-size="10.5" font-weight="700" fill="#b45309">PK FK</text>
+<text x="2196" y="613" font-size="13" font-weight="700" fill="#0f172a">co_id</text>
+<text x="2412" y="613" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="2196" y="632" font-size="13" font-weight="400" fill="#0f172a">respondents</text>
+<text x="2412" y="632" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="637" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="651" font-size="13" font-weight="400" fill="#0f172a">pct_favourable</text>
+<text x="2412" y="651" font-size="11.5" fill="#64748b" text-anchor="end">numeric</text>
+<text x="2196" y="670" font-size="13" font-weight="400" fill="#0f172a">level</text>
+<text x="2412" y="670" font-size="11.5" fill="#64748b" text-anchor="end">smallint</text>
+<rect x="2151.5" y="675" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="689" font-size="13" font-weight="400" fill="#0f172a">loaded_at</text>
+<text x="2412" y="689" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="2150" y="746" width="270" height="207" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.6"/>
+<path d="M2150,776 V753 Q2150,746 2157,746 H2413 Q2420,746 2420,753 V776 Z" fill="#7c3aed"/>
+<text x="2160" y="766" font-size="15" font-weight="700" fill="#ffffff">improvement_action</text>
+<text x="2158" y="790" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="2196" y="790" font-size="13" font-weight="700" fill="#0f172a">action_id</text>
+<text x="2412" y="790" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="795" width="267" height="19" fill="#f8fafc"/>
+<text x="2158" y="809" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="2196" y="809" font-size="13" font-weight="400" fill="#0f172a">co_id</text>
+<text x="2412" y="809" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="2158" y="828" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="2196" y="828" font-size="13" font-weight="400" fill="#0f172a">offering_id</text>
+<text x="2412" y="828" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="833" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="847" font-size="13" font-weight="400" fill="#0f172a">description</text>
+<text x="2412" y="847" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="2158" y="866" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="2196" y="866" font-size="13" font-weight="400" fill="#0f172a">owner</text>
+<text x="2412" y="866" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="871" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="885" font-size="13" font-weight="400" fill="#0f172a">status</text>
+<text x="2412" y="885" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="2196" y="904" font-size="13" font-weight="400" fill="#0f172a">source</text>
+<text x="2412" y="904" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="2151.5" y="909" width="267" height="19" fill="#f8fafc"/>
+<text x="2158" y="923" font-size="10.5" font-weight="700" fill="#2563eb">FK</text>
+<text x="2196" y="923" font-size="13" font-weight="400" fill="#0f172a">follow_up_offering_id</text>
+<text x="2412" y="923" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<text x="2196" y="942" font-size="13" font-weight="400" fill="#0f172a">created_at</text>
+<text x="2412" y="942" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="2150" y="999" width="270" height="207" rx="7" fill="#ffffff" stroke="#b91c1c" stroke-width="1.6"/>
+<path d="M2150,1029 V1006 Q2150,999 2157,999 H2413 Q2420,999 2420,1006 V1029 Z" fill="#b91c1c"/>
+<text x="2160" y="1019" font-size="15" font-weight="700" fill="#ffffff">audit_outbox</text>
+<text x="2158" y="1043" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="2196" y="1043" font-size="13" font-weight="700" fill="#0f172a">outbox_id</text>
+<text x="2412" y="1043" font-size="11.5" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="2151.5" y="1048" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="1062" font-size="13" font-weight="400" fill="#0f172a">ts</text>
+<text x="2412" y="1062" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+<text x="2196" y="1081" font-size="13" font-weight="400" fill="#0f172a">app_user</text>
+<text x="2412" y="1081" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="2151.5" y="1086" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="1100" font-size="13" font-weight="400" fill="#0f172a">table_name</text>
+<text x="2412" y="1100" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<text x="2196" y="1119" font-size="13" font-weight="400" fill="#0f172a">op</text>
+<text x="2412" y="1119" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="2151.5" y="1124" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="1138" font-size="13" font-weight="400" fill="#0f172a">key</text>
+<text x="2412" y="1138" font-size="11.5" fill="#64748b" text-anchor="end">jsonb</text>
+<text x="2196" y="1157" font-size="13" font-weight="400" fill="#0f172a">before</text>
+<text x="2412" y="1157" font-size="11.5" fill="#64748b" text-anchor="end">jsonb</text>
+<rect x="2151.5" y="1162" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="1176" font-size="13" font-weight="400" fill="#0f172a">after</text>
+<text x="2412" y="1176" font-size="11.5" fill="#64748b" text-anchor="end">jsonb</text>
+<text x="2196" y="1195" font-size="13" font-weight="400" fill="#0f172a">sent_at</text>
+<text x="2412" y="1195" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g><rect x="2150" y="1252" width="270" height="112" rx="7" fill="#ffffff" stroke="#b91c1c" stroke-width="1.6"/>
+<path d="M2150,1282 V1259 Q2150,1252 2157,1252 H2413 Q2420,1252 2420,1259 V1282 Z" fill="#b91c1c"/>
+<text x="2160" y="1272" font-size="15" font-weight="700" fill="#ffffff">audit_anchor</text>
+<text x="2158" y="1296" font-size="10.5" font-weight="700" fill="#b45309">PK</text>
+<text x="2196" y="1296" font-size="13" font-weight="700" fill="#0f172a">anchor_id</text>
+<text x="2412" y="1296" font-size="11.5" fill="#64748b" text-anchor="end">int</text>
+<rect x="2151.5" y="1301" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="1315" font-size="13" font-weight="400" fill="#0f172a">seq</text>
+<text x="2412" y="1315" font-size="11.5" fill="#64748b" text-anchor="end">bigint</text>
+<text x="2196" y="1334" font-size="13" font-weight="400" fill="#0f172a">head_hash</text>
+<text x="2412" y="1334" font-size="11.5" fill="#64748b" text-anchor="end">text</text>
+<rect x="2151.5" y="1339" width="267" height="19" fill="#f8fafc"/>
+<text x="2196" y="1353" font-size="13" font-weight="400" fill="#0f172a">anchored_at</text>
+<text x="2412" y="1353" font-size="11.5" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+</svg>

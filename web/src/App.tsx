@@ -3,6 +3,7 @@ import { useAuth } from './auth'
 import { Shell } from './components/Shell'
 import { SkeletonRows } from './components/States'
 import { Actions } from './pages/Actions'
+import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Offering } from './pages/Offering'
 import { Offerings } from './pages/Offerings'
@@ -13,7 +14,15 @@ import { Trends } from './pages/Trends'
 export default function App() {
   const { user, ready } = useAuth()
   if (!ready) return <div style={{ padding: 24 }}><SkeletonRows rows={3} /></div>
-  if (!user) return <Login />
+  if (!user) {
+    // Signed out: the landing page at /, the sign-in screen everywhere else (so deep links still ask to sign in).
+    return (
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    )
+  }
   if (user.role === 'student') {
     return (
       <Shell>
