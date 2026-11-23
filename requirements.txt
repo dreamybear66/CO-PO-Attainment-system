@@ -21,3 +21,5 @@ pytesseract==0.3.13
 pillow==11.0.0
 # Google Forms surveys (phase 8): encrypts stored Google refresh tokens
 cryptography==44.0.0
+# course-file PDF (phase 10): open-licence Unicode fonts (FiraGO) for PyMuPDF
+pymupdf-fonts==1.0.5

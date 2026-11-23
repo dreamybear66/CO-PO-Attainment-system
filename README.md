@@ -11,8 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** phases 1–9 are built and 195 tests pass. Phase 10 (course-file PDF), added on 23 Nov
-2026, is not built yet. Google Forms surveys need
+**Status:** all ten phases are built and 199 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -74,15 +73,15 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   (default 0.5) are flagged with the reason, e.g. "CO2 marks so far 23% (typical 70%)". It is
   advice only and never changes official results. Replayed on 2025-26: AUC 0.79 after CIE Test 1
   ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
+- **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
+  report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
+  with a chart, COs below target with how many students are below target and the likely upstream
+  causes, and the improvement actions. Every figure comes from the database. Text is set in FiraGO
+  (open licence, embedded), so symbols, curly quotes and Indian scripts in CO statements print as typed.
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
-
-### Planned (phase 10)
-
-- **Course-file report:** a PDF per offering with CO and PO attainment, charts, weak COs, root-cause
-  findings and improvement actions.
 
 ## How attainment is calculated
 
@@ -346,7 +345,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 195 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 199 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 

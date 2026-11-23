@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–9 are built (PRs open); 195 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 199 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -24,7 +24,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
-| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
+| 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
 
@@ -311,13 +311,19 @@ Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
 ## Phase 10 — Course-file PDF
 
-Status: not started.
+Status: built on `feat/course-file` (PR open); 3 tests. Sections follow PRD FR-6.6 until the
+college template (open question) is known; only `render` would change.
 
 Output: a PDF course file per offering. FR-6.6.
 
 1. Sections (to confirm, or a college template): CO and PO attainment tables, charts, weak COs,
-   root-cause findings, improvement actions.
-2. Every number comes from the database; a test checks the worked-example offering's PDF against it.
+   root-cause findings, improvement actions. As built (`api/services/course_file.py`, drawn with
+   PyMuPDF, no new dependency): rules used, assessments, CO attainment table and chart, course-exit
+   survey, PO attainment table and chart, COs below target with students below target and likely
+   upstream causes, improvement actions; page numbers, headers repeat across pages.
+   `GET /api/offerings/{id}/course-file.pdf` (any staff role that can see the offering).
+2. Every number comes from the database; a test checks the worked-example offering's PDF against it
+   (`tests/test_course_file.py`).
 
 ## As built vs plan (2 Nov 2026)
 
@@ -335,6 +341,7 @@ Where the build differs from the plan above:
 | OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
+| Course-file fonts | built-in PDF fonts | FiraGO (pymupdf-fonts, open licence) embedded and subset; characters it lacks shown as `?` | base-14 fonts garble symbols and non-Latin text (review of #15) |
 | Early-warning features | CIE components so far | CO marks so far and prerequisite-CO scores; one model per course and stage, trained on the owner connection | the whole-stage score overlapped the CO score and took the wrong sign, which made reasons contradictory |
 | Early-warning trigger | after each locked CIE | after each lock that changed a CIE, quiz or EL, as a background task once the response is sent; saves of one offering serialised by an advisory lock; also a Run button | a failed prediction must never undo a lock; re-locking must not retrain; concurrent runs must not collide (review of #14) |
 | Survey sharing | WhatsApp share button | a `wa.me` link with the form link and a message filled in | free and needs no WhatsApp API; the teacher picks the group |
@@ -363,3 +370,4 @@ Results of the last run: [docs/test-report.md](docs/test-report.md).
 | Answer-sheet OCR | `tests/test_ocr.py`; accuracy in `docs/ocr-evaluation.md` |
 | Google Forms surveys | `tests/test_survey_forms.py` |
 | Weak students, early warning | `tests/test_early_warning.py`; replay in `docs/early-warning-evaluation.md` |
+| Course file | `tests/test_course_file.py` |
