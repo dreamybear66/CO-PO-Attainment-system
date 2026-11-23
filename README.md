@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
 (planned) and **prerequisite-aware root-cause analysis** (built).
 
-**Status:** phases 1–6 are built and 166 tests pass. Phases 7–10 (OCR, Google Forms surveys, early
+**Status:** phases 1–7 are built and 176 tests pass. Phases 8–10 (Google Forms surveys, early
 warning and weak-student lists, course-file PDF) were added on 23 Nov 2026 and are not built yet.
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -304,7 +304,8 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 166 tests pass in about three minutes. Each test rebuilds `copo_test` and re-seeds the worked example.
+All 176 tests pass in about six minutes (the OCR tests need Tesseract and the digit model, and are
+skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
 - **Correctness:** the worked example gives CO 3.00 / 2.20 / 0.40, PO1 2.30 and PO2 1.48.

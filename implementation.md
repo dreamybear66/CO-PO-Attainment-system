@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; 166 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phase 7 is built (PR open); 176 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -21,7 +21,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | Rescope | PR open | `docs/rescope` | PRD, CLAUDE.md, README and this plan updated for teacher automation |
 | UI motion | PR open | `feat/ui-motion` | Motion/GSAP animation layer, animated sign-in; `main` merged in |
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
-| 7 — Answer-sheet OCR | In progress | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
+| 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
 | 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
@@ -223,7 +223,8 @@ Output: demo-ready system.
 
 ## Phase 7 — Answer-sheet OCR (novelty)
 
-Status: in progress on `feat/answer-sheet-ocr`.
+Status: built on `feat/answer-sheet-ocr` (PR open). 10 tests; accuracy in
+[docs/ocr-evaluation.md](docs/ocr-evaluation.md).
 
 Output: a teacher uploads one PDF and gets the question paper and every student's marks, ready to
 confirm. FR-3.7–3.9, NFR-10.
@@ -306,6 +307,10 @@ Where the build differs from the plan above:
 | Audit capture | `pg_notify` listener | transactional outbox (S8) + `pg_notify` wake-up | no change is lost when MongoDB or the writer is down |
 | Course prerequisites | — | acyclic-graph trigger | keeps the CO-dependency check meaningful |
 | UI | React + charting library | React + taste-skill `charts.js`, style `framed-sheet` | follows the taste-skill app-screen rules |
+| OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
+| OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
+| OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
+| OCR value choice | read digit by digit | marks chosen within 0..max, USNs paired across the PDF (Hungarian algorithm) | uses what is known about the paper and the class; on 240 synthetic sheets no wrong value went unflagged |
 
 ## Test map
 
@@ -323,3 +328,4 @@ Results of the last run: [docs/test-report.md](docs/test-report.md).
 | Concurrency | `tests/test_concurrency.py` |
 | Reproducibility | `tests/test_versioned_rules.py` |
 | Surveys and ETL | `tests/test_surveys_etl.py` |
+| Answer-sheet OCR | `tests/test_ocr.py`; accuracy in `docs/ocr-evaluation.md` |
