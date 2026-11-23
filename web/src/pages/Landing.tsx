@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Mark } from '../components/Shell'
 import '../landing.css'
 
-/* Public landing page. Direction (taste-skill, seed 351696131): one motif. The motif is the
-   attainment staircase: levels 0-3, reached at 50, 60 and 70 % of students. It is the hero shape,
-   the button corner, the list bullet, the picture frame, the band and the footer wordmark. */
+/* Public landing page, written for teachers and heads of department, not developers: no database,
+   code or test talk. One motif, the attainment staircase (levels 0-3, reached at 50, 60 and 70 % of
+   students): the hero shape, the button corner, the list bullet, the picture frame and the footer.
+   Cursor effects (tilt, light, magnet, parallax) run only with a mouse or trackpad, and not at all
+   when the visitor asks for reduced motion. */
 
-// The rules in force since 1 Aug 2024 (attainment_config). The calculator uses exactly these.
+// The department's current rules; the calculator uses exactly these.
 const L1 = 50, L2 = 60, L3 = 70, DIRECT = 80, SURVEY = 20
 const toLevel = (pct: number) => (pct >= L3 ? 3 : pct >= L2 ? 2 : pct >= L1 ? 1 : 0)
 
@@ -34,89 +36,141 @@ function useReveal(root: React.RefObject<HTMLElement>) {
     el.classList.add('lp-anim')
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target) } })
-    }, { rootMargin: '0px 0px -12% 0px' })
+    }, { rootMargin: '0px 0px -10% 0px' })
     blocks.forEach((b) => io.observe(b))
     return () => io.disconnect()
   }, [root])
 }
 
+/** Smooth scrolling for the in-page links while the landing page is shown. */
+function useSmoothScroll() {
+  useEffect(() => {
+    const html = document.documentElement
+    const before = html.style.scrollBehavior
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) html.style.scrollBehavior = 'smooth'
+    return () => { html.style.scrollBehavior = before }
+  }, [])
+}
+
+const FX = ['tilt', 'glow', 'magnet', 'track'] as const
+
+/** Cursor effects. Elements marked data-tilt, data-glow, data-magnet or data-track get the pointer
+    position as CSS variables (--px/--py from -0.5 to 0.5, --mx/--my in pixels) and the class
+    .is-hot while the pointer is over them; landing.css turns those into tilt, a following light,
+    a small pull toward the cursor and parallax. One listener, one update per frame. */
+function usePointerFx(root: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    const el = root.current
+    if (!el) return
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!fine || calm) return
+    let frame = 0
+    let last: PointerEvent | null = null
+    let active = new Set<HTMLElement>()
+    const reset = (t: HTMLElement) => {
+      t.classList.remove('is-hot')
+      for (const v of ['--px', '--py', '--mx', '--my']) t.style.removeProperty(v)
+    }
+    const apply = () => {
+      frame = 0
+      if (!last) return
+      const hit = new Set<HTMLElement>()
+      for (let n = last.target as HTMLElement | null; n && n !== el; n = n.parentElement) {
+        if (FX.some((k) => n!.dataset?.[k] !== undefined)) hit.add(n)
+      }
+      active.forEach((t) => { if (!hit.has(t)) reset(t) })
+      hit.forEach((t) => {
+        const r = t.getBoundingClientRect()
+        const x = last!.clientX - r.left, y = last!.clientY - r.top
+        t.style.setProperty('--px', (x / r.width - 0.5).toFixed(3))
+        t.style.setProperty('--py', (y / r.height - 0.5).toFixed(3))
+        t.style.setProperty('--mx', `${x.toFixed(0)}px`)
+        t.style.setProperty('--my', `${y.toFixed(0)}px`)
+        t.classList.add('is-hot')
+      })
+      active = hit
+    }
+    const move = (e: PointerEvent) => { last = e; if (!frame) frame = requestAnimationFrame(apply) }
+    const leave = () => { last = null; active.forEach(reset); active = new Set() }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerleave', leave)
+    return () => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerleave', leave)
+      cancelAnimationFrame(frame)
+    }
+  }, [root])
+}
+
 const STEPS = [
   {
-    name: 'Student CO score',
-    text: 'For each component, the marks on the questions that test the CO, over their maximum. Components then weigh CIE theory 20, quiz 10, experiential learning 20 and SEE 50, counting only those that test the CO. An absent student is AB and scores 0.',
-    pic: { src: '/landing/marks.webp', w: 1600, h: 736, alt: 'Assessments table for IS243: six assessments, every mark entered, all locked' },
+    name: 'Marks go in',
+    text: 'Upload the marks sheet, or simply scan the answer sheets. Every question is linked to the course outcome it tests, so each student gets a score for each outcome. An absent student counts as zero.',
+    pic: { src: '/landing/marks.webp', w: 1600, h: 736, alt: 'A course with all six assessments entered and locked' },
   },
   {
-    name: 'Direct level',
-    text: `The share of students whose CO score reaches the 60 % target, mapped to a level: 3 at ${L3} %, 2 at ${L2} %, 1 at ${L1} %, otherwise 0.`,
-    pic: { src: '/landing/ladder.webp', w: 1058, h: 530, alt: 'CO attainment ladder for IS243 with the 50, 60 and 70 % thresholds marked on each bar' },
+    name: 'Each outcome gets a level',
+    text: `For every outcome, the system counts how many students scored at least 60 %. If ${L3} % of the class did, the outcome is at level 3; ${L2} % gives level 2, ${L1} % level 1, fewer gives 0.`,
+    pic: { src: '/landing/ladder.webp', w: 1058, h: 530, alt: 'Each course outcome as a bar, with the 50, 60 and 70 % marks shown' },
   },
   {
-    name: 'Survey level',
-    text: 'The share of course-exit survey ratings of 4 or 5 for the CO, through the same thresholds. Responses live in MongoDB; a nightly ETL job brings the level into PostgreSQL. No survey means 0.',
-    pic: { src: '/landing/evidence.webp', w: 920, h: 504, alt: 'Direct and survey evidence table: students at target, respondents and favourable share per CO' },
+    name: 'Students have their say',
+    text: 'At the end of the course, students rate each outcome in a short survey that the teacher shares on WhatsApp. Their answers give a second, student-side level for every outcome.',
+    pic: { src: '/landing/evidence.webp', w: 920, h: 504, alt: 'For each outcome: students at target, how many answered the survey and how many rated it highly' },
   },
   {
-    name: 'Final CO level',
-    text: `(${DIRECT} × direct + ${SURVEY} × survey) / 100. The worked example in the requirements gives CO1 3.00, CO2 2.20 and CO3 0.40, and the test suite checks those numbers on every run.`,
+    name: 'One final level per outcome',
+    text: `Marks count for ${DIRECT} % and student feedback for ${SURVEY} %. The result is one clear number from 0 to 3 for every course outcome, worked out the same way for every teacher.`,
   },
   {
-    name: 'PO attainment',
-    text: 'Σ(strength × final CO level) / Σ strength over the CO-PO map. The worked example gives PO1 2.30 and PO2 1.48. The programme PO is the plain average of the offering values.',
-    pic: { src: '/landing/matrix.webp', w: 1600, h: 544, alt: 'CO-PO matrix for IS243 with mapping strengths 1 to 3 and the PO values beneath' },
+    name: 'Programme outcomes follow',
+    text: 'Each course outcome feeds the programme outcomes it supports, weighted by how strongly it supports them. The department sees, course by course, where its graduates stand.',
+    pic: { src: '/landing/matrix.webp', w: 1600, h: 544, alt: 'A grid linking course outcomes to programme outcomes, with each programme outcome’s level below' },
   },
 ]
 
 const SCREENS = [
   {
-    name: 'Root cause', src: '/landing/rootcause.webp', w: 1600, h: 411, stage: 'var(--lp-field-1)',
-    alt: 'Root cause for IS243 CO4: IS231 CO2 ranked as likely cause with r 0.81; IS111 CO5 a weak link at r −0.06',
-    fact: 'DBMS CO4 fell to 0.40 in 2024-25. Walking the CO graph back, the system ranks Data Structures CO2 first (r = 0.81) and clears the declared decoy, Programming in C CO5 (r = −0.06).',
+    name: 'Find the reason', src: '/landing/rootcause.webp', w: 1600, h: 411, stage: 'var(--lp-field-1)',
+    alt: 'For a weak outcome, the earlier topics most likely behind it, strongest first',
+    fact: 'Database Management Systems outcome 4 dropped sharply in 2024-25. Looking back at what those same students did earlier, the system points to a topic from Data Structures, and rules out an unrelated one.',
   },
   {
-    name: 'Trends', src: '/landing/trend.webp', w: 1056, h: 468, stage: 'var(--lp-field-3)',
-    alt: 'Line chart of IS243 CO4 final level by year, dipping below the 2.00 target in 2024-25',
-    fact: 'The same CO across four years: 2.85, then 0.90 for the planted weak batch, then back to 2.00 the year after.',
+    name: 'See it over the years', src: '/landing/trend.webp', w: 1056, h: 468, stage: 'var(--lp-field-3)',
+    alt: 'One outcome’s level across four years, dipping below target in 2024-25',
+    fact: 'The same outcome across four years: strong, then a dip for one batch, then back on target the year after.',
   },
   {
-    name: 'Improvement actions', src: '/landing/actions.webp', w: 650, h: 541, stage: 'var(--lp-field-2)',
-    alt: 'Improvement actions list: four open actions, each with a follow-up result from the next year',
-    fact: 'Every CO below target gets an action when attainment is computed. The next computation links its follow-up and shows the change.',
+    name: 'Act on it', src: '/landing/actions.webp', w: 650, h: 541, stage: 'var(--lp-field-2)',
+    alt: 'A list of improvement actions, each with how the next year turned out',
+    fact: 'Every outcome below target gets an improvement action straight away, and next year’s results show whether it worked.',
   },
   {
-    name: 'What-if', src: '/landing/whatif.webp', w: 1600, h: 380, stage: 'var(--lp-field-1)',
-    alt: 'What-if form with student target, level thresholds and weights',
-    fact: 'Change the target, thresholds or weights and re-run an offering. Results land in scenario tables; the official ones do not move.',
+    name: 'Try a change first', src: '/landing/whatif.webp', w: 1600, h: 380, stage: 'var(--lp-field-1)',
+    alt: 'A form to try a different target, levels or weights',
+    fact: 'Wondering what a different target would do? Try it on any course and compare. The official results never change.',
   },
   {
-    name: 'Rule versions', src: '/landing/rules.webp', w: 1568, h: 300, stage: 'var(--lp-field-3)',
-    alt: 'Rule versions table: 55 % target from Aug 2021 to Aug 2024, 60 % from Aug 2024',
-    fact: 'Targets and weights are rows with a validity period. 2023 results were computed at 55 % and still reproduce at 55 %.',
+    name: 'Keep every year’s rules', src: '/landing/rules.webp', w: 1568, h: 300, stage: 'var(--lp-field-3)',
+    alt: 'The department’s rules by year: 55 % target until August 2024, 60 % since',
+    fact: 'When the department changes its rules, older results keep the rules of their own year, so past reports always match.',
   },
 ]
 
-// Counts from docs/test-report.md; update both together when the suite changes.
-const TESTS: [string, number, string][] = [
-  ['Correctness', 16, 'Worked example: CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48.'],
-  ['Constraints', 27, 'Out-of-range marks, locked edits, bad weights and cycles all rejected.'],
-  ['Access control', 27, 'Faculty see only their offerings; students only their own rows.'],
-  ['Surveys and ETL', 24, 'Reference checks, one response per student, idempotent load.'],
-  ['Audit tamper', 16, 'An edited or deleted audit record is reported at its seq.'],
-  ['Root cause', 15, 'The planted cause ranks first; the decoy is excluded.'],
-  ['Simulator isolation', 14, 'What-if runs leave official tables unchanged.'],
-  ['Synthetic data', 10, 'Same seed, same data; the planted cause stands out.'],
-  ['Course file', 4, 'Every figure in the PDF equals the database.'],
-  ['Early warning', 7, 'Weaker CIE marks mean higher risk; every flag says why.'],
-  ['Google Forms surveys', 9, 'Verified emails only; nobody can answer as a classmate.'],
-  ['Answer-sheet OCR', 13, 'Scanned sheets are read; every misread value is flagged for the teacher.'],
-  ['Concurrency', 8, 'A second compute waits or is refused; a failed run keeps the last result.'],
-  ['Improvement actions', 5, 'Actions close once a CO reaches target; follow-ups link to the next offering.'],
-  ['Reproducibility', 4, 'Old rule versions reproduce old numbers exactly.'],
+const SAVES: [string, string][] = [
+  ['Scan, don’t type', 'Scan the answer sheets as one PDF. The marks are read for you, and anything unclear is highlighted for a quick check.'],
+  ['Surveys on WhatsApp', 'One click makes the course-exit survey as a Google Form; one more shares it with the class group.'],
+  ['Know who needs help early', 'After the first test, the students likely to fall short in an outcome are flagged, with the reason.'],
+  ['Lists for extra classes', 'For every outcome, the students below target, ready to copy for a remedial class.'],
+  ['The course file, done', 'A complete course-file report as a PDF, straight from the results.'],
 ]
 
 export function Landing() {
   const root = useRef<HTMLDivElement>(null)
   useReveal(root)
+  usePointerFx(root)
+  useSmoothScroll()
 
   return (
     <div className="lp" ref={root}>
@@ -124,10 +178,10 @@ export function Landing() {
       <header className="lp-bar">
         <Link to="/" className="lp-word" aria-label="CO-PO Attainment, home"><Mark /><span>CO-PO Attainment</span></Link>
         <nav aria-label="Sections">
-          <a href="#method">Method</a>
-          <a href="#views">Views</a>
-          <a href="#tests">Tests</a>
-          <Link to="/login" className="lp-bar-sign">Sign in</Link>
+          <a href="#method">How it works</a>
+          <a href="#views">When an outcome falls</a>
+          <a href="#saves">What it saves you</a>
+          <Link to="/login" className="lp-bar-sign" data-magnet>Sign in</Link>
         </nav>
       </header>
       <main id="main">
@@ -136,7 +190,7 @@ export function Landing() {
         <Rules />
         <Views />
         <Calculator />
-        <Tests />
+        <Saves />
         <Start />
       </main>
       <Footer />
@@ -151,27 +205,27 @@ function Hero() {
     return () => cancelAnimationFrame(t)
   }, [])
   return (
-    <section className="lp-hero" aria-labelledby="lp-title">
+    <section className="lp-hero" aria-labelledby="lp-title" data-track>
       <Stairs className="lp-hero-stairs" />
       <div className="lp-hero-copy">
-        <h1 id="lp-title">CO-PO attainment</h1>
+        <h1 id="lp-title">CO-PO attainment, done for you</h1>
         <p className="lp-lede">
-          A PostgreSQL and MongoDB system that takes CO-PO work off a teacher's hands: it turns question-wise
-          marks and course-exit surveys into Course Outcome and Programme Outcome levels, explains why a CO is
-          weak, and keeps the rules in the database.
+          Upload the marks, or just scan the answer sheets. Every course outcome and programme outcome is
+          worked out for you, students share feedback through a survey on WhatsApp, the ones who need help
+          are flagged early, and the course file is ready as a PDF.
         </p>
         <div className="lp-hero-actions">
-          <Link to="/login" className="lp-btn">Sign in to the demo</Link>
-          <a href="#method" className="lp-link">See the method</a>
+          <Link to="/login" className="lp-btn" data-magnet>Open the demo</Link>
+          <a href="#method" className="lp-link">See how it works</a>
         </div>
-        <p className="lp-credit">DBMS (CD252IA) project · Dept. of ISE, RV College of Engineering · Team 2</p>
+        <p className="lp-credit">A student project by Team 2 · Dept. of Information Science and Engineering, RV College of Engineering</p>
       </div>
-      <figure className="lp-hero-shot">
-        <div className="lp-shutter lp-frame" ref={shutter}>
+      <figure className="lp-hero-shot" data-tilt>
+        <div className="lp-shutter lp-frame" ref={shutter} data-glow>
           <img src="/landing/ladder.webp" width={1058} height={530}
-               alt="CO attainment ladder for Database Management Systems, 2024-25, section C: CO2 at 2.20, the other four below the 2.00 target" />
+               alt="Five course outcomes of Database Management Systems: one at its target, four below" />
         </div>
-        <figcaption>IS243 Database Management Systems, 2024-25, section C. Four of five COs below target.</figcaption>
+        <figcaption>Database Management Systems, 2024-25: one outcome on target, four that need attention.</figcaption>
       </figure>
     </section>
   )
@@ -183,21 +237,21 @@ function Method() {
   return (
     <section className="lp-method" id="method" aria-labelledby="lp-method-h">
       <div className="lp-intro" data-reveal>
-        <h2 id="lp-method-h" style={{ '--i': 0 } as React.CSSProperties}>Five steps, one procedure</h2>
+        <h2 id="lp-method-h" style={{ '--i': 0 } as React.CSSProperties}>How it works, in five steps</h2>
         <p style={{ '--i': 1 } as React.CSSProperties}>
-          <code>sp_compute_attainment</code> runs all five in one transaction and refuses to start while any
-          assessment is still unlocked. Every threshold and weight below is a row in <code>attainment_config</code>,
-          not a constant in code.
+          The department sets the rules once: the target score, what each level needs and how much marks and
+          feedback count. Every teacher&rsquo;s results are then worked out the same way, automatically.
         </p>
       </div>
       <div className="lp-acc" data-reveal>
         {STEPS.map((s, i) => {
           const isOpen = open === i
           return (
-            <div key={s.name} className={`lp-acc-panel t${i}`} data-open={isOpen} style={{ '--i': i } as React.CSSProperties}>
+            <div key={s.name} className={`lp-acc-panel t${i}`} data-open={isOpen} style={{ '--i': i } as React.CSSProperties}
+                 onMouseEnter={() => setOpen(i)}>
               <h3>
                 <button type="button" aria-expanded={isOpen} aria-controls={`${base}-${i}`} id={`${base}-b${i}`}
-                        onClick={() => setOpen(i)}>
+                        onClick={() => setOpen(i)} onFocus={() => setOpen(i)}>
                   <span className="lp-acc-name">{s.name}</span>
                 </button>
               </h3>
@@ -205,7 +259,7 @@ function Method() {
                 <p>{s.text}</p>
                 {s.pic
                   ? <img src={s.pic.src} width={s.pic.w} height={s.pic.h} alt={s.pic.alt} loading="lazy" className="lp-frame" />
-                  : <p className="lp-acc-formula" aria-hidden="true">(80 × 2 + 20 × 3) / 100 = 2.20</p>}
+                  : <p className="lp-acc-formula" aria-hidden="true">80 % marks + 20 % feedback</p>}
               </div>
             </div>
           )
@@ -219,75 +273,74 @@ function Rules() {
   return (
     <section className="lp-rules" id="rules" aria-labelledby="lp-rules-h">
       <div className="lp-rules-head" data-reveal>
-        <h2 id="lp-rules-h" style={{ '--i': 0 } as React.CSSProperties}>Enforced in SQL</h2>
+        <h2 id="lp-rules-h" style={{ '--i': 0 } as React.CSSProperties}>Built to be trusted</h2>
         <p style={{ '--i': 1 } as React.CSSProperties}>
-          Triggers, CHECK constraints and row-level security hold these rules, so the API cannot skip them. Each
-          request runs in one transaction as the caller's own database role.
+          Results only count when nobody can quietly change them. These safeguards are always on.
         </p>
       </div>
       <ul className="lp-tiles" data-reveal>
         <li style={{ '--i': 0 } as React.CSSProperties}>
-          <div className="lp-tile f1">
+          <div className="lp-tile f1" data-glow>
             <div className="lp-ui" data-ui>
               <div className="lp-ui-row"><span>CIE Test 2</span><span className="lp-pill">Locked</span></div>
               <div className="lp-ui-row"><span>Quiz 2</span><span className="lp-pill">Locked</span></div>
-              <div className="lp-ui-err">CP001 Assessment is locked</div>
+              <div className="lp-ui-err">Locked: ask the HoD to reopen</div>
             </div>
           </div>
-          <h3>Locking</h3>
-          <p>Locks only when every mark is in. Unlocking needs the HoD's approval, and each refused edit is logged.</p>
+          <h3>Marks are locked</h3>
+          <p>Once every mark is in, the test is locked. Changing it needs the HoD&rsquo;s approval, and every attempt is recorded.</p>
         </li>
         <li className="wide" style={{ '--i': 1 } as React.CSSProperties}>
-          <div className="lp-tile f2">
+          <div className="lp-tile f2" data-glow>
             <img src="/landing/rules.webp" width={1568} height={300} loading="lazy" className="lp-frame"
-                 alt="Two rule versions: 55 % target until 1 Aug 2024, 60 % since" />
+                 alt="The department's rules by year: 55 % target until August 2024, 60 % since" />
           </div>
-          <h3>Versioned rules</h3>
-          <p>Each offering uses the rules in force for its term, so results from 2023 still reproduce.</p>
+          <h3>Each year keeps its rules</h3>
+          <p>A change to the target applies from that year on, so older reports never shift.</p>
         </li>
         <li style={{ '--i': 2 } as React.CSSProperties}>
-          <div className="lp-tile f3">
+          <div className="lp-tile f3" data-glow>
             <div className="lp-ui" data-ui>
-              <div className="lp-ui-file">marks_IS243_C.csv</div>
-              <div className="lp-ui-err">Row 14, Q3: 12 is above the maximum 10 (CP002)</div>
-              <div className="lp-ui-muted">0 of 60 rows saved</div>
+              <div className="lp-ui-file">IS243 marks, section C</div>
+              <div className="lp-ui-err">Row 14, Q3: 12 is more than the maximum of 10</div>
+              <div className="lp-ui-muted">Nothing saved yet: fix and upload again</div>
             </div>
           </div>
-          <h3>All-or-nothing upload</h3>
-          <p>Every row of a question-wise CSV is checked. One bad row and nothing is saved.</p>
+          <h3>Mistakes are caught</h3>
+          <p>Every mark is checked. One wrong entry and nothing is saved, with the exact row pointed out.</p>
         </li>
         <li style={{ '--i': 3 } as React.CSSProperties}>
-          <div className="lp-tile f2">
+          <div className="lp-tile f2" data-glow>
             <div className="lp-ui" data-ui>
-              {[['HoD', 'every offering'], ['Faculty', 'own offerings'], ['Coordinator', 'all, read-only'], ['Student', 'own rows']].map(([r, s]) => (
+              {[['HoD', 'every course'], ['Teacher', 'own courses'], ['Coordinator', 'everything, view only'], ['Student', 'own marks']].map(([r, s]) => (
                 <div className="lp-ui-row" key={r}><span>{r}</span><span className="lp-ui-muted">{s}</span></div>
               ))}
             </div>
           </div>
-          <h3>Row-level security</h3>
-          <p>PostgreSQL policies per role. The API login itself can read nothing.</p>
+          <h3>Everyone sees only their part</h3>
+          <p>Teachers see their own courses, students only their own marks.</p>
         </li>
         <li style={{ '--i': 4 } as React.CSSProperties}>
-          <div className="lp-tile f1">
-            <div className="lp-ui lp-ui-chain" data-ui>
-              {[['573221', '6642b0bd…d7a6e9da'], ['573222', '8f594847…ff032eb2'], ['573223', '30f94908…c4967511']].map(([s, h]) => (
-                <div className="lp-ui-row" key={s}><span>seq {s}</span><span className="lp-ui-hash">{h}</span></div>
+          <div className="lp-tile f1" data-glow>
+            <div className="lp-ui" data-ui>
+              {[['10:42', 'Marks changed, Quiz 1'], ['10:45', 'Test 2 locked'], ['11:02', 'Reopen approved by HoD']].map(([t, w]) => (
+                <div className="lp-ui-row" key={t}><span>{w}</span><span className="lp-ui-muted">{t}</span></div>
               ))}
             </div>
           </div>
-          <h3>Audit chain</h3>
-          <p>Each change goes to an outbox in the same transaction, then into a SHA-256 chain in MongoDB.</p>
+          <h3>Every change is on record</h3>
+          <p>Who changed what, and when, is kept in a history that cannot be edited without it showing.</p>
         </li>
         <li style={{ '--i': 5 } as React.CSSProperties}>
-          <div className="lp-tile f3">
+          <div className="lp-tile f3" data-glow>
             <div className="lp-ui" data-ui>
               <div className="lp-ui-row"><span>Student target</span><b>55 %</b></div>
-              <div className="lp-ui-row"><span>Survey weight</span><b>30 %</b></div>
-              <div className="lp-ui-muted">Writes to scenario tables only</div>
+              <div className="lp-ui-row"><span>Feedback weight</span><b>30 %</b></div>
+              <div className="lp-ui-muted">A trial only: official results stay as they are</div>
             </div>
           </div>
-          <h3>What-if, kept apart</h3>
-          <p>Scenarios write to their own tables and can never be saved as official.</p>
+          <h3>Try ideas safely</h3>
+          <p>Test a different target or weighting on any course without touching the official results.</p>
         </li>
       </ul>
     </section>
@@ -299,7 +352,7 @@ function Views() {
   const s = SCREENS[sel]
   return (
     <section className="lp-views" id="views" aria-labelledby="lp-views-h">
-      <div className="lp-views-stage" style={{ background: s.stage }}>
+      <div className="lp-views-stage" style={{ background: s.stage }} data-track>
         <Stairs className="lp-views-stairs" />
         {SCREENS.map((x, i) => (
           <img key={x.name} src={x.src} width={x.w} height={x.h} alt={x.alt} loading="lazy"
@@ -307,11 +360,11 @@ function Views() {
         ))}
       </div>
       <div className="lp-views-list" data-reveal>
-        <h2 id="lp-views-h" style={{ '--i': 0 } as React.CSSProperties}>When a CO falls</h2>
+        <h2 id="lp-views-h" style={{ '--i': 0 } as React.CSSProperties}>When an outcome falls short</h2>
         <ul role="list">
           {SCREENS.map((x, i) => (
             <li key={x.name} style={{ '--i': i + 1 } as React.CSSProperties}>
-              <button type="button" aria-pressed={i === sel} onClick={() => setSel(i)}>
+              <button type="button" aria-pressed={i === sel} onClick={() => setSel(i)} onMouseEnter={() => setSel(i)}>
                 <Bullet />{x.name}
               </button>
             </li>
@@ -331,46 +384,45 @@ function Calculator() {
   return (
     <section className="lp-calc" id="try" aria-labelledby="lp-calc-h">
       <div className="lp-calc-top">
-        <h2 id="lp-calc-h">How many reached 60 %?</h2>
+        <h2 id="lp-calc-h">Try it: how many reached 60 %?</h2>
         <div className="lp-calc-ui" data-ui>
           <label className="lp-range">
-            <span className="lp-range-label">Students at or above the target<output>{atTarget} %</output></span>
+            <span className="lp-range-label">Students who scored 60 % or more<output>{atTarget} %</output></span>
             <input type="range" min={0} max={100} value={atTarget} onChange={(e) => setAtTarget(+e.target.value)} />
           </label>
           <label className="lp-range">
-            <span className="lp-range-label">Survey ratings of 4 or 5<output>{favourable} %</output></span>
+            <span className="lp-range-label">Students who rated the outcome 4 or 5 out of 5<output>{favourable} %</output></span>
             <input type="range" min={0} max={100} value={favourable} onChange={(e) => setFavourable(+e.target.value)} />
           </label>
         </div>
       </div>
       <div className="lp-calc-bottom">
         <p className="lp-figure" aria-live="polite">
-          <span className="visually-hidden">Final CO level </span>{final.toFixed(2)}<span className="lp-unit"> of 3</span>
+          <span className="visually-hidden">Final level </span>{final.toFixed(2)}<span className="lp-unit"> of 3</span>
         </p>
         <p className="lp-calc-why">
-          {atTarget} % of students gives direct level {d}; {favourable} % favourable gives survey level {sv}.
-          ({DIRECT} × {d} + {SURVEY} × {sv}) / 100 = {final.toFixed(2)}, {final >= 2 ? 'at or above' : 'below'} the 2.00 target.
+          {atTarget} % of the class at 60 % or more gives a marks level of {d}; {favourable} % happy students gives a
+          feedback level of {sv}. Together that is {final.toFixed(2)}, {final >= 2 ? 'on or above' : 'below'} the target of 2.
         </p>
       </div>
     </section>
   )
 }
 
-function Tests() {
+function Saves() {
   return (
-    <section className="lp-tests" id="tests" aria-labelledby="lp-tests-h">
+    <section className="lp-tests" id="saves" aria-labelledby="lp-saves-h">
       <ul className="lp-board" data-reveal>
-        <li className="lp-board-head" style={{ '--i': 0 } as React.CSSProperties}>
-          <h2 id="lp-tests-h">{TESTS.reduce((sum, [, n]) => sum + n, 0)} tests, all passing</h2>
+        <li className="lp-board-head" style={{ '--i': 0 } as React.CSSProperties} data-glow>
+          <h2 id="lp-saves-h">What it saves you</h2>
           <p>
-            Each one rebuilds a test database. The demo data is a synthetic ISE programme: 1,440 students,
-            280 offerings, 556,800 question-wise marks and 11,965 surveys.
+            The hours that go into spreadsheets, forms and reports each term, handed back to teaching.
           </p>
         </li>
-        {TESTS.map(([name, n, what], i) => (
-          <li key={name} style={{ '--i': i + 1 } as React.CSSProperties}>
+        {SAVES.map(([name, what], i) => (
+          <li key={name} style={{ '--i': i + 1 } as React.CSSProperties} data-glow>
             <h3>{name}</h3>
-            <p><b>{n}</b> {n === 1 ? 'test' : 'tests'}. {what}</p>
+            <p>{what}</p>
           </li>
         ))}
       </ul>
@@ -386,16 +438,16 @@ function Start() {
   return (
     <section className="lp-start" id="start" aria-labelledby="lp-start-h">
       <div className="lp-start-copy">
-        <h2 id="lp-start-h">Open the demo</h2>
-        <p>Sign in with a demo login. The password is <code>DEMO_PASSWORD</code> in your <code>.env</code>; the
-          HoD sees every offering, faculty only their own.</p>
+        <h2 id="lp-start-h">See it for yourself</h2>
+        <p>Open the demo as a head of department, who sees every course, or as a teacher, who sees their own.
+          Use the demo password you were given.</p>
       </div>
       <form className="lp-dialog" data-ui onSubmit={(e) => { e.preventDefault(); navigate(`/login?u=${encodeURIComponent(user.trim())}`) }}>
         <h3>Sign in as</h3>
         <div className="lp-seg" role="radiogroup" aria-label="Role">
           {(['hod', 'faculty'] as const).map((r) => (
             <button key={r} type="button" role="radio" aria-checked={role === r} onClick={() => pick(r)}>
-              {r === 'hod' ? 'Head of department' : 'Faculty'}
+              {r === 'hod' ? 'Head of department' : 'Teacher'}
             </button>
           ))}
         </div>
@@ -403,8 +455,8 @@ function Start() {
           <span>Username</span>
           <input className="input" value={user} onChange={(e) => setUser(e.target.value)} autoComplete="username" required />
         </label>
-        <p className="lp-dialog-note">Faculty logins run from fac01 to fac14; fac06 teaches IS243 sections C and D.</p>
-        <button className="lp-btn" type="submit">Continue to sign in</button>
+        <p className="lp-dialog-note">Demo teachers are fac01 to fac14; fac06 teaches Database Management Systems.</p>
+        <button className="lp-btn" type="submit" data-magnet>Continue to sign in</button>
       </form>
     </section>
   )
@@ -420,24 +472,24 @@ function Footer() {
       <div className="lp-foot-cols">
         <div>
           <h2>On this page</h2>
-          <a href="#method">Method</a><a href="#rules">Rules</a><a href="#views">Views</a><a href="#tests">Tests</a>
+          <a href="#method">How it works</a><a href="#rules">Safeguards</a><a href="#views">When an outcome falls</a><a href="#saves">What it saves you</a>
         </div>
         <div>
           <h2>The app</h2>
-          <Link to="/login">Sign in</Link><a href="/docs">API reference</a>
+          <Link to="/login">Sign in</Link><a href="#try">Try the calculator</a>
         </div>
         <div>
-          <h2>Built with</h2>
-          <p>PostgreSQL 16, MongoDB 8, FastAPI, React 18</p>
+          <h2>Made for</h2>
+          <p>Teachers, heads of department and programme coordinators</p>
         </div>
         <div className="lp-foot-addr">
           <p>Department of Information Science and Engineering, RV College of Engineering, Bengaluru</p>
-          <p>Database Management Systems (CD252IA), Team 2. All data is synthetic.</p>
+          <p>A student project by Team 2. All names and marks shown are made up.</p>
         </div>
       </div>
       <div className="lp-foot-last">
-        <p>© 2026 Team 2 · MIT licence</p>
-        <Link to="/login" className="lp-btn small">Sign in</Link>
+        <p>© 2026 Team 2</p>
+        <Link to="/login" className="lp-btn small" data-magnet>Sign in</Link>
       </div>
     </footer>
   )
