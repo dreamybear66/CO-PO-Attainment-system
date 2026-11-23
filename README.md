@@ -8,10 +8,10 @@ finds why a CO is weak, simulates rule changes, and keeps a tamper-evident audit
 live in the database, not in code. It is built to save teachers time, not to produce NBA/NAAC
 accreditation reports.
 
-Three features go beyond automation: **answer-sheet OCR** (planned), **early-warning prediction**
+Three features go beyond automation: **answer-sheet OCR** (built), **early-warning prediction**
 (planned) and **prerequisite-aware root-cause analysis** (built).
 
-**Status:** phases 1–6 are built and 166 tests pass. Phases 7–10 (OCR, Google Forms surveys, early
+**Status:** phases 1–7 are built and 179 tests pass. Phases 8–10 (Google Forms surveys, early
 warning and weak-student lists, course-file PDF) were added on 23 Nov 2026 and are not built yet.
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -46,17 +46,25 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   hash-chained MongoDB log with a daily anchor and a verifier.
 - **Access control:** PostgreSQL row-level security per role (HoD, faculty, coordinator, student).
   Faculty see only their own offerings and students only their own rows.
+- **Answer-sheet OCR (novelty):** upload one scanned PDF per assessment ("Read PDF" on the Marks
+  tab). Page 1 is the question paper: Tesseract reads each question's number, max marks, COs and
+  Bloom level. Every later page is a student's cover page: the corner squares straighten the scan
+  and a digit model trained on MNIST reads the USN and the handwritten marks. Each mark is chosen
+  from 0 to its question's maximum and each USN among the enrolled students, so most misreads
+  cannot happen; anything unsure, a total that does not add up, or a duplicate USN is highlighted.
+  Nothing is saved until the teacher ticks that they checked the highlighted values; the marks then
+  go through the same validation as a CSV upload. Each mark comes from its own question's row, an
+  unreadable page can be typed in or skipped, and a student with no sheet in this PDF is saved as
+  absent only if they have no marks yet (one class can be scanned in several PDFs). The highlight
+  threshold is the rule version's `ocr_review_confidence` (default 0.90). Everything runs locally and the scans are not
+  stored. The cover-page layout is a synthetic stand-in (`api/ocr/layout.py`).
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/`, and every animation respects the reduced-motion setting.
 
-### Planned (phases 7–10)
+### Planned (phases 8–10)
 
-- **Answer-sheet OCR (novelty):** upload one PDF per assessment. Page 1 is the question paper; OCR
-  reads each question's number, max marks, CO and Bloom level. The next pages are each student's
-  answer-sheet cover page; OCR reads the handwritten per-question marks. Every value is shown on a
-  review screen and saved only after the teacher confirms it. OCR runs locally with free tools.
 - **Google Forms surveys:** the course-exit survey is created as a Google Form (college email, USN,
   name, phone, then one 1–5 rating per CO) and shared with a WhatsApp button that opens WhatsApp with
   the link filled in. Responses are matched to enrolled students, then only a hashed USN is kept. A
@@ -120,7 +128,7 @@ triggers, CHECK constraints and the stored procedure, so the API cannot bypass t
 ## Repository layout
 
 ```
-db/migrations/   001_schema … 009_security: tables, triggers, views, procedures, indexes, RLS
+db/migrations/   001_schema … 010_question_bloom: tables, triggers, views, procedures, indexes, RLS
 db/seed/         worked_example.sql (PRD Section 5)
 datagen/         synthetic programme, marks and surveys; planted root-cause scenario
 api/             FastAPI app: routers/, services/ (marks CSV, surveys, what-if), jobs/ (ETL, audit)
@@ -133,7 +141,9 @@ docs/            ER diagram, index report, root-cause evaluation, test report
 ## Quick start
 
 Prerequisites: PostgreSQL 16 (`winget install PostgreSQL.PostgreSQL.16`), MongoDB 8 on
-`localhost:27017`, Python 3.11+ and Node 20+.
+`localhost:27017`, Python 3.11+ and Node 20+. Answer-sheet OCR also needs Tesseract 5
+(`winget install UB-Mannheim.TesseractOCR`); set `TESSERACT_CMD` in `.env` if it is not in the
+default folder.
 
 ```powershell
 python -m venv .venv
@@ -142,6 +152,7 @@ copy .env.example .env                               # fill in passwords, JWT_SE
 
 .\.venv\Scripts\python.exe -m scripts.setup_db       # roles + database (uses the superuser password)
 .\.venv\Scripts\python.exe -m scripts.demo           # schema, data, ETL, compute, audit chain (a few minutes)
+.\.venv\Scripts\python.exe -m scripts.train_digits   # once: handwritten-digit model for answer-sheet OCR (about 4 min)
 
 cd web; npm install; npm run build; cd ..
 .\.venv\Scripts\uvicorn.exe api.main:app --port 8000
@@ -191,6 +202,11 @@ both before generating. `--reset` empties PostgreSQL and the MongoDB `survey_res
 The 2023 batch carries a planted root-cause story: Data Structures CO2 → DBMS CO4, with Programming
 in C CO5 as a decoy (`datagen/catalog.py`). All data, including course titles, CO statements and
 CO-PO mappings, is synthetic.
+
+For answer-sheet OCR, `python -m datagen.ocr_samples --assessment-id N` writes a scanned-looking PDF
+for that assessment to `samples/`: a printed question paper, then one cover page per enrolled
+student with the marks written in MNIST digits the model never trained on, slightly rotated and
+noised. A JSON answer key with every true value is written next to it.
 
 ### Computing attainment
 
@@ -291,7 +307,8 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 166 tests pass in about three minutes. Each test rebuilds `copo_test` and re-seeds the worked example.
+All 179 tests pass in about six minutes (the OCR tests need Tesseract and the digit model, and are
+skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
 - **Correctness:** the worked example gives CO 3.00 / 2.20 / 0.40, PO1 2.30 and PO2 1.48.
@@ -304,6 +321,7 @@ The results are mapped to the PRD tests in [docs/test-report.md](docs/test-repor
 | --- | --- |
 | [docs/explain/report.md](docs/explain/report.md): index EXPLAIN ANALYZE | `python -m scripts.explain_report` |
 | [docs/root-cause-evaluation.md](docs/root-cause-evaluation.md): detection and false positives | `python -m scripts.evaluate_root_cause` |
+| [docs/ocr-evaluation.md](docs/ocr-evaluation.md): answer-sheet OCR accuracy on synthetic scans | `python -m scripts.evaluate_ocr` |
 
 ## Contributing
 

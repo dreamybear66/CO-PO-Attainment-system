@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; 166 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phase 7 is built (PR open); 179 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -21,10 +21,10 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | Rescope | PR open | `docs/rescope` | PRD, CLAUDE.md, README and this plan updated for teacher automation |
 | UI motion | PR open | `feat/ui-motion` | Motion/GSAP animation layer, animated sign-in; `main` merged in |
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
-| 7 — Answer-sheet OCR | Not started | — | See [Phase 7](#phase-7--answer-sheet-ocr-novelty--not-started) |
-| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing--not-started) |
-| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty--not-started) |
-| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf--not-started) |
+| 7 — Answer-sheet OCR | PR open | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
+| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
+| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
+| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
 
@@ -70,7 +70,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 
 ```
 db/
-  migrations/        001_schema … 009_security (tables, triggers, views, procedures, indexes, RLS)
+  migrations/        001_schema … 010_question_bloom (tables, triggers, views, procedures, indexes, RLS)
   seed/              worked-example fixture (Section 5 of PRD)
 api/                 FastAPI app (routers, services, mongo, jobs)
 web/                 React + TypeScript app
@@ -221,23 +221,44 @@ Output: demo-ready system.
 4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`. ✅
 5. Demo script (`scripts/demo.py`) ✅ and final report (pending, see [Pending](#pending)).
 
-## Phase 7 — Answer-sheet OCR (novelty) · not started
+## Phase 7 — Answer-sheet OCR (novelty)
+
+Status: built on `feat/answer-sheet-ocr` (PR open). 10 tests; accuracy in
+[docs/ocr-evaluation.md](docs/ocr-evaluation.md).
 
 Output: a teacher uploads one PDF and gets the question paper and every student's marks, ready to
 confirm. FR-3.7–3.9, NFR-10.
 
 1. Upload endpoint for one PDF per assessment; split it into page images (local, no outside service).
 2. Page 1 (question paper, printed): OCR with Tesseract, parse each question's number, max marks,
-   CO and Bloom level into draft `assessment_question` and `question_co_map` rows.
+   CO and Bloom level into draft `assessment_question` and `question_co_map` rows
+   (`api/ocr/paper.py`). The page is enlarged and binarised first, and the short codes at the end
+   of each line are taken by position and repaired for OCR confusions (i/l/I for 1, O for 0).
 3. Pages 2+ (answer-sheet cover pages): locate the printed marks table, read the USN and each
    handwritten per-question mark with a handwritten-digit model; keep a confidence per value.
+   The model is an MLP trained on MNIST's first 60,000 digits (`scripts/train_digits.py`,
+   98.2 % on the 10,000 held-out digits); the cover-page layout is in `api/ocr/layout.py`.
+   The corner squares straighten each scan (`api/ocr/sheet.py`). Values are not read digit by
+   digit but chosen (`api/ocr/reader.py`): each mark is the value 0..its maximum that best explains
+   the digit probabilities, and USNs are paired with enrolled students so that the whole PDF has the
+   highest likelihood and no student gets two sheets (Hungarian algorithm). A value's confidence is
+   its share of the probability; the total written on the sheet is checked against the sum.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
-   the existing validation, triggers and locking.
-5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values;
-   accuracy is reported against the target still to be agreed.
+   the existing validation, triggers and locking. API (`api/routers/ocr.py`): `POST
+   /api/assessments/{id}/ocr` reads the PDF and returns suggestions only; `PUT
+   /api/assessments/{id}/questions` saves the confirmed questions (replaced while no marks exist,
+   only retagged after), with equal CO weights; confirmed marks go to the existing CSV endpoint.
+   The PDF and page images are not stored.
+5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values
+   by `datagen/ocr_samples.py`, using MNIST's 10,000 held-out digits as handwriting; accuracy is
+   reported against the target still to be agreed. `scripts/evaluate_ocr.py` writes
+   [docs/ocr-evaluation.md](docs/ocr-evaluation.md): on 240 synthetic sheets, question papers read
+   exactly, 97.6-97.8 % of marks and 100 % of USNs right, and no wrong value left unflagged.
 
-## Phase 8 — Google Forms surveys and WhatsApp sharing · not started
+## Phase 8 — Google Forms surveys and WhatsApp sharing
+
+Status: not started.
 
 Output: a teacher clicks once to create the course-exit survey and once to share it. FR-5.1, 5.3–5.5.
 
@@ -249,7 +270,9 @@ Output: a teacher clicks once to create the course-exit survey and once to share
    ETL turns them into indirect attainment.
 5. Dashboard: response rate, rating distribution per CO, count yet to respond.
 
-## Phase 9 — Weak-student lists and early warning (novelty) · not started
+## Phase 9 — Weak-student lists and early warning (novelty)
+
+Status: not started.
 
 Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
@@ -261,7 +284,9 @@ Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 4. Evaluate on held-out offerings after CIE-1 and CIE-2 against the recall/precision target still
    to be agreed.
 
-## Phase 10 — Course-file PDF · not started
+## Phase 10 — Course-file PDF
+
+Status: not started.
 
 Output: a PDF course file per offering. FR-6.6.
 
@@ -282,6 +307,12 @@ Where the build differs from the plan above:
 | Audit capture | `pg_notify` listener | transactional outbox (S8) + `pg_notify` wake-up | no change is lost when MongoDB or the writer is down |
 | Course prerequisites | — | acyclic-graph trigger | keeps the CO-dependency check meaningful |
 | UI | React + charting library | React + taste-skill `charts.js`, style `framed-sheet` | follows the taste-skill app-screen rules |
+| OCR drafts | tables for OCR uploads and draft values | no new tables: the read PDF returns suggestions, the browser holds them until the teacher confirms | scans are never stored on the server; confirmed values reuse the question and CSV paths and their audit |
+| OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
+| OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
+| OCR review threshold | setting | `attainment_config.ocr_review_confidence` (default 0.90, migration 010) | thresholds are data in the rules, not `.env` (review of #12) |
+| OCR pairing and saving | rows by position; every student without a sheet saved as AB | rows by question number; unreadable pages typed in or skipped; AB only for students with no marks yet unless the teacher opts in | a missing question line shifted marks; a second PDF of the same class overwrote the first (review of #12) |
+| OCR value choice | read digit by digit | marks chosen within 0..max, USNs paired across the PDF (Hungarian algorithm) | uses what is known about the paper and the class; on 240 synthetic sheets no wrong value went unflagged |
 
 ## Test map
 
@@ -299,3 +330,4 @@ Results of the last run: [docs/test-report.md](docs/test-report.md).
 | Concurrency | `tests/test_concurrency.py` |
 | Reproducibility | `tests/test_versioned_rules.py` |
 | Surveys and ETL | `tests/test_surveys_etl.py` |
+| Answer-sheet OCR | `tests/test_ocr.py`; accuracy in `docs/ocr-evaluation.md` |

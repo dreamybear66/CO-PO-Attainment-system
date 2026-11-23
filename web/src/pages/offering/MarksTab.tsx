@@ -2,11 +2,13 @@ import { useRef, useState } from 'react'
 import { api, ApiError, download, type RowError } from '../../api'
 import { Empty, Pill } from '../../components/States'
 import { COMPONENT, int, num } from '../../format'
+import { OcrReview, type OcrResult } from './OcrReview'
 import type { Assessment, OfferingDetail } from './types'
 
 export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDetail; canEdit: boolean; onChange: () => void }) {
   const [errors, setErrors] = useState<{ name: string; rows: RowError[] } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [review, setReview] = useState<OcrResult | null>(null)
   const open = offering.assessments.filter((a) => !a.locked)
   const weights = offering.config?.component_weights ?? {}
 
@@ -15,7 +17,7 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
       <section className="panel" aria-labelledby="t-assess">
         <header>
           <h2 id="t-assess">Assessments</h2>
-          <span className="meta">{open.length ? `${open.length} open · upload a CSV per assessment, then lock it` : 'All locked'}</span>
+          <span className="meta">{open.length ? `${open.length} open · upload a CSV or the scanned sheets per assessment, then lock it` : 'All locked'}</span>
         </header>
         {offering.assessments.length === 0 ? <Empty>No assessments defined for this offering yet.</Empty> : (
           <div className="table-wrap">
@@ -25,7 +27,7 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
                 {offering.assessments.map((a) => (
                   <AssessmentRow key={a.assessment_id} a={a} canEdit={canEdit} weight={weights[a.type]}
                                  onErrors={(rows) => setErrors(rows ? { name: a.name, rows } : null)}
-                                 onMessage={setMessage} onChange={onChange} />
+                                 onMessage={setMessage} onChange={onChange} onReview={setReview} />
                 ))}
               </tbody>
             </table>
@@ -33,6 +35,13 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         )}
         {message && <p className="small" role="status" style={{ marginTop: 12 }}>{message}</p>}
       </section>
+
+      {review && (
+        <OcrReview key={review.assessment.assessment_id} data={review} offering={offering}
+                   onErrors={(rows) => setErrors(rows ? { name: review.assessment.name, rows } : null)}
+                   onClose={() => setReview(null)}
+                   onSaved={(m) => { setReview(null); setMessage(m); onChange() }} />
+      )}
 
       {errors && (
         <section className="panel" aria-labelledby="t-errors">
@@ -52,16 +61,20 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
       <p className="small muted">
         CSV columns: <span className="id">usn</span>, then one column per question (<span className="id">Q1</span>, <span className="id">Q2</span>, …).
         Enter <span className="id">AB</span> for an absent student; an absence counts as zero. Download the template for the exact columns.
+        Or read the scanned sheets: one PDF with the question paper on page 1 and a cover page per student after it; you check every value before it is saved.
       </p>
     </div>
   )
 }
 
-function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange }: {
+function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange, onReview }: {
   a: Assessment; canEdit: boolean; weight?: number
   onErrors: (rows: RowError[] | null) => void; onMessage: (m: string | null) => void; onChange: () => void
+  onReview: (r: OcrResult) => void
 }) {
   const file = useRef<HTMLInputElement>(null)
+  const pdf = useRef<HTMLInputElement>(null)
+  const [reading, setReading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false)
   const [reason, setReason] = useState('')
@@ -84,6 +97,15 @@ function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange }: {
     if (file.current) file.current.value = ''
   }
 
+  async function readPdf(f: File) {
+    const form = new FormData()
+    form.append('file', f)
+    onErrors(null); onMessage(null); setReading(true)
+    try { onReview(await api<OcrResult>(`/api/assessments/${a.assessment_id}/ocr`, { form })) }
+    catch (e) { onMessage((e as ApiError).message) }
+    finally { setReading(false); if (pdf.current) pdf.current.value = '' }
+  }
+
   const status = a.locked
     ? a.unlock_status === 'pending' ? <Pill kind="warn">Unlock requested</Pill>
       : a.unlock_status === 'approved' ? <Pill kind="warn">Unlock approved</Pill>
@@ -104,6 +126,9 @@ function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange }: {
               {!a.locked && <>
                 <button className="btn small ghost" disabled={busy} onClick={() => download(`/api/assessments/${a.assessment_id}/template`, `${a.name}.csv`)}>Template</button>
                 <button className="btn small" disabled={busy} onClick={() => file.current?.click()}>Upload CSV</button>
+                <button className="btn small" disabled={busy || reading} onClick={() => pdf.current?.click()}>{reading ? 'Reading…' : 'Read PDF'}</button>
+                <input ref={pdf} type="file" accept=".pdf,application/pdf" hidden aria-label={`Read scanned sheets for ${a.name}`}
+                       onChange={(e) => e.target.files?.[0] && readPdf(e.target.files[0])} />
                 <input ref={file} type="file" accept=".csv,text/csv" hidden aria-label={`Upload marks for ${a.name}`}
                        onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
                 <button className="btn small primary" disabled={busy || !complete} title={complete ? undefined : 'Every student needs a mark or AB first'}

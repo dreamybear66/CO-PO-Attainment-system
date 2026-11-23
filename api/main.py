@@ -17,7 +17,7 @@ from api import config, db
 from api.auth import authenticate, current_user, database, issue_token
 from api.db import User
 from api.errors import database_error
-from api.routers import admin, analytics, offerings, student
+from api.routers import admin, analytics, ocr, offerings, student
 
 
 @asynccontextmanager
@@ -50,7 +50,7 @@ def me(user: User = Depends(current_user)):
     return user.__dict__
 
 
-for r in (offerings.router, analytics.router, admin.router, student.router):
+for r in (offerings.router, ocr.router, analytics.router, admin.router, student.router):
     app.include_router(r)
 
 DIST = config.ROOT / "web" / "dist"

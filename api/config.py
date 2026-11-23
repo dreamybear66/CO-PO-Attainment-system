@@ -59,3 +59,15 @@ def jwt_secret() -> str:
 def survey_hash_secret() -> str:
     """Key for survey respondent ids (api.survey_hash)."""
     return _env("SURVEY_HASH_SECRET")
+
+
+# ---------------------------------------------------------------- answer-sheet OCR (phase 7)
+
+MODELS_DIR = ROOT / "models"
+
+
+def tesseract_cmd() -> str:
+    """tesseract executable: TESSERACT_CMD, else the Windows default install, else PATH."""
+    default = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+    return _env("TESSERACT_CMD", str(default) if default.exists() else "tesseract")
+

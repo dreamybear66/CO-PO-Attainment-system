@@ -1,7 +1,7 @@
 # Test report
 
-Run on 23 Nov 2026: `python -m pytest`, PostgreSQL 16, MongoDB 8.0.6, Python 3.11.
-**166 passed, 0 failed** in 5 min 54 s. The one warning is a Starlette deprecation in the test
+Run on 23 Nov 2026: `python -m pytest`, PostgreSQL 16, MongoDB 8.0.6, Python 3.11, Tesseract 5.4.
+**179 passed, 0 failed** (166 before phase 7, plus 13 for answer-sheet OCR); the run before OCR took 5 min 54 s. The one warning is a Starlette deprecation in the test
 client.
 
 ## PRD Section 8 tests
@@ -19,6 +19,7 @@ client.
 | Concurrency | 8 | pass | A second compute on the same offering waits or is refused; a failed run leaves the previous results; a lock waits for uncommitted mark edits; an unlock waits for a running compute; dashboards stay readable during a compute. |
 | Reproducibility | 4 | pass | Re-running with the old rule version reproduces the old numbers; later rule changes do not alter past results; versions cannot overlap. |
 | Surveys and ETL | 24 | pass | Reference checks against PostgreSQL, one response per student, keyed-hash respondent, malformed answers rejected, idempotent ETL that recomputes affected offerings. |
+| Answer-sheet OCR | 13 | pass | Question lines are read through OCR confusions and unreadable lines are reported. Marks are chosen within each question's maximum and USNs among enrolled students. A synthetic 15-sheet PDF is read end to end: questions exact, every wrong value flagged for review; confirmed questions and marks are saved through the usual checks. Questions can only be retagged once marks exist; locked assessments, other faculty and non-PDFs are refused. Marks are taken from each question's own row even when a question line on page 1 is unreadable; an unreadable page gets one empty input per question; questions beyond Q10 are not offered; students with no sheet who already have marks are reported, not overwritten; the review threshold comes from the rule version. Needs Tesseract and the digit model. |
 | Synthetic data | 10 | pass | Same seed gives the same data, the dataset has the planned size, the planted cause stands out and the decoy does not, every PO is mapped, one login per person. |
 
 | PRD test | Files |
@@ -27,12 +28,14 @@ client.
 | Improvement actions | `test_improvement_actions.py` (5) |
 | Access control | `test_rls.py` (9), `test_api.py` (14), `test_compute_access.py` (4) |
 | Simulator isolation | `test_whatif_isolation.py` (12), `test_whatif.py` (2) |
+| Answer-sheet OCR | `test_ocr.py` (13) |
 | Others | one file each: `test_constraints.py`, `test_audit_chain.py`, `test_root_cause.py`, `test_concurrency.py`, `test_versioned_rules.py`, `test_surveys_etl.py`, `test_datagen.py` |
 
-## Not yet tested (phases 7–10)
+## Phases 7–10
 
-The rescope added acceptance tests for answer-sheet OCR, Google Forms surveys, early warning,
-weak-student lists and the course-file PDF (PRD Section 8). They will be added with those phases.
+Answer-sheet OCR (phase 7) is tested above; its accuracy on synthetic scans is in
+[ocr-evaluation.md](ocr-evaluation.md). The tests for Google Forms surveys, early warning,
+weak-student lists and the course-file PDF (PRD Section 8) will be added with phases 8–10.
 
 ## Demo data run
 

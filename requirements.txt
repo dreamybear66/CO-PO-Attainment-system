@@ -13,3 +13,9 @@ numpy==2.2.1
 pytest==8.3.4
 httpx==0.28.1
 psycopg-pool==3.2.4
+# answer-sheet OCR (phase 7); Tesseract itself is installed separately
+PyMuPDF==1.25.1
+opencv-python-headless==4.10.0.84
+scikit-learn==1.6.0
+pytesseract==0.3.13
+pillow==11.0.0
