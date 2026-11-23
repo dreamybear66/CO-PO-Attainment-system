@@ -69,6 +69,11 @@ def test_unreadable_question_line_is_reported_not_dropped():
     assert [q["q_no"] for q in r["questions"]] == ["Q1"]
     assert any("Q2 smudged" in w for w in r["warnings"])
     assert any("more than once" in w for w in r["warnings"])
+    # A stray mark that turns Q10 into Q1i0 (110, beyond the cover page) gives back the expected Q10;
+    # a plausible number is kept as read.
+    lines = "\n".join(f"Q{i} Explain {i} 5 CO1 L2" for i in range(1, 10))
+    r = paper.parse(lines + "\nQ1i0 Compare indexes 5 CO4 L2\nQ12 Trace the log 5 CO2 L3")
+    assert [q["q_no"] for q in r["questions"]][-2:] == ["Q10", "Q12"]
 
 
 # ---------------------------------------------------------------- cover-page layout

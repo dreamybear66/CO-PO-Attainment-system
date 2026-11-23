@@ -17,6 +17,7 @@ import numpy as np
 import pytesseract
 
 from api import config
+from api.ocr import layout
 
 QUESTION = re.compile(
     r"^\s*(?P<q>Q\S{1,3})\s+(?P<text>.+?)\s+(?P<max>[\dOoIl|]{1,2})\s+"
@@ -34,6 +35,19 @@ SITTINGS: dict[str, dict] = {
 }
 CONFUSED = str.maketrans({"I": "1", "i": "1", "L": "1", "l": "1", "|": "1", "!": "1", "t": "1", "T": "1",
                           "O": "0", "o": "0", "S": "5", "s": "5", "Z": "2", "z": "2", "B": "8"})
+
+
+def _question_number(token: str, expected: int) -> int | None:
+    """The number after Q. Questions are numbered in order, so when a stray mark adds a digit and
+    makes a number the cover page has no row for ('Q1i0' read as 110 after Q9), and the expected
+    number can be had by dropping characters, the expected number is taken."""
+    digits = re.sub(r"\D", "", token.translate(CONFUSED))
+    if not digits:
+        return None
+    want = iter(digits)
+    if int(digits) > layout.MAX_QUESTIONS and all(ch in want for ch in str(expected)):
+        return expected
+    return int(digits)
 
 
 def _number(token: str) -> int | None:
@@ -68,7 +82,7 @@ def parse(text: str) -> dict:
         if paper_max is None and (m := MAX_MARKS.search(line)):
             paper_max = int(m.group(1))
         m = QUESTION.match(line)
-        q_no = _number(m["q"][1:]) if m else None
+        q_no = _question_number(m["q"][1:], int(questions[-1]["q_no"][1:]) + 1 if questions else 1) if m else None
         max_marks = _number(m["max"]) if m else None
         cos = _co_numbers(m["cos"]) if m else None
         bloom = _number(m["bl"][-1]) if m else None
