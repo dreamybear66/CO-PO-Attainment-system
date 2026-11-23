@@ -67,7 +67,8 @@ const rise = {
 
 export function Login() {
   const { login } = useAuth()
-  const [username, setUsername] = useState('')
+  // The landing page hands over a chosen demo login as ?u=…
+  const [username, setUsername] = useState(() => new URLSearchParams(window.location.search).get('u') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -101,11 +102,11 @@ export function Login() {
           </motion.div>
           <motion.div className="field" variants={rise} custom={1}>
             <label htmlFor="u">Username</label>
-            <input id="u" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
+            <input id="u" className="input" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus={!username} />
           </motion.div>
           <motion.div className="field" variants={rise} custom={2}>
             <label htmlFor="p">Password</label>
-            <input id="p" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input id="p" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus={Boolean(username)} />
           </motion.div>
           {error && (
             <motion.div id="login-error" className="error-box" role="alert"
