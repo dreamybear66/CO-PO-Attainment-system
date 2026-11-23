@@ -60,15 +60,23 @@ PROGRAM_OUTCOMES = [
     ("PSO2", "PSO", "Build secure, scalable computing solutions"),
 ]
 
+# PO6-PO11 (society, environment, ethics, teamwork, communication, project management) are touched
+# only lightly by technical courses: about one CO in four also maps to one of them at strength 1,
+# so every outcome has attainment values.
+SOFT_POS = [6, 7, 8, 9, 10, 11]
+SOFT_PO_SHARE = 0.25
+
 # Planted root-cause story (PRD Section 11.6). In the weak batch, Data Structures CO2 is
 # weakened for half the students and DBMS CO4 depends strongly on it for the same students.
 # Programming in C CO5 is a declared but unrelated (decoy) dependency of DBMS CO4.
 WEAK_BATCH = 2023
 PLANTED = {"weak_co": ("IS243", 4), "cause_co": ("IS231", 2), "decoy_co": ("IS111", 5)}
+# (dependent CO, prerequisite CO, strength). The cause and the decoy are both declared, so the
+# root-cause analysis has to tell them apart from the marks.
 FIXED_DEPENDENCIES = [
-    (("IS243", 4), ("IS231", 2), 3),
+    (PLANTED["weak_co"], PLANTED["cause_co"], 3),
     (("IS243", 2), ("MA121", 3), 2),
-    (("IS243", 4), ("IS111", 5), 2),
+    (PLANTED["weak_co"], PLANTED["decoy_co"], 2),
 ]
 
 # (name, component, max marks per question, CO numbers covered). Questions cycle through the
@@ -95,7 +103,8 @@ CONFIGS = [
     {"valid_from": "2024-08-01", "valid_to": None, "target_pct": 60},
 ]
 CONFIG_COMMON = {"l3_pct": 70, "l2_pct": 60, "l1_pct": 50, "direct_weight": 80,
-                 "indirect_weight": 20, "co_target_level": 2.0, "po_target_level": 2.0}
+                 "indirect_weight": 20, "co_target_level": 2.0, "po_target_level": 2.0,
+                 "rc_min_n": 20, "rc_min_r": 0.40}    # root-cause minimum students and correlation
 COMPONENT_WEIGHTS = {"CIE_THEORY": 20, "CIE_QUIZ": 10, "EL": 20, "SEE": 50}
 
 BATCHES = [2021, 2022, 2023, 2024, 2025, 2026]

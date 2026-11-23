@@ -10,6 +10,7 @@ export type Config = {
   config_id: number; target_pct: string; l3_pct: string; l2_pct: string; l1_pct: string
   direct_weight: string; indirect_weight: string; co_target_level: string; po_target_level: string
   valid_from: string; valid_to: string | null; rc_min_n: number; rc_min_r: string
+  rc_max_depth: number; rc_depth_decay: string; favourable_rating: number
   component_weights: Record<string, number>
 }
 export type OfferingDetail = Offering & {

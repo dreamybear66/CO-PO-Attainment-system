@@ -12,7 +12,7 @@ import psycopg
 
 from api import config
 from api.jobs import audit, etl
-from api.mongo import get_db
+from api.mongo import get_db, reset_collections
 from datagen import generate
 from scripts import migrate
 
@@ -25,20 +25,23 @@ def step(label, fn):
 
 
 def main() -> None:
+    demo_password = config._env("DEMO_PASSWORD")
+    hash_key = config.survey_hash_secret().encode()
     step("migrations", lambda: len(migrate.apply(reset=True)))
-    b = generate.Builder(2026)
+    mongo = get_db()
+    # A new dataset starts a new audit chain. reset_collections recreates the indexes the writer
+    # relies on (unique seq) after dropping.
+    reset_collections(mongo, "survey_responses", "audit_log")
+    b = generate.Builder(2026, hash_key)
 
     def load():
         b.master()
         batches = b.students()
         b.offerings(batches)
-        b.users(batches)
-        generate.load_postgres(b, None, reset=False)
-        generate.load_mongo(b, reset=True)
+        b.users(batches, demo_password)
+        generate.load(b, None, mongo, reset=False)
 
     step("synthetic data", load)
-    mongo = get_db()
-    mongo.audit_log.drop()
     with psycopg.connect(config.owner_dsn(), autocommit=True) as pg:
         step("survey ETL", lambda: etl.run_survey_etl(pg, mongo))
         step("compute all offerings", lambda: pg.execute("CALL sp_compute_all()") and None)

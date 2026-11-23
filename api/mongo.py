@@ -1,20 +1,36 @@
 """MongoDB access: survey_responses and the hash-chained audit_log."""
 
+import threading
+
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.database import Database
 
 from api import config
 
 _clients: dict[str, MongoClient] = {}
+_indexed: set[tuple[str, str]] = set()      # (uri, database) whose indexes exist
+_lock = threading.Lock()
 
 
 def get_db(name: str | None = None) -> Database:
-    client = _clients.get(config.MONGO_URI)
-    if client is None:
-        client = _clients[config.MONGO_URI] = MongoClient(config.MONGO_URI, tz_aware=True)
-    db = client[name or config.MONGO_DATABASE]
-    ensure_indexes(db)
+    """The database, with its indexes created on first use in this process."""
+    name = name or config.MONGO_DATABASE
+    with _lock:
+        client = _clients.get(config.MONGO_URI)
+        if client is None:
+            client = _clients[config.MONGO_URI] = MongoClient(config.MONGO_URI, tz_aware=True)
+    db = client[name]
+    if (config.MONGO_URI, name) not in _indexed:
+        ensure_indexes(db)
+        _indexed.add((config.MONGO_URI, name))
     return db
+
+
+def reset_collections(db: Database, *names: str) -> None:
+    """Drop collections and recreate their indexes (tests, demo builds)."""
+    for name in names:
+        db.drop_collection(name)
+    ensure_indexes(db)
 
 
 def ensure_indexes(db: Database) -> None:
@@ -25,5 +41,7 @@ def ensure_indexes(db: Database) -> None:
     )
     db.survey_responses.create_index([("offering_id", ASCENDING)], name="by_offering")
     db.audit_log.create_index([("seq", DESCENDING)], unique=True, name="seq")
-    # Lets the writer skip rows it already copied if it crashed before stamping the outbox.
-    db.audit_log.create_index([("outbox_id", ASCENDING)], unique=True, name="outbox_id")
+    # Earlier versions keyed crash recovery on a unique outbox_id. Outbox ids restart when
+    # PostgreSQL is reset while the chain goes on (recovery now uses audit_outbox.chain_seq).
+    if "outbox_id" in db.audit_log.index_information():
+        db.audit_log.drop_index("outbox_id")

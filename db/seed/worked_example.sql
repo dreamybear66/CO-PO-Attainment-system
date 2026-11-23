@@ -52,9 +52,9 @@ SELECT i, 2, CASE WHEN i <= 39 THEN 7 ELSE 3 END, false FROM generate_series(1, 
 UNION ALL
 SELECT i, 3, CASE WHEN i <= 27 THEN 6 ELSE 5 END, false FROM generate_series(1, 60) i;
 
--- Survey-based indirect levels 3, 3 and 2.
-INSERT INTO indirect_attainment (offering_id, co_id, respondents, pct_favourable, level) VALUES
-    (1, 1, 50, 80.00, 3), (1, 2, 50, 74.00, 3), (1, 3, 50, 62.00, 2);
+-- Course-exit survey results: 80, 74 and 62 % favourable, indirect levels 3, 3 and 2 under config 1.
+INSERT INTO indirect_attainment (offering_id, co_id, respondents, pct_favourable) VALUES
+    (1, 1, 50, 80.00), (1, 2, 50, 74.00), (1, 3, 50, 62.00);
 
 UPDATE assessment SET locked = true, locked_at = now() WHERE assessment_id = 1;
 
