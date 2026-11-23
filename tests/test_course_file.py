@@ -73,3 +73,13 @@ def test_who_may_download(client, db):
     assert client.get("/api/offerings/1/course-file.pdf", headers=login(client, "fac_b")).status_code == 404
     assert client.get("/api/offerings/1/course-file.pdf", headers=login(client, "coord")).status_code == 200
     assert client.get("/api/offerings/1/course-file.pdf").status_code == 401
+
+
+def test_non_latin_text_is_drawn_not_garbled(client, db):
+    """Review of #15: CO statements with symbols, curly quotes or Devanagari keep their characters."""
+    db.execute("""UPDATE course_outcome SET statement = %s WHERE co_id = 1""",
+               ("Score \u2265 60% on \u201cnormal forms\u201d \u2014 \u0938\u093e\u0930 \u20b9",))
+    db.execute("CALL sp_compute_attainment(1)")
+    text = pdf_text(client.get("/api/offerings/1/course-file.pdf", headers=login(client, "fac_a")).content)
+    for ch in ("\u2265", "\u201c", "\u201d", "\u2014", "\u0938", "\u20b9"):
+        assert ch in text, f"{ch!r} missing from the PDF text"

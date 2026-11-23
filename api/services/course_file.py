@@ -3,8 +3,10 @@
 One PDF per offering, built only from what the database holds: the rule version used, the
 assessments, CO attainment (direct, survey, final) with a chart, PO attainment with a chart, the
 COs below target with their likely upstream causes, how many students are below target, and the
-improvement actions. Drawn with PyMuPDF (already used for OCR), so no extra dependency. The layout
-is plain and fixed; a college template can replace `render` without touching `gather`.
+improvement actions. Drawn with PyMuPDF (already used for OCR). Text uses FiraGO, an open-licence
+Unicode font from pymupdf-fonts, embedded in the PDF, so CO statements, names and actions with
+symbols (>=), curly quotes or Devanagari come out as written; a character FiraGO lacks is shown as
+"?". The layout is plain and fixed; a college template can replace `render` without touching `gather`.
 """
 
 from datetime import datetime, timezone
@@ -15,7 +17,24 @@ A4_W, A4_H = 595.0, 842.0
 MARGIN = 48.0
 INK, MUTED, RULE = (0.07, 0.08, 0.09), (0.36, 0.37, 0.38), (0.85, 0.86, 0.87)
 ACCENT, WARN, LIGHT = (0.106, 0.424, 0.502), (0.77, 0.40, 0.18), (0.94, 0.95, 0.96)
-FONT, BOLD = "helv", "hebo"
+FONT, BOLD = "figo", "figbo"              # FiraGO regular and bold (pymupdf-fonts), embedded per page
+_FONTS: dict[str, fitz.Font] = {}
+
+
+def _font(name: str) -> fitz.Font:
+    if name not in _FONTS:
+        _FONTS[name] = fitz.Font(name)
+    return _FONTS[name]
+
+
+def _clean(text, font: str = FONT) -> str:
+    """The text with any character the font cannot draw replaced by '?' (instead of a blank box)."""
+    f = _font(font)
+    return "".join(ch if ch in "\n " or f.has_glyph(ord(ch)) else "?" for ch in str(text))
+
+
+def _length(text: str, font: str, size: float) -> float:
+    return _font(font).text_length(text, fontsize=size)
 
 
 class NoResults(ValueError):
@@ -75,9 +94,9 @@ def _fmt(v, digits=2) -> str:
 
 def _wrap(text: str, width: float, size: float, font: str = FONT) -> list[str]:
     lines, line = [], ""
-    for word in str(text).split():
+    for word in _clean(text, font).split():
         trial = f"{line} {word}".strip()
-        if fitz.get_text_length(trial, fontname=font, fontsize=size) <= width or not line:
+        if _length(trial, font, size) <= width or not line:
             line = trial
         else:
             lines.append(line)
@@ -95,6 +114,8 @@ class _Writer:
 
     def _new_page(self):
         self.page = self.doc.new_page(width=A4_W, height=A4_H)
+        for name in (FONT, BOLD):
+            self.page.insert_font(fontname=name, fontbuffer=_font(name).buffer)
         self.y = MARGIN
 
     def need(self, h: float):
@@ -135,7 +156,7 @@ class _Writer:
             x = MARGIN
             for lines, w, (_, _, align) in zip(wrapped, widths, cols):
                 for i, ln in enumerate(lines):
-                    tx = x + 4 if align == "l" else x + w - 4 - fitz.get_text_length(ln, fontname=font, fontsize=size)
+                    tx = x + 4 if align == "l" else x + w - 4 - _length(ln, font, size)
                     self.page.insert_text((tx, self.y + 3 + size + i * size * 1.3), ln, fontsize=size,
                                           fontname=font, color=INK)
                 x += w
@@ -161,7 +182,7 @@ class _Writer:
             self.page.insert_text((gx - 3, self.y + len(items) * row + 10), str(t), fontsize=7, fontname=FONT, color=MUTED)
         for i, (label, value, target) in enumerate(items):
             y = self.y + i * row
-            self.page.insert_text((MARGIN, y + 11), label, fontsize=8.5, fontname=FONT, color=INK)
+            self.page.insert_text((MARGIN, y + 11), _clean(label), fontsize=8.5, fontname=FONT, color=INK)
             w = span * max(0.0, min(value, top)) / top
             colour = ACCENT if value >= target else WARN
             if w > 0:
@@ -176,11 +197,12 @@ class _Writer:
     def finish(self) -> bytes:
         n = len(self.doc)
         for i, page in enumerate(self.doc, start=1):
-            page.insert_text((MARGIN, A4_H - MARGIN + 18), self.title, fontsize=7.5, fontname=FONT, color=MUTED)
+            page.insert_text((MARGIN, A4_H - MARGIN + 18), _clean(self.title), fontsize=7.5, fontname=FONT, color=MUTED)
             label = f"Page {i} of {n}"
-            page.insert_text((A4_W - MARGIN - fitz.get_text_length(label, fontname=FONT, fontsize=7.5), A4_H - MARGIN + 18),
+            page.insert_text((A4_W - MARGIN - _length(label, FONT, 7.5), A4_H - MARGIN + 18),
                              label, fontsize=7.5, fontname=FONT, color=MUTED)
-        return self.doc.tobytes(deflate=True)
+        self.doc.subset_fonts()           # keep only the glyphs used (about 850 KB down to tens of KB)
+        return self.doc.tobytes(deflate=True, garbage=3)
 
 
 def render(d: dict) -> bytes:

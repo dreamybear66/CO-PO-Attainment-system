@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** all ten phases are built and 198 tests pass. Google Forms surveys need
+**Status:** all ten phases are built and 199 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -76,7 +76,8 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 - **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
   report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
   with a chart, COs below target with how many students are below target and the likely upstream
-  causes, and the improvement actions. Every figure comes from the database.
+  causes, and the improvement actions. Every figure comes from the database. Text is set in FiraGO
+  (open licence, embedded), so symbols, curly quotes and Indian scripts in CO statements print as typed.
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
@@ -344,7 +345,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 198 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 199 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
