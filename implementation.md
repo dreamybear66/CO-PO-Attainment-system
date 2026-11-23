@@ -5,7 +5,7 @@ changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6
 
 ## Progress (23 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–9 are built (PRs open); 194 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–9 are built (PRs open); 195 tests pass. On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -336,7 +336,7 @@ Where the build differs from the plan above:
 | OCR question data | question number, max marks, CO, Bloom level | adds `assessment_question.bloom_level` (migration 010) | the Bloom level was stored only per CO |
 | OCR USN on the cover page | read the USN | boxes for the year and roll digits only; matched to enrolled USNs | reading handwritten branch letters needs a letter model; the digits identify a student within one offering |
 | Early-warning features | CIE components so far | CO marks so far and prerequisite-CO scores; one model per course and stage, trained on the owner connection | the whole-stage score overlapped the CO score and took the wrong sign, which made reasons contradictory |
-| Early-warning trigger | after each locked CIE | after each locked CIE, quiz or EL, best effort after the lock commits; also a Run button | a failed prediction must never undo a lock |
+| Early-warning trigger | after each locked CIE | after each lock that changed a CIE, quiz or EL, as a background task once the response is sent; saves of one offering serialised by an advisory lock; also a Run button | a failed prediction must never undo a lock; re-locking must not retrain; concurrent runs must not collide (review of #14) |
 | Survey sharing | WhatsApp share button | a `wa.me` link with the form link and a message filled in | free and needs no WhatsApp API; the teacher picks the group |
 | Survey responses | Forms API reference checks | the form collects Google-verified emails; every response must come from the email on record for its USN (`student.email`), then goes through the in-app survey checks; only counts are kept about a fetch | a typed email let anyone answer as a classmate (review of #13); email, name and phone never stored |
 | Google sign-in | signed state | signed state plus a nonce cookie of the browser that started it; creation under a per-offering lock, a half-made form deleted (`drive.file`) | OAuth login CSRF and orphan forms (review of #13) |

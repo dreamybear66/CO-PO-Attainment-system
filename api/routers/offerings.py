@@ -1,7 +1,7 @@
 """Offerings, assessments, marks, locking, computation, root cause and what-if (faculty and HoD)."""
 
 import psycopg
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -140,14 +140,16 @@ def record_denied(user: User, dbname, table: str, key: dict, detail: str) -> Non
 
 
 @router.post("/assessments/{assessment_id}/lock")
-def lock(assessment_id: int, user: User = Depends(editors), dbname=Depends(database)):
+def lock(assessment_id: int, background: BackgroundTasks, user: User = Depends(editors), dbname=Depends(database)):
     with db.session(user, dbname) as conn:
         a = assessment_or_404(conn, assessment_id)
         kind = conn.execute("SELECT type::text AS t FROM assessment WHERE assessment_id = %s", (assessment_id,)).fetchone()["t"]
-        conn.execute("UPDATE assessment SET locked = true WHERE assessment_id = %s AND NOT locked", (assessment_id,))
-    # Phase 9: a newly locked CIE, quiz or EL refreshes the early warning (best effort, after commit).
-    if kind in early_warning.STAGE_TYPES:
-        students.refresh_after_lock(user, dbname, a["offering_id"])
+        changed = conn.execute("UPDATE assessment SET locked = true WHERE assessment_id = %s AND NOT locked",
+                               (assessment_id,)).rowcount
+    # Phase 9: a newly locked CIE, quiz or EL refreshes the early warning after the response is sent
+    # (best effort); locking one that was already locked changes nothing, so nothing is retrained.
+    if changed and kind in early_warning.STAGE_TYPES:
+        background.add_task(students.refresh_after_lock, user, dbname, a["offering_id"])
     return {"locked": True}
 
 
