@@ -6,10 +6,12 @@
 
 The rescope adds four tables, 33 in all. `011_survey_forms.sql`: `google_account` (a teacher's
 encrypted Google refresh token, visible to that user only and not audited) and `survey_form` (the
-Google Form of an offering and its question ids). `012_early_warning.sql`: `early_warning_run` (the
+Google Form of an offering and its question ids); it also adds `student.email`, the college email a
+survey response's verified email must match. `012_early_warning.sql`: `early_warning_run` (the
 latest early-warning run of an offering: assessments used, model, flag cut-off) and `early_warning`
 (each student's chance of missing each CO, with reasons); it also adds
-`attainment_config.ew_flag_prob` (default 0.5). Migration 010 adds `assessment_question.bloom_level`.
+`attainment_config.ew_flag_prob` (default 0.5). Migration 010 adds `assessment_question.bloom_level`
+and `attainment_config.ocr_review_confidence`.
 
 ```mermaid
 erDiagram

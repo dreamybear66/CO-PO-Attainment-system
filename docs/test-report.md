@@ -1,9 +1,8 @@
 # Test report
 
 Run on 23 Nov 2026: `python -m pytest`, PostgreSQL 16, MongoDB 8.0.6, Python 3.11, Tesseract 5.4.
-**189 passed, 0 failed** in 12 min 52 s with the app server and a browser running (the run before
-phase 9 took 3 min 22 s): 166 before phase 7, plus 10 for answer-sheet OCR, 7 for Google Forms
-surveys and 6 for weak students and early warning. The one warning is a Starlette deprecation in the test
+**194 passed, 0 failed** (166 before phase 7, plus 13 for answer-sheet OCR, 9 for Google Forms
+surveys and 6 for weak students and early warning). The one warning is a Starlette deprecation in the test
 client.
 
 ## PRD Section 8 tests
@@ -21,8 +20,8 @@ client.
 | Concurrency | 8 | pass | A second compute on the same offering waits or is refused; a failed run leaves the previous results; a lock waits for uncommitted mark edits; an unlock waits for a running compute; dashboards stay readable during a compute. |
 | Reproducibility | 4 | pass | Re-running with the old rule version reproduces the old numbers; later rule changes do not alter past results; versions cannot overlap. |
 | Surveys and ETL | 24 | pass | Reference checks against PostgreSQL, one response per student, keyed-hash respondent, malformed answers rejected, idempotent ETL that recomputes affected offerings. |
-| Answer-sheet OCR | 10 | pass | Question lines are read through OCR confusions and unreadable lines are reported. Marks are chosen within each question's maximum and USNs among enrolled students. A synthetic 15-sheet PDF is read end to end: questions exact, every wrong value flagged for review; confirmed questions and marks are saved through the usual checks. Questions can only be retagged once marks exist; locked assessments, other faculty and non-PDFs are refused. Needs Tesseract and the digit model. |
-| Google Forms surveys | 7 | pass | Connecting Google stores only an encrypted refresh token that no other user (not even the HoD) can see and that never reaches the audit chain. The form has email, USN, name, phone and one 1-5 scale per CO. Fetched responses are rejected for a non-college email, a malformed or non-enrolled USN or a missing rating; a student's second response is counted, not stored; accepted ones keep only a hashed USN. Repeated fetches are safe. The sign-in state cannot be used as a login or to redirect off the site. Google is faked. |
+| Answer-sheet OCR | 13 | pass | Question lines are read through OCR confusions and unreadable lines are reported. Marks are chosen within each question's maximum and USNs among enrolled students. A synthetic 15-sheet PDF is read end to end: questions exact, every wrong value flagged for review; confirmed questions and marks are saved through the usual checks. Questions can only be retagged once marks exist; locked assessments, other faculty and non-PDFs are refused. Marks are taken from each question's own row even when a question line on page 1 is unreadable; an unreadable page gets one empty input per question; questions beyond Q10 are not offered; students with no sheet who already have marks are reported, not overwritten; the review threshold comes from the rule version. Needs Tesseract and the digit model. |
+| Google Forms surveys | 9 | pass | Connecting Google stores only an encrypted refresh token that no other user (not even the HoD) can see and that never reaches the audit chain; a sign-in link finished in another browser is refused. The form collects the verified email, then USN, name, phone and one 1-5 scale per CO; a failed creation deletes the half-made form. Fetched responses are rejected when the verified email is missing, not a college email or not the one on record for the USN (no answering as a classmate), for a malformed or non-enrolled USN or a missing rating; a student's second response is counted, not stored; accepted ones keep only a hashed USN. Repeated fetches are safe. The sign-in state cannot be used as a login or to redirect off the site. Google is faked. |
 | Weak students and early warning | 6 | pass | Early warning needs a locked CIE and a running term. Trained on six earlier offerings, weaker CIE marks give a higher chance of missing the CO (training AUC above 0.75) and every flag gives its reason. The flag cut-off comes from the rule version. Locking a CIE runs the warning and leaves the official results unchanged. Weak-student lists are exactly the students below target. Other teachers cannot see it; the coordinator reads but cannot run it. |
 | Synthetic data | 10 | pass | Same seed gives the same data, the dataset has the planned size, the planted cause stands out and the decoy does not, every PO is mapped, one login per person. |
 
@@ -32,8 +31,8 @@ client.
 | Improvement actions | `test_improvement_actions.py` (5) |
 | Access control | `test_rls.py` (9), `test_api.py` (14), `test_compute_access.py` (4) |
 | Simulator isolation | `test_whatif_isolation.py` (12), `test_whatif.py` (2) |
-| Answer-sheet OCR | `test_ocr.py` (10) |
-| Google Forms surveys | `test_survey_forms.py` (7) |
+| Answer-sheet OCR | `test_ocr.py` (13) |
+| Google Forms surveys | `test_survey_forms.py` (9) |
 | Weak students and early warning | `test_early_warning.py` (6) |
 | Others | one file each: `test_constraints.py`, `test_audit_chain.py`, `test_root_cause.py`, `test_concurrency.py`, `test_versioned_rules.py`, `test_surveys_etl.py`, `test_datagen.py` |
 

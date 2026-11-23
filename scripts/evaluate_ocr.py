@@ -40,7 +40,7 @@ def run(sheets: int, seed: int, rough: float, quality: int, mnist, workdir: Path
     t = time.perf_counter()
     raw = reader.read_pdf(data, n_questions=len(QUESTIONS))
     review = reader.review(raw, [{"q_no": q.q_no, "max_marks": q.max_marks} for q in QUESTIONS],
-                           usns, config.ocr_review_confidence())
+                           usns, reader.DEFAULT_REVIEW_CONFIDENCE)
     seconds = time.perf_counter() - t
     got = [(q["q_no"], q["max_marks"], q["cos"], q["bloom"]) for q in raw["paper"]["questions"]]
     want = [(q.q_no, q.max_marks, q.cos, q.bloom) for q in QUESTIONS]
@@ -89,7 +89,7 @@ def main() -> None:
         f"pages each, 6 questions per sheet, 5 enrolled students without a sheet). Synthetic scans from "
         "`datagen/ocr_samples.py`: printed question paper, marks handwritten with MNIST's 10,000 held-out "
         "digits (never seen in training). Review threshold: "
-        f"{config.ocr_review_confidence():.2f}.",
+        f"{reader.DEFAULT_REVIEW_CONFIDENCE:.2f}.",
         "",
         "| Condition | Question papers read exactly | Marks right | USNs right | Absent list right | "
         "Sheets flagged | Wrong and flagged | Wrong and **not** flagged | Seconds per page | MB per page |",

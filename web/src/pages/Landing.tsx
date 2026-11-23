@@ -95,7 +95,7 @@ const SCREENS = [
   },
 ]
 
-// Counts from docs/test-report.md (23 Nov 2026 run: 166 passed).
+// Counts from docs/test-report.md; update both together when the suite changes.
 const TESTS: [string, number, string][] = [
   ['Correctness', 16, 'Worked example: CO 3.00 / 2.20 / 0.40, PO1 2.30, PO2 1.48.'],
   ['Constraints', 27, 'Out-of-range marks, locked edits, bad weights and cycles all rejected.'],
@@ -105,6 +105,9 @@ const TESTS: [string, number, string][] = [
   ['Root cause', 15, 'The planted cause ranks first; the decoy is excluded.'],
   ['Simulator isolation', 14, 'What-if runs leave official tables unchanged.'],
   ['Synthetic data', 10, 'Same seed, same data; the planted cause stands out.'],
+  ['Early warning', 6, 'Weaker CIE marks mean higher risk; every flag says why.'],
+  ['Google Forms surveys', 9, 'Verified emails only; nobody can answer as a classmate.'],
+  ['Answer-sheet OCR', 13, 'Scanned sheets are read; every misread value is flagged for the teacher.'],
   ['Concurrency', 8, 'A second compute waits or is refused; a failed run keeps the last result.'],
   ['Improvement actions', 5, 'Actions close once a CO reaches target; follow-ups link to the next offering.'],
   ['Reproducibility', 4, 'Old rule versions reproduce old numbers exactly.'],
