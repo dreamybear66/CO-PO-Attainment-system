@@ -21,10 +21,10 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | Rescope | PR open | `docs/rescope` | PRD, CLAUDE.md, README and this plan updated for teacher automation |
 | UI motion | PR open | `feat/ui-motion` | Motion/GSAP animation layer, animated sign-in; `main` merged in |
 | Landing page | PR open | `feat/landing-page` | Product page at `/` for signed-out visitors, rendered ER diagram images |
-| 7 — Answer-sheet OCR | Not started | — | See [Phase 7](#phase-7--answer-sheet-ocr-novelty--not-started) |
-| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing--not-started) |
-| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty--not-started) |
-| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf--not-started) |
+| 7 — Answer-sheet OCR | In progress | `feat/answer-sheet-ocr` | See [Phase 7](#phase-7--answer-sheet-ocr-novelty) |
+| 8 — Google Forms surveys | Not started | — | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
+| 9 — Weak students, early warning | Not started | — | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
+| 10 — Course-file PDF | Not started | — | See [Phase 10](#phase-10--course-file-pdf) |
 
 ## Pending
 
@@ -221,7 +221,9 @@ Output: demo-ready system.
 4. Run the full PRD Section 8 test suite; record results in `docs/test-report.md`. ✅
 5. Demo script (`scripts/demo.py`) ✅ and final report (pending, see [Pending](#pending)).
 
-## Phase 7 — Answer-sheet OCR (novelty) · not started
+## Phase 7 — Answer-sheet OCR (novelty)
+
+Status: in progress on `feat/answer-sheet-ocr`.
 
 Output: a teacher uploads one PDF and gets the question paper and every student's marks, ready to
 confirm. FR-3.7–3.9, NFR-10.
@@ -237,7 +239,9 @@ confirm. FR-3.7–3.9, NFR-10.
 5. Synthetic test PDFs (typed question paper, handwritten-style marks) generated with known values;
    accuracy is reported against the target still to be agreed.
 
-## Phase 8 — Google Forms surveys and WhatsApp sharing · not started
+## Phase 8 — Google Forms surveys and WhatsApp sharing
+
+Status: not started.
 
 Output: a teacher clicks once to create the course-exit survey and once to share it. FR-5.1, 5.3–5.5.
 
@@ -249,7 +253,9 @@ Output: a teacher clicks once to create the course-exit survey and once to share
    ETL turns them into indirect attainment.
 5. Dashboard: response rate, rating distribution per CO, count yet to respond.
 
-## Phase 9 — Weak-student lists and early warning (novelty) · not started
+## Phase 9 — Weak-student lists and early warning (novelty)
+
+Status: not started.
 
 Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 
@@ -261,7 +267,9 @@ Output: teachers see which students need help, during the term. FR-6.4, FR-6.5.
 4. Evaluate on held-out offerings after CIE-1 and CIE-2 against the recall/precision target still
    to be agreed.
 
-## Phase 10 — Course-file PDF · not started
+## Phase 10 — Course-file PDF
+
+Status: not started.
 
 Output: a PDF course file per offering. FR-6.6.
 

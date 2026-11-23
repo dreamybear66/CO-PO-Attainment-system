@@ -133,7 +133,9 @@ docs/            ER diagram, index report, root-cause evaluation, test report
 ## Quick start
 
 Prerequisites: PostgreSQL 16 (`winget install PostgreSQL.PostgreSQL.16`), MongoDB 8 on
-`localhost:27017`, Python 3.11+ and Node 20+.
+`localhost:27017`, Python 3.11+ and Node 20+. Answer-sheet OCR also needs Tesseract 5
+(`winget install UB-Mannheim.TesseractOCR`); set `TESSERACT_CMD` in `.env` if it is not in the
+default folder.
 
 ```powershell
 python -m venv .venv

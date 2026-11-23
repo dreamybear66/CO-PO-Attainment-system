@@ -18,6 +18,10 @@ node_modules/
 web/dist/
 web/dist-inspect/
 
+# OCR: trained digit model and generated sample PDFs (rebuilt by scripts)
+models/
+samples/
+
 # editors / OS
 .vscode/
 .idea/
