@@ -233,6 +233,8 @@ confirm. FR-3.7–3.9, NFR-10.
    CO and Bloom level into draft `assessment_question` and `question_co_map` rows.
 3. Pages 2+ (answer-sheet cover pages): locate the printed marks table, read the USN and each
    handwritten per-question mark with a handwritten-digit model; keep a confidence per value.
+   The model is an MLP trained on MNIST's first 60,000 digits (`scripts/train_digits.py`,
+   98.2 % on the 10,000 held-out digits); the cover-page layout is in `api/ocr/layout.py`.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
    the existing validation, triggers and locking.

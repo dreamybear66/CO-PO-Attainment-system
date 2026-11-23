@@ -144,6 +144,7 @@ copy .env.example .env                               # fill in passwords, JWT_SE
 
 .\.venv\Scripts\python.exe -m scripts.setup_db       # roles + database (uses the superuser password)
 .\.venv\Scripts\python.exe -m scripts.demo           # schema, data, ETL, compute, audit chain (a few minutes)
+.\.venv\Scripts\python.exe -m scripts.train_digits   # once: handwritten-digit model for answer-sheet OCR (about 4 min)
 
 cd web; npm install; npm run build; cd ..
 .\.venv\Scripts\uvicorn.exe api.main:app --port 8000
