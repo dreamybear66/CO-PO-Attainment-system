@@ -327,6 +327,11 @@ tbody tr:nth-child(n + 9), .rows > .row:nth-child(n + 9) { animation-delay: 0.24
 
 /* answer-sheet OCR review (phase 7) */
 .ocr-h { font-size: var(--fs-body); font-weight: 600; margin: 4px 0 8px; }
+/* The scan review's Save bar stays at the bottom of the screen however long the review is. */
+.ocr-actions { position: sticky; bottom: 0; z-index: 5; margin: 16px calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); padding: 12px var(--card-pad); background: var(--surface); border-top: 1px solid var(--border); border-radius: 0 0 var(--radius-card) var(--radius-card); box-shadow: 0 -6px 16px rgb(0 0 0 / 0.06); }
+.ocr-actions .note { margin-bottom: 10px; }
+.ocr-actions-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ocr-actions-row .spacer { flex: 1; }
 .ocr td { vertical-align: top; }
 .ocr-crop { display: block; height: 40px; max-width: 160px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
 .ocr-num { width: 64px; }

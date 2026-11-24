@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, type RowError } from '../../api'
 import { Pill } from '../../components/States'
 import { int } from '../../format'
@@ -41,6 +41,12 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
   const [checked, setChecked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The review opens below the scan table: bring it into view so the teacher sees it at once.
+  const panel = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    panel.current?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' })
+  }, [])
   const coNumbers = new Set(offering.cos.map((c) => c.co_number))
   const allUsns = useMemo(() => [...new Set([...data.sheets.map((s) => s.usn).filter(Boolean) as string[], ...data.absent])].sort(), [data])
   const partOf = new Map(data.parts.map((p) => [p.part, p]))
@@ -117,7 +123,7 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
   const columns = groups.flatMap((g) => g.qs.map((q) => q.q_no))
 
   return (
-    <section className="panel ocr" aria-labelledby="t-ocr">
+    <section ref={panel} className="panel ocr" aria-labelledby="t-ocr">
       <header>
         <h2 id="t-ocr">Check the scanned sheets: {data.label}</h2>
         <span className="meta">{sheets.length} sheets · {flagged} to check · {skipped.size} skipped · {absent.length} without a sheet</span>
@@ -247,17 +253,24 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
         </p>
       )}
 
-      {blocking.length > 0 && <div className="note" role="status">{blocking.slice(0, 6).map((b) => <div key={b}>{b}</div>)}{blocking.length > 6 && <div>…and {blocking.length - 6} more</div>}</div>}
-      {error && <div className="error-box" role="alert">{error}</div>}
-      <div className="filters" style={{ marginTop: 16, marginBottom: 0 }}>
-        <label className="small"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I have checked the highlighted values against the sheets</label>
-        <span className="spacer" />
-        <button className="btn ghost" disabled={busy} onClick={onClose}>Discard</button>
-        <button className="btn primary" disabled={busy || !checked || blocking.length > 0} onClick={save}>
-          {busy ? 'Saving…' : 'Save questions and marks'}
-        </button>
-      </div>
       {flagged === 0 && <p className="small muted" style={{ marginTop: 8 }}><Pill kind="pos">All clear</Pill> Every value was read with high confidence.</p>}
+
+      {/* Kept in view at the bottom of the screen: a long review must not hide the Save button. */}
+      <div className="ocr-actions" role="region" aria-label="Save the scanned marks">
+        {blocking.length > 0 && <div className="note" role="status">{blocking.slice(0, 6).map((b) => <div key={b}>{b}</div>)}{blocking.length > 6 && <div>…and {blocking.length - 6} more</div>}</div>}
+        {error && <div className="error-box" role="alert">{error}</div>}
+        <div className="ocr-actions-row">
+          <label className="small"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I have checked the highlighted values against the sheets</label>
+          <span className="spacer" />
+          {!busy && (blocking.length > 0
+            ? <span className="small muted">Fix the {blocking.length === 1 ? 'problem' : `${blocking.length} problems`} above to save</span>
+            : !checked && <span className="small muted">Tick the box to save</span>)}
+          <button className="btn ghost" disabled={busy} onClick={onClose}>Discard</button>
+          <button className="btn primary" disabled={busy || !checked || blocking.length > 0} onClick={save}>
+            {busy ? 'Saving…' : 'Save questions and marks'}
+          </button>
+        </div>
+      </div>
     </section>
   )
 }

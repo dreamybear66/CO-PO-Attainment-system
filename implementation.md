@@ -25,7 +25,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 8 — Google Forms surveys | PR open | `feat/google-forms-surveys` | See [Phase 8](#phase-8--google-forms-surveys-and-whatsapp-sharing) |
 | 9 — Weak students, early warning | PR open | `feat/early-warning` | See [Phase 9](#phase-9--weak-student-lists-and-early-warning-novelty) |
 | 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
-| Combined paper, no CSV | PR open | `feat/ocr-combined-paper` | One scanned PDF per sitting (Part A quiz + Part B test), 20-row cover page, typed EL marks, CSV upload removed; decisions M1-M6 |
+| Combined paper, no CSV | Merged (#17) | `feat/ocr-combined-paper` | One scanned PDF per sitting (Part A quiz + Part B test), 20-row cover page, typed EL marks, CSV upload removed; decisions M1-M6 |
+| Scan review fixes | PR open | `fix/scan-review-save` | Save bar kept in view on the scan review; Bloom field re-read so no question line is dropped |
 
 ## Pending
 
@@ -252,6 +253,8 @@ confirm. FR-3.7–3.9, NFR-10.
    CO and Bloom level into draft `assessment_question` and `question_co_map` rows
    (`api/ocr/paper.py`). The page is enlarged and binarised first, and the short codes at the end
    of each line are taken by position and repaired for OCR confusions (i/l/I for 1, O for 0).
+   A question line whose Bloom field does not parse (Tesseract can read a clear "L1" as "14"
+   inside the line) has that one word read again on its own, so the question is not dropped.
    A CIE paper holds both parts: questions under a "Part A - Quiz" heading and under a "Part B -
    Test" heading (numbered on across parts) are tagged with their part; the heading is matched
    loosely ("PartA", "Part A: Quiz", "Part 8").
@@ -267,6 +270,8 @@ confirm. FR-3.7–3.9, NFR-10.
    highest likelihood and no student gets two sheets (Hungarian algorithm). A value's confidence is
    its share of the probability; the total written on the sheet is checked against the sum.
 4. Review screen: every value side by side with its image crop, low-confidence values highlighted;
+   it scrolls into view when the scan finishes, and its Save bar (with the "I have checked" box
+   and the reason Save is disabled) stays at the bottom of the screen however long the review is;
    nothing is written to the official tables until the teacher confirms. Confirmed marks go through
    the existing validation, triggers and locking. API (`api/routers/ocr.py`): `POST
    /api/offerings/{id}/scan?sitting=CIE1|CIE2|SEE` reads the PDF and returns suggestions only: the
