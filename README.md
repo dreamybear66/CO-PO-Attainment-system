@@ -53,7 +53,8 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   SEE and choose "Scan answer sheets". Page 1 is the question paper. A CIE paper holds both parts,
   the quiz under "Part A - Quiz" and the test under "Part B - Test", numbered on across parts
   (Q1-Q5, then Q6-Q11); an SEE paper is one list. Tesseract reads each question's number, max
-  marks, COs, Bloom level and part. Every later page is a student's cover page with one mark row
+  marks, COs, Bloom level and part (a Bloom field garbled inside its line is read again on its
+  own). Every later page is a student's cover page with one mark row
   per paper question (Q1-Q20): the corner squares straighten the scan and a digit model trained on
   MNIST reads the USN and the handwritten marks. CIE n fills `Quiz n` with Part A and `CIE Test n`
   with Part B; the SEE fills `SEE`. An assessment the offering does not have yet is created from the
@@ -357,7 +358,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 205 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 206 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 
