@@ -63,7 +63,9 @@ if DIST.exists():
     def spa(path: str):
         """A file of the built app, or index.html for client-side routes. The path is resolved
         and must stay inside web/dist: '..' segments or an absolute path (C:/...) never reach
-        other files."""
+        other files. An unknown /api/ path is a 404, not the app's page."""
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(404, "Not found")
         target = (ROOT_DIST / path).resolve()
         if path and target.is_relative_to(ROOT_DIST) and target.is_file():
             return FileResponse(target)

@@ -1,57 +1,103 @@
 import { useRef, useState } from 'react'
-import { api, ApiError, download, type RowError } from '../../api'
+import { api, ApiError, type RowError } from '../../api'
 import { Empty, Pill } from '../../components/States'
 import { COMPONENT, int, num } from '../../format'
-import { OcrReview, type OcrResult } from './OcrReview'
+import { ElMarks, NewEl } from './ElMarks'
+import { OcrReview, type ScanResult } from './OcrReview'
 import type { Assessment, OfferingDetail } from './types'
+
+// One scanned PDF per sitting. A CIE paper has Part A (the quiz) and Part B (the test).
+const SITTINGS = [
+  { key: 'CIE1', label: 'CIE 1', fills: ['Quiz 1', 'CIE Test 1'] },
+  { key: 'CIE2', label: 'CIE 2', fills: ['Quiz 2', 'CIE Test 2'] },
+  { key: 'SEE', label: 'SEE', fills: ['SEE'] },
+] as const
 
 export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDetail; canEdit: boolean; onChange: () => void }) {
   const [errors, setErrors] = useState<{ name: string; rows: RowError[] } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [review, setReview] = useState<OcrResult | null>(null)
+  const [review, setReview] = useState<ScanResult | null>(null)
+  const [typing, setTyping] = useState<Assessment | null>(null)
+  const [adding, setAdding] = useState(false)
   const open = offering.assessments.filter((a) => !a.locked)
   const weights = offering.config?.component_weights ?? {}
+  const hasEl = offering.assessments.some((a) => a.type === 'EL')
 
   return (
     <div className="stack">
+      {canEdit && (
+        <section className="panel" aria-labelledby="t-scan">
+          <header>
+            <h2 id="t-scan">Scan answer sheets</h2>
+            <span className="meta">One PDF per sitting · the question paper, then each student's cover page</span>
+          </header>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Sitting</th><th>Fills</th><th className="n">Action</th></tr></thead>
+              <tbody>
+                {SITTINGS.map((s) => (
+                  <SittingRow key={s.key} sitting={s} offering={offering} onMessage={setMessage}
+                              onReview={(r) => { setErrors(null); setTyping(null); setReview(r) }} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="panel" aria-labelledby="t-assess">
         <header>
           <h2 id="t-assess">Assessments</h2>
-          <span className="meta">{open.length ? `${open.length} open · upload a CSV or the scanned sheets per assessment, then lock it` : 'All locked'}</span>
+          <span className="meta">{open.length ? `${open.length} open · lock each one once its marks are final` : offering.assessments.length ? 'All locked' : ''}</span>
         </header>
-        {offering.assessments.length === 0 ? <Empty>No assessments defined for this offering yet.</Empty> : (
+        {offering.assessments.length === 0 ? <Empty>No assessments yet. Scanning a sitting adds its quiz and test; add experiential learning below.</Empty> : (
           <div className="table-wrap">
             <table>
               <thead><tr><th>Assessment</th><th className="n hide-phone">Questions</th><th className="n">Max</th><th className="n">Marks entered</th><th>Status</th>{canEdit && <th className="n">Actions</th>}</tr></thead>
               <tbody>
                 {offering.assessments.map((a) => (
                   <AssessmentRow key={a.assessment_id} a={a} canEdit={canEdit} weight={weights[a.type]}
-                                 onErrors={(rows) => setErrors(rows ? { name: a.name, rows } : null)}
-                                 onMessage={setMessage} onChange={onChange} onReview={setReview} />
+                                 onMessage={setMessage} onChange={onChange}
+                                 onType={() => { setErrors(null); setReview(null); setTyping(typing?.assessment_id === a.assessment_id ? null : a) }} />
                 ))}
               </tbody>
             </table>
           </div>
         )}
+        {canEdit && !hasEl && !adding &&
+          <div className="filters" style={{ marginTop: 12, marginBottom: 0 }}>
+            <button className="btn small" onClick={() => setAdding(true)}>Add experiential learning</button>
+            <span className="small muted">Its marks are typed in, not scanned.</span>
+          </div>}
         {message && <p className="small" role="status" style={{ marginTop: 12 }}>{message}</p>}
       </section>
 
+      {adding && <NewEl offering={offering} onClose={() => setAdding(false)}
+                        onCreated={(m) => { setAdding(false); setMessage(m); onChange() }} />}
+
       {review && (
-        <OcrReview key={review.assessment.assessment_id} data={review} offering={offering}
-                   onErrors={(rows) => setErrors(rows ? { name: review.assessment.name, rows } : null)}
+        <OcrReview key={`${review.sitting}-${review.sheets.length}`} data={review} offering={offering}
+                   onErrors={(rows) => setErrors(rows ? { name: review.label, rows } : null)}
                    onClose={() => setReview(null)}
                    onSaved={(m) => { setReview(null); setMessage(m); onChange() }} />
       )}
 
+      {typing && (
+        <ElMarks key={typing.assessment_id} a={typing}
+                 onErrors={(rows) => setErrors(rows ? { name: typing.name, rows } : null)}
+                 onClose={() => setTyping(null)}
+                 onSaved={(m) => { setTyping(null); setMessage(m); onChange() }} />
+      )}
+
       {errors && (
         <section className="panel" aria-labelledby="t-errors">
-          <header><h2 id="t-errors">{errors.name}: {errors.rows.length} problem{errors.rows.length > 1 ? 's' : ''} in the file</h2><span className="meta">Nothing was saved. Fix the rows and upload again.</span></header>
+          <header><h2 id="t-errors">{errors.name}: {errors.rows.length} problem{errors.rows.length > 1 ? 's' : ''}</h2><span className="meta">Nothing was saved. Correct these and save again.</span></header>
           <div className="table-wrap">
             <table>
-              <thead><tr><th className="n">Row</th><th>USN</th><th>Column</th><th>Problem</th></tr></thead>
+              <thead><tr><th className="n">Row or page</th><th>USN</th><th>Question</th><th>Problem</th></tr></thead>
               <tbody>
                 {errors.rows.slice(0, 50).map((e, i) => (
-                  <tr key={i}><td className="n num">{e.row}</td><td><span className="id">{e.usn ?? '—'}</span></td><td>{e.column ?? '—'}</td><td>{e.message}</td></tr>
+                  <tr key={i}><td className="n num">{e.row ?? '—'}</td><td><span className="id">{e.usn ?? '—'}</span></td><td>{e.column ?? '—'}</td><td>{e.message}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -59,22 +105,61 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         </section>
       )}
       <p className="small muted">
-        CSV columns: <span className="id">usn</span>, then one column per question (<span className="id">Q1</span>, <span className="id">Q2</span>, …).
-        Enter <span className="id">AB</span> for an absent student; an absence counts as zero. Download the template for the exact columns.
-        Or read the scanned sheets: one PDF with the question paper on page 1 and a cover page per student after it; you check every value before it is saved.
+        Scan one PDF per sitting: page 1 is the question paper, then one cover page per student. A CIE paper lists the quiz under
+        <span className="id"> Part A - Quiz</span> and the test under <span className="id">Part B - Test</span>, numbered on from one part to the next;
+        CIE 1 fills Quiz 1 and CIE Test 1, the SEE fills SEE, and a missing assessment is created from the paper. You check every value before it is saved.
+        Experiential-learning marks are typed in; enter <span className="id">AB</span> for an absent student (counts as zero).
       </p>
     </div>
   )
 }
 
-function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange, onReview }: {
-  a: Assessment; canEdit: boolean; weight?: number
-  onErrors: (rows: RowError[] | null) => void; onMessage: (m: string | null) => void; onChange: () => void
-  onReview: (r: OcrResult) => void
+function SittingRow({ sitting, offering, onMessage, onReview }: {
+  sitting: (typeof SITTINGS)[number]; offering: OfferingDetail
+  onMessage: (m: string | null) => void; onReview: (r: ScanResult) => void
 }) {
-  const file = useRef<HTMLInputElement>(null)
   const pdf = useRef<HTMLInputElement>(null)
   const [reading, setReading] = useState(false)
+  const targets = sitting.fills.map((name) => ({ name, a: offering.assessments.find((x) => x.name === name) }))
+  const locked = targets.filter((t) => t.a?.locked).map((t) => t.name)
+
+  async function read(f: File) {
+    const form = new FormData()
+    form.append('file', f)
+    onMessage(null); setReading(true)
+    try { onReview(await api<ScanResult>(`/api/offerings/${offering.offering_id}/scan?sitting=${sitting.key}`, { form })) }
+    catch (e) { onMessage((e as ApiError).message) }
+    finally { setReading(false); if (pdf.current) pdf.current.value = '' }
+  }
+
+  return (
+    <tr>
+      <td>{sitting.label}</td>
+      <td>
+        {targets.map((t, i) => (
+          <span key={t.name} style={{ marginRight: 12, whiteSpace: 'nowrap' }}>
+            {sitting.key !== 'SEE' && <span className="muted">{i === 0 ? 'Part A' : 'Part B'} → </span>}{t.name}{' '}
+            {!t.a ? <Pill>Not yet</Pill> : t.a.locked ? <Pill>Locked</Pill>
+              : t.a.marks_entered > 0 ? <Pill kind="pos">{int(t.a.marks_entered)} marks</Pill> : <Pill kind="warn">No marks</Pill>}
+          </span>
+        ))}
+      </td>
+      <td className="n">
+        <button className="btn small" disabled={reading || locked.length > 0} onClick={() => pdf.current?.click()}
+                title={locked.length ? `${locked.join(' and ')} locked; request an unlock first` : undefined}>
+          {reading ? 'Reading…' : 'Scan answer sheets'}
+        </button>
+        <input ref={pdf} type="file" accept=".pdf,application/pdf" hidden aria-label={`Scanned answer sheets for ${sitting.label}`}
+               onChange={(e) => e.target.files?.[0] && read(e.target.files[0])} />
+      </td>
+    </tr>
+  )
+}
+
+function AssessmentRow({ a, canEdit, weight, onMessage, onChange, onType }: {
+  a: Assessment; canEdit: boolean; weight?: number
+  onMessage: (m: string | null) => void; onChange: () => void; onType: () => void
+}) {
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false)
   const [reason, setReason] = useState('')
@@ -83,27 +168,8 @@ function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange, onRe
   async function run(fn: () => Promise<unknown>, ok?: string) {
     setBusy(true); onMessage(null)
     try { await fn(); if (ok) onMessage(ok); onChange() }
-    catch (e) { const err = e as ApiError; if (err.errors) onErrors(err.errors); onMessage(err.message) }
-    finally { setBusy(false) }
-  }
-  async function upload(f: File) {
-    const form = new FormData()
-    form.append('file', f)
-    onErrors(null)
-    await run(async () => {
-      const r = await api<{ saved: number }>(`/api/assessments/${a.assessment_id}/marks`, { form })
-      onMessage(`${a.name}: ${int(r.saved)} marks saved.`)
-    })
-    if (file.current) file.current.value = ''
-  }
-
-  async function readPdf(f: File) {
-    const form = new FormData()
-    form.append('file', f)
-    onErrors(null); onMessage(null); setReading(true)
-    try { onReview(await api<OcrResult>(`/api/assessments/${a.assessment_id}/ocr`, { form })) }
     catch (e) { onMessage((e as ApiError).message) }
-    finally { setReading(false); if (pdf.current) pdf.current.value = '' }
+    finally { setBusy(false) }
   }
 
   const status = a.locked
@@ -115,7 +181,7 @@ function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange, onRe
   return (
     <>
       <tr>
-        <td>{a.name}<span className="sub">{COMPONENT[a.type]}{weight ? ` · ${weight}% of the CO score` : ''}</span></td>
+        <td>{a.name}<span className="sub">{COMPONENT[a.type]}{weight ? ` · ${weight}% of the CO score` : ''}{a.type === 'EL' ? ' · typed' : ' · scanned'}</span></td>
         <td className="n num hide-phone">{a.questions}</td>
         <td className="n num">{int(num(a.max_marks))}</td>
         <td className="n num">{int(a.marks_entered)}<span className="sub">of {int(a.marks_expected)}</span></td>
@@ -124,13 +190,7 @@ function AssessmentRow({ a, canEdit, weight, onErrors, onMessage, onChange, onRe
           <td className="n">
             <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {!a.locked && <>
-                <button className="btn small ghost" disabled={busy} onClick={() => download(`/api/assessments/${a.assessment_id}/template`, `${a.name}.csv`)}>Template</button>
-                <button className="btn small" disabled={busy} onClick={() => file.current?.click()}>Upload CSV</button>
-                <button className="btn small" disabled={busy || reading} onClick={() => pdf.current?.click()}>{reading ? 'Reading…' : 'Read PDF'}</button>
-                <input ref={pdf} type="file" accept=".pdf,application/pdf" hidden aria-label={`Read scanned sheets for ${a.name}`}
-                       onChange={(e) => e.target.files?.[0] && readPdf(e.target.files[0])} />
-                <input ref={file} type="file" accept=".csv,text/csv" hidden aria-label={`Upload marks for ${a.name}`}
-                       onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+                {a.type === 'EL' && <button className="btn small" disabled={busy || a.questions === 0} onClick={onType}>Type marks</button>}
                 <button className="btn small primary" disabled={busy || !complete} title={complete ? undefined : 'Every student needs a mark or AB first'}
                         onClick={() => run(() => api(`/api/assessments/${a.assessment_id}/lock`, { method: 'POST' }), `${a.name} locked.`)}>Lock</button>
               </>}

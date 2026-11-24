@@ -64,9 +64,10 @@ def boxes_probabilities(page: np.ndarray, boxes: list[layout.Box]) -> dict:
     return {"probas": digits.probabilities(cells), "image": png_data_url(_crop(page, boxes))}
 
 
-def read(gray: np.ndarray, n_questions: int) -> dict:
+def read(gray: np.ndarray, rows: list[int]) -> dict:
     """What is written on one cover page, undecided: the caller picks values with what it knows
-    (question maxima, enrolled USNs). `aligned` False means the corner squares were not found."""
+    (question maxima, enrolled USNs). rows: the mark rows to read (0 is Q1); `marks` maps each to
+    its boxes. `aligned` False means the corner squares were not found."""
     page = align(gray)
     if page is None:
         return {"aligned": False, "image": png_data_url(cv2.resize(gray, None, fx=0.25, fy=0.25))}
@@ -78,7 +79,7 @@ def read(gray: np.ndarray, n_questions: int) -> dict:
     return {
         "aligned": True,
         "usn": usn,
-        "marks": [boxes_probabilities(page, layout.mark_boxes(i))
-                  for i in range(min(n_questions, layout.MAX_QUESTIONS))],
+        "marks": {i: boxes_probabilities(page, layout.mark_boxes(i))
+                  for i in sorted(set(rows)) if 0 <= i < layout.MAX_QUESTIONS},
         "total": boxes_probabilities(page, layout.TOTAL),
     }
