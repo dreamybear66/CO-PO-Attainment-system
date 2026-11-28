@@ -3,6 +3,7 @@ import { api, ApiError } from '../../api'
 import { Empty, ErrorBox, Pill, SkeletonRows } from '../../components/States'
 import { int, pct, when } from '../../format'
 import { useApi } from '../../hooks'
+import { FinalMarks, WeakStudents } from './StudentResults'
 import type { OfferingDetail } from './types'
 
 type Reason = { feature: string; label: string; value: number; typical: number; effect: number }
@@ -16,7 +17,8 @@ type StudentsData = {
   }
 }
 
-/** Students who need help: early warning during the term, and who is below target in each CO. */
+/** Students who need help: early warning during the term, who is below target in each CO, why each
+ *  weak student is weak, and everyone's final marks. */
 export function StudentsTab({ offering, canEdit }: { offering: OfferingDetail; canEdit: boolean }) {
   const id = offering.offering_id
   const data = useApi<StudentsData>(`/api/offerings/${id}/students`)
@@ -51,7 +53,7 @@ export function StudentsTab({ offering, canEdit }: { offering: OfferingDetail; c
         <header>
           <h2 id="t-ew">Early warning</h2>
           <span className="meta">
-            {ew ? `After ${ew.stage.map((s) => s.name).join(', ')} · ${when(ew.computed_at)}` : d.finished ? 'The term is over' : 'Runs when a CIE, quiz or EL is locked'}
+            {ew ? `After ${ew.stage.map((s) => s.name).join(', ')} · ${when(ew.computed_at)}` : d.finished ? 'The term is over' : 'Runs when a CIE test or quiz is locked'}
           </span>
         </header>
         <p className="small muted" style={{ marginBottom: 12 }}>
@@ -130,6 +132,9 @@ export function StudentsTab({ offering, canEdit }: { offering: OfferingDetail; c
           </table>
         </div>
       </section>
+
+      <WeakStudents offeringId={id} onCopy={copy} />
+      <FinalMarks offeringId={id} />
     </div>
   )
 }
