@@ -27,14 +27,14 @@ from datagen import catalog as cat
 from scripts.migrate import truncate_all
 
 # Latent skill per (student, CO) = SHARED_ABILITY x general ability + UNIQUE x CO-specific noise,
-# with unit variance. The shared part correlates every pair of COs (latent r = SHARED_ABILITY^2),
-# so it is kept small: at 0.35 (r = 0.12), sampling at n = 60 per section pushed three unrelated
-# declared dependencies and the decoy to the root-cause threshold rc_min_r = 0.40. At 0.15
-# (r = 0.02), seed 2026 gives the planted pair r = 0.75-0.82 in every weak-batch section, the
-# decoy at most 0.38, and one unrelated pair above 0.40 (IS363 CO3 <- IS233 CO2, 2024-25 even B,
-# r = 0.46), which is sampling noise: it stays at 0.45 with no shared ability at all.
-SHARED_ABILITY = 0.15
+# with unit variance. A strong student is strong in most COs (latent r = SHARED_ABILITY^2 between
+# any two COs), as in real classes: the students below target in one CO are mostly the same few in
+# the others, so a section has about 20 weak students rather than nearly everyone missing some CO.
+# That shared part also correlates every declared prerequisite pair, so the planted decoy is kept
+# free of it in the weak batch (plant()): it must stay below the root-cause threshold rc_min_r.
+SHARED_ABILITY = 0.93
 UNIQUE = float(np.sqrt(1 - SHARED_ABILITY ** 2))
+QUESTION_NOISE = 0.4          # logit sd of one mark around the student's skill (a good or bad day)
 
 TABLES_IN_LOAD_ORDER = [
     "department", "program", "faculty", "student", "course", "course_prerequisite",
@@ -169,12 +169,14 @@ class Builder:
     def plant(self, sections: dict[str, list[str]]) -> None:
         cause = self.co_id[cat.PLANTED["cause_co"]] - 1
         weak = self.co_id[cat.PLANTED["weak_co"]] - 1
+        decoy = self.co_id[cat.PLANTED["decoy_co"]] - 1
         for usns in sections.values():
             for usn in usns:
                 row = self.skill_row[usn]
                 if self.rng.random() < 0.5:
                     self.skill[row, cause] -= 1.2
                 self.skill[row, weak] = 0.8 * self.skill[row, cause] + 0.6 * self.rng.normal()
+                self.skill[row, decoy] = self.rng.normal()      # no real link to the weak CO
 
     # ------------------------------------------------------------------ offerings and marks
 
@@ -245,7 +247,8 @@ class Builder:
         rows = self.rows["student_question_mark"]
         for qid, qmax, weights in questions:
             z = skills @ weights
-            frac = sigmoid(cat.COMPONENT_EASE[comp] + 1.1 * z + self.rng.normal(0, 0.6, n))
+            ease = cat.COMPONENT_EASE[comp] + weights @ cat.CO_EASE
+            frac = sigmoid(ease + 1.1 * z + self.rng.normal(0, QUESTION_NOISE, n))
             got = np.clip(np.round(frac * qmax * 2) / 2, 0, qmax)
             for (eid, _), a, m in zip(enrol, absent, got):
                 rows.append((eid, qid, None, True) if a else (eid, qid, float(m), False))

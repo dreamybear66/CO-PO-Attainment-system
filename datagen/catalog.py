@@ -1,5 +1,7 @@
 """Fixed catalogue for the synthetic ISE programme: courses, prerequisites, COs, POs."""
 
+import numpy as np
+
 PROGRAM = {"dept": "Information Science and Engineering",
            "name": "B.E. Information Science and Engineering", "degree": "B.E."}
 
@@ -103,6 +105,9 @@ CURRENT_TERM_PROGRESS = {"A": [], "B": [(1, True), (2, True), (3, False)], "C": 
 
 # Logit offsets per component: quizzes and EL score higher than the SEE.
 COMPONENT_EASE = {"CIE_THEORY": 1.0, "CIE_QUIZ": 1.2, "EL": 1.4, "SEE": 0.7}
+# Logit offsets per CO number (CO1..CO5): units 4 and 5 are harder, so a typical section is at level 3
+# in CO1-CO3 and around level 2 in CO4-CO5 (IS351 2025-26 A: 3, 3, 3, 2, 2, with 22 weak students).
+CO_EASE = np.array([0.7, 0.7, 0.7, -0.3, 0.0])
 ABSENCE_RATE = {"CIE_THEORY": 0.03, "CIE_QUIZ": 0.03, "EL": 0.02, "SEE": 0.01}
 
 # Two rule versions show that results keep the config they were computed with.
