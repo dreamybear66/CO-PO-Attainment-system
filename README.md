@@ -230,9 +230,10 @@ The generator builds one ISE programme:
 - 16 courses and 6 batches, giving 1,440 students.
 - 280 offerings from 2021-22 to 2026-27 (odd term). Every finished offering has CIE 1-3 (Quiz n +
   CIE Test n), a single-mark EL out of 40 and the SEE, all locked and computed.
-- 681,120 question-wise marks and 11,933 course-exit surveys.
+- 686,400 question-wise marks and 11,954 course-exit surveys.
 - Current-term (2026-27 odd) offerings are part-way through, by section: A has nothing yet (scan it
-  from CIE 1), B has CIE 1 locked and CIE 2 saved, C has CIE 1 and 2 locked, D has CIE 1 saved.
+  from CIE 1), B has CIE 1 and 2 locked and CIE 3 saved, C has CIE 1 locked and CIE 2 saved, D has
+  CIE 1 saved.
 
 Demo logins (`hod`, `coordinator`, `fac01`–`fac14`, four student USNs) use `DEMO_PASSWORD` from
 `.env`. `scripts.demo` gives student `DEMO_STUDENT_USN` (default 1RV23IS010) the college email in

@@ -82,7 +82,7 @@ def test_dataset_size(built):
     assert len(b.rows["student"]) == 1440
     assert len(b.rows["course_offering"]) == 280
     assert len(b.rows["enrollment"]) == 16800
-    assert len(b.rows["student_question_mark"]) == 681120
+    assert len(b.rows["student_question_mark"]) == 686400
     # every assessment outside the current term, and the current term's locked CIEs (sections B, C)
     assert len(b.locks) == 2032
 
@@ -91,6 +91,10 @@ def test_dataset_size(built):
                                    cat.CURRENT_TERM)}
     completed = sum(1 for _, oid, _ in b.rows["enrollment"] if oid not in current)
     assert 0.77 < len(b.surveys) / completed < 0.83   # ~80% response, none for the current term
+    # every current offering keeps an open assessment, so sp_compute_all leaves it alone
+    locked = set(b.locks)
+    open_current = {oid for aid, oid, *_ in b.rows["assessment"] if oid in current and aid not in locked}
+    assert open_current == {oid for aid, oid, *_ in b.rows["assessment"] if oid in current}
 
 
 @pytest.mark.parametrize("section", cat.SECTIONS)

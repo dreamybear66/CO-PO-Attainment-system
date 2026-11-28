@@ -96,8 +96,10 @@ ASSESSMENTS = [
 ]
 SHARED_LAST_QUESTION = {"CIE Test 1", "CIE Test 2", "CIE Test 3"}
 # The current (in-progress) term, by section: which CIEs have been scanned, and whether each is
-# locked. Section A has nothing yet (scan it from the start), the others are part-way through.
-CURRENT_TERM_PROGRESS = {"A": [], "B": [(1, True), (2, False)], "C": [(1, True), (2, True)], "D": [(1, False)]}
+# locked. Section A has nothing yet (scan it from the start), the others are part-way through. Each
+# keeps an assessment open, so none counts as finished (sp_compute_all computes finished offerings).
+CURRENT_TERM_PROGRESS = {"A": [], "B": [(1, True), (2, True), (3, False)], "C": [(1, True), (2, False)],
+                         "D": [(1, False)]}
 
 # Logit offsets per component: quizzes and EL score higher than the SEE.
 COMPONENT_EASE = {"CIE_THEORY": 1.0, "CIE_QUIZ": 1.2, "EL": 1.4, "SEE": 0.7}
