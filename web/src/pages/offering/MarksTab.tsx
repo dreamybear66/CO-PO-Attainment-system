@@ -10,6 +10,7 @@ import type { Assessment, OfferingDetail } from './types'
 const SITTINGS = [
   { key: 'CIE1', label: 'CIE 1', fills: ['Quiz 1', 'CIE Test 1'] },
   { key: 'CIE2', label: 'CIE 2', fills: ['Quiz 2', 'CIE Test 2'] },
+  { key: 'CIE3', label: 'CIE 3', fills: ['Quiz 3', 'CIE Test 3'] },
   { key: 'SEE', label: 'SEE', fills: ['SEE'] },
 ] as const
 
@@ -67,7 +68,7 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         {canEdit && !hasEl && !adding &&
           <div className="filters" style={{ marginTop: 12, marginBottom: 0 }}>
             <button className="btn small" onClick={() => setAdding(true)}>Add experiential learning</button>
-            <span className="small muted">Its marks are typed in, not scanned.</span>
+            <span className="small muted">One final mark per student, typed in; it counts in the final total, not in CO attainment.</span>
           </div>}
         {message && <p className="small" role="status" style={{ marginTop: 12 }}>{message}</p>}
       </section>
@@ -107,8 +108,8 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
       <p className="small muted">
         Scan one PDF per sitting: page 1 is the question paper, then one cover page per student. A CIE paper lists the quiz under
         <span className="id"> Part A - Quiz</span> and the test under <span className="id">Part B - Test</span>, numbered on from one part to the next;
-        CIE 1 fills Quiz 1 and CIE Test 1, the SEE fills SEE, and a missing assessment is created from the paper. You check every value before it is saved.
-        Experiential-learning marks are typed in; enter <span className="id">AB</span> for an absent student (counts as zero).
+        CIE 1, 2 and 3 fill Quiz n and CIE Test n, the SEE fills SEE, and a missing assessment is created from the paper. You check every value before it is saved.
+        Each student's best two CIEs count. Experiential learning is one mark per student, typed in; enter <span className="id">AB</span> for an absent student (counts as zero).
       </p>
     </div>
   )
@@ -181,8 +182,9 @@ function AssessmentRow({ a, canEdit, weight, onMessage, onChange, onType }: {
   return (
     <>
       <tr>
-        <td>{a.name}<span className="sub">{COMPONENT[a.type]}{weight ? ` · ${weight}% of the CO score` : ''}{a.type === 'EL' ? ' · typed' : ' · scanned'}</span></td>
-        <td className="n num hide-phone">{a.questions}</td>
+        <td>{a.name}<span className="sub">{COMPONENT[a.type]}{a.cie_no ? ` · CIE ${a.cie_no}` : ''}{a.type === 'EL' ? ' · one mark, final total only · typed'
+          : `${weight ? ` · ${weight}% of the CO score` : ''} · scanned`}</span></td>
+        <td className="n num hide-phone">{a.type === 'EL' ? '—' : a.questions}</td>
         <td className="n num">{int(num(a.max_marks))}</td>
         <td className="n num">{int(a.marks_entered)}<span className="sub">of {int(a.marks_expected)}</span></td>
         <td>{status}</td>
