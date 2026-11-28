@@ -3,6 +3,10 @@
   reset schema -> all migrations -> synthetic data -> survey ETL -> compute every offering
   -> chain the audit outbox -> anchor -> verify
 
+DEMO_STUDENT_EMAIL in .env (optional) gives one demo student, DEMO_STUDENT_USN (default
+1RV23IS010), that college email instead of the generated one, so a real Google account can answer
+that student's course-exit survey (offering 169, IS351 2025-26 section A, taught by fac07).
+
 Usage:  python -m scripts.demo
 """
 
@@ -42,6 +46,12 @@ def main() -> None:
         generate.load(b, None, mongo, reset=False)
 
     step("synthetic data", load)
+    demo_email = config._env("DEMO_STUDENT_EMAIL", allow_empty=True).strip().lower()
+    if demo_email:
+        usn = config._env("DEMO_STUDENT_USN", "1RV23IS010").strip().upper()
+        with psycopg.connect(config.owner_dsn()) as pg:
+            pg.execute("UPDATE student SET email = %s WHERE usn = %s", (demo_email, usn))
+        print(f"{'demo student email':<28} set for {usn}")
     with psycopg.connect(config.owner_dsn(), autocommit=True) as pg:
         step("survey ETL", lambda: etl.run_survey_etl(pg, mongo))
         step("compute all offerings", lambda: pg.execute("CALL sp_compute_all()") and None)

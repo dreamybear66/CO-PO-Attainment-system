@@ -199,7 +199,7 @@ Open http://localhost:8000 and sign in with `DEMO_PASSWORD` from `.env`:
 | Login | Role | Sees |
 | --- | --- | --- |
 | `hod` | HoD (`admin`) | Every offering, unlock approvals, rule versions, audit verification |
-| `fac01` – `fac14` | Faculty | Own offerings only: scan answer sheets, type EL marks, lock, compute, root cause, what-if |
+| `fac01` – `fac14` | Faculty | Own offerings only: scan answer sheets, type EL marks, lock, compute, root cause, final marks |
 | `coordinator` | Programme coordinator | Everything, read-only, plus audit verification |
 | `1rv23is001` (and other USNs) | Student | Own CO scores and course-exit surveys |
 
@@ -225,13 +225,17 @@ on :5173, with `/api` proxied to :8000).
 The generator builds one ISE programme:
 
 - 16 courses and 6 batches, giving 1,440 students.
-- 280 offerings from 2021-22 to 2026-27 (odd term).
-- 556,800 question-wise marks and 11,965 course-exit surveys.
-- Current-term offerings have only CIE Test 1 and Quiz 1, and stay unlocked.
+- 280 offerings from 2021-22 to 2026-27 (odd term). Every finished offering has CIE 1-3 (Quiz n +
+  CIE Test n), a single-mark EL out of 40 and the SEE, all locked and computed.
+- 681,120 question-wise marks and 11,933 course-exit surveys.
+- Current-term (2026-27 odd) offerings are part-way through, by section: A has nothing yet (scan it
+  from CIE 1), B has CIE 1 locked and CIE 2 saved, C has CIE 1 and 2 locked, D has CIE 1 saved.
 
 Demo logins (`hod`, `coordinator`, `fac01`–`fac14`, four student USNs) use `DEMO_PASSWORD` from
-`.env`, and survey respondents are stored as an HMAC of the USN keyed by `SURVEY_HASH_SECRET`, so set
-both before generating. `--reset` empties PostgreSQL and the MongoDB `survey_responses` and
+`.env`. `scripts.demo` gives student `DEMO_STUDENT_USN` (default 1RV23IS010) the college email in
+`DEMO_STUDENT_EMAIL`, if set, so a real Google account can answer that student's survey. Survey
+respondents are stored as an HMAC of the USN keyed by `SURVEY_HASH_SECRET`, so set it and
+`DEMO_PASSWORD` before generating. `--reset` empties PostgreSQL and the MongoDB `survey_responses` and
 `audit_log` together; the PostgreSQL load commits only once the surveys are in MongoDB.
 `--database NAME` targets the PostgreSQL and MongoDB databases of that name.
 

@@ -121,6 +121,7 @@ class Builder:
                 cfg_id, 1, cfg["target_pct"], c["l3_pct"], c["l2_pct"], c["l1_pct"],
                 c["direct_weight"], c["indirect_weight"], c["co_target_level"], c["po_target_level"],
                 c["rc_min_n"], c["rc_min_r"], cfg["valid_from"], cfg["valid_to"],
+                cat.CIE_BEST_OF, cat.TOTAL_WEIGHTS["cie"], cat.TOTAL_WEIGHTS["el"], cat.TOTAL_WEIGHTS["see"],
             ))
             for comp, w in cat.COMPONENT_WEIGHTS.items():
                 r["config_component_weight"].append((cfg_id, comp, w))
@@ -206,24 +207,30 @@ class Builder:
                     # students x this course's COs, built once per offering
                     skills = self.skill[np.ix_([self.skill_row[u] for u in usns],
                                                [co - 1 for co in course_cos])]
-                    for name, comp, qmarks, cos in cat.ASSESSMENTS:
-                        if is_current and name not in cat.CURRENT_TERM_ASSESSMENTS:
+                    # current term: only the CIEs scanned so far in this section, locked or not
+                    progress = dict(cat.CURRENT_TERM_PROGRESS[section]) if is_current else {}
+                    for name, comp, qmarks, cos, cie in cat.ASSESSMENTS:
+                        if is_current and cie not in progress:
                             continue
                         ids["assessment"] += 1
                         aid = ids["assessment"]
-                        r["assessment"].append((aid, oid, comp, name, sum(qmarks), False, None))
-                        if not is_current:
+                        r["assessment"].append((aid, oid, comp, name, sum(qmarks), False, None, cie))
+                        if not is_current or progress[cie]:
                             self.locks.append(aid)
                         questions = []
                         for qi, qmax in enumerate(qmarks):
                             ids["question"] += 1
                             qid = ids["question"]
                             r["assessment_question"].append((qid, aid, f"Q{qi + 1}", qmax))
+                            weights = np.zeros(cat.CO_COUNT)      # question's weight per course CO
+                            if not cos:                           # EL: one final mark, no CO tag;
+                                weights[:] = 1 / cat.CO_COUNT     # it follows the course skill overall
+                                questions.append((qid, qmax, weights))
+                                continue
                             if name in cat.SHARED_LAST_QUESTION and qi == len(qmarks) - 1:
                                 tags = [(cos[0], 0.5), (cos[-1], 0.5)]
                             else:
                                 tags = [(cos[qi % len(cos)], 1.0)]
-                            weights = np.zeros(cat.CO_COUNT)      # question's weight per course CO
                             for n, w in tags:
                                 r["question_co_map"].append((qid, self.co_id[(code, n)], w))
                                 weights[n - 1] = w
@@ -289,11 +296,12 @@ COLUMNS = {
     "co_po_map": "co_id, po_id, strength",
     "co_dependency": "co_id, prereq_co_id, strength",
     "attainment_config": ("config_id, program_id, target_pct, l3_pct, l2_pct, l1_pct, direct_weight, "
-                          "indirect_weight, co_target_level, po_target_level, rc_min_n, rc_min_r, valid_from, valid_to"),
+                          "indirect_weight, co_target_level, po_target_level, rc_min_n, rc_min_r, valid_from, valid_to, "
+                          "cie_best_of, total_cie_weight, total_el_weight, total_see_weight"),
     "config_component_weight": "config_id, component, weight_pct",
     "course_offering": "offering_id, course_id, academic_year, term, faculty_id, section",
     "enrollment": "enrollment_id, offering_id, usn",
-    "assessment": "assessment_id, offering_id, type, name, max_marks, locked, locked_at",
+    "assessment": "assessment_id, offering_id, type, name, max_marks, locked, locked_at, cie_no",
     "assessment_question": "question_id, assessment_id, q_no, max_marks",
     "question_co_map": "question_id, co_id, weight",
     "student_question_mark": "enrollment_id, question_id, marks_obtained, is_absent",
