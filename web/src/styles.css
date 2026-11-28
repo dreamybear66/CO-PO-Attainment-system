@@ -188,16 +188,17 @@ td .sub { display: block; font-size: var(--fs-small); line-height: 16px; color: 
 
 /* ---------- signature: the CO attainment ladder ---------- */
 .ladder { display: grid; gap: 4px; }
-.ladder-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) 72px 64px; align-items: center; gap: 12px; min-height: 44px; }
+.ladder-row, .ladder-head { display: grid; grid-template-columns: 48px minmax(0, 1fr) 64px 104px; align-items: center; gap: 12px; }
+.ladder-row { min-height: 48px; }
+.ladder-head { padding-bottom: 6px; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: var(--fs-small); }
+.ladder-head > :nth-child(n + 3), .ladder-row .pct { text-align: right; }
+.ladder-row .level { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .ladder-row + .ladder-row { border-top: 1px solid var(--rule); }
 .ladder-row .co { font-family: var(--mono); font-size: 13px; } /* taste-skill-ignore: CO codes in the dealt ID face */
 .ladder-row .stmt { font-size: 13px; line-height: 18px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .track { position: relative; height: 10px; margin-top: 6px; border-radius: 999px; background: var(--raised); }
 .track .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent); }
 .track .fill.miss { background: var(--negative); }
-.track .tick { position: absolute; top: -4px; bottom: -4px; width: 1px; background: var(--text); opacity: 0.55; }
-.ladder-scale { position: relative; height: 16px; margin-left: 68px; margin-right: 148px; color: var(--muted); font-size: 11px; }
-.ladder-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .level { font-size: var(--fs-section); text-align: right; }
 
 /* ---------- the CO-PO matrix ---------- */
@@ -268,8 +269,7 @@ td .sub { display: block; font-size: var(--fs-small); line-height: 16px; color: 
   .object-head .actions { margin-left: 0; width: 100%; }
   .settings-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ladder-row { grid-template-columns: 44px minmax(0, 1fr) 52px 48px; gap: 8px; }
-  .ladder-scale { display: none; }
+  .ladder-row, .ladder-head { grid-template-columns: 40px minmax(0, 1fr) 52px 92px; gap: 8px; }
   .hide-phone { display: none; }
   .phone-only { display: inline-grid !important; }
   .scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgba(19, 20, 22, 0.32); }
@@ -357,4 +357,4 @@ tbody tr:nth-child(n + 9), .rows > .row:nth-child(n + 9) { animation-delay: 0.24
 .rating-bar .r5 { background: #1b6c80; color: #fff; }
 
 /* weak-student lists (phase 9) */
-.weak-list { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 0; font-size: var(--fs-small); }
+.pill-list { display: flex; flex-wrap: wrap; gap: 4px; }
