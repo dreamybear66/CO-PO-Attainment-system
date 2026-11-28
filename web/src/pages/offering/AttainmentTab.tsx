@@ -26,7 +26,7 @@ export function AttainmentTab({ offering, att, canEdit, onCompute, allLocked }: 
 
   return (
     <div className="stack">
-      <div className="kpis">
+      <div className="kpis" style={{ marginBottom: 0 }}>
         <div className="kpi"><div className="kpi-label">COs met</div><div className="kpi-value">{coMet}<small>of {cos.length}</small></div></div>
         <div className="kpi"><div className="kpi-label">POs met</div><div className="kpi-value">{poMet}<small>of {pos.length}</small></div></div>
         <div className="kpi"><div className="kpi-label">Students</div><div className="kpi-value">{int(cos[0].students)}</div></div>
