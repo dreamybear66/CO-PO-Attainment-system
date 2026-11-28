@@ -3,9 +3,9 @@
 How the CO-PO Attainment Management System gets built. Requirement IDs (FR-x, NFR-x) and suggested
 changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard).
 
-## Progress (23 Nov 2026)
+## Progress (28 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 205 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 222 tests pass. On 28 Nov 2026 the flow was simplified (decisions F1-F7). On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -27,6 +27,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
 | Combined paper, no CSV | Merged (#17) | `feat/ocr-combined-paper` | One scanned PDF per sitting (Part A quiz + Part B test), 20-row cover page, typed EL marks, CSV upload removed; decisions M1-M6 |
 | Scan review fixes | PR open | `fix/scan-review-save` | Save bar kept in view on the scan review; Bloom field re-read so no question line is dropped |
+| Simple flow | PR open (on `fix/scan-review-save`) | `feat/simple-flow` | CIE 3, best 2 of 3 CIEs per student (CO scores and final total), single-mark EL outside CO attainment, weights 30/20/50, final marks, root cause per student, semester picker; what-if, trends, actions and rule versions hidden; demo data rebuilt. Decisions F1-F7 |
 
 ## Pending
 
