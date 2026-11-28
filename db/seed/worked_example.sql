@@ -25,7 +25,7 @@ INSERT INTO attainment_config (config_id, program_id, target_pct, l3_pct, l2_pct
                                direct_weight, indirect_weight, co_target_level, po_target_level, valid_from)
 VALUES (1, 1, 60, 70, 60, 50, 80, 20, 2.0, 2.0, '2020-08-01');
 INSERT INTO config_component_weight (config_id, component, weight_pct) VALUES
-    (1, 'CIE_THEORY', 20), (1, 'CIE_QUIZ', 10), (1, 'EL', 20), (1, 'SEE', 50);
+    (1, 'CIE_THEORY', 30), (1, 'CIE_QUIZ', 20), (1, 'SEE', 50);
 
 INSERT INTO course_offering (offering_id, course_id, academic_year, term, faculty_id, section)
 VALUES (1, 1, '2025-26', 'even', 1, 'A');

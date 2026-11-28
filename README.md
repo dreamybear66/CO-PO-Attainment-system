@@ -96,15 +96,19 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 
 ## How attainment is calculated
 
-1. **Student CO score.** For each assessment component, take the student's marks on the questions
-   that test the CO, divided by the maximum for those questions. Combine the components with these
-   weights, using only the components that test the CO:
+1. **Student CO score.** A term has three CIEs; CIE n is Quiz n and CIE Test n, written in one
+   sitting. For each student, rank their CIEs by percentage ((quiz n + test n marks) / (quiz n +
+   test n maximum), AB = 0) and keep the best two (ties go to the earlier CIE; a student with two or
+   fewer CIEs keeps them all). Marks of the dropped CIE are left out of that student's CO scores.
+   Then, for each assessment component, take the student's marks on the questions that test the CO,
+   divided by the maximum for those questions, and combine the components with these weights, using
+   only the components that test the CO:
 
-   | Component | CIE theory | CIE quiz | EL | SEE |
-   | --- | ---: | ---: | ---: | ---: |
-   | Weight | 20 | 10 | 20 | 50 |
+   | Component | CIE test | CIE quiz | SEE |
+   | --- | ---: | ---: | ---: |
+   | Weight | 30 | 20 | 50 |
 
-   (CIE theory 40 + quiz 20 + EL 40 + SEE 100, halved, gives 100.)
+   Experiential learning (EL) is one final mark per student and is not part of CO attainment.
 2. **Direct level.** Take the share of students whose CO score reaches the target (60 %), and map it
    to a level: 3 if ≥ 70 % of students, 2 if ≥ 60 %, 1 if ≥ 50 %, otherwise 0.
 3. **Indirect level.** Take the share of survey ratings at or above the rule version's
@@ -116,6 +120,11 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 
 All the numbers above come from the current rule version in `attainment_config`. The demo data has
 two versions: target 55 % until Aug 2024, then 60 %.
+
+**Final marks.** Each student's total out of 100 = (average % of their best two CIEs) × 30 + (EL mark
+/ EL maximum) × 20 + (SEE / SEE maximum) × 50. While the term runs, the total counts only the parts
+with marks and says what it is out of. The best-of count and the 30 / 20 / 50 split are rules in
+`attainment_config` too (`cie_best_of`, `total_*_weight`).
 
 ## Architecture
 
@@ -350,6 +359,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 | CP006 | Marks incomplete at lock | CP014 | Invalid scenario |
 | | | CP015 | Config is not the offering's rule version (use a what-if) |
 | | | CP016 | Root-cause action for a CO without a shortfall |
+| | | CP017 | An EL question tagged to a CO (EL is one final mark) |
 
 ## Tests
 

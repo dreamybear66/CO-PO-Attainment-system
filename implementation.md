@@ -125,6 +125,20 @@ Recorded in PRD Section 10 as R1–R8; phases 7–10 below apply them.
 | M5 | EL marks are typed into a per-student table (`PUT /api/assessments/{id}/marks`, all or nothing, row errors returned); an EL assessment is added on the Marks tab with its questions |
 | M6 | Confirming scanned marks only saves them; locking and computing stay separate, manual steps |
 
+## Decisions (28 Nov 2026) — the simple flow
+
+Made by the user to keep the app simple for the demo; `feat/simple-flow` builds them.
+
+| # | Decision |
+| --- | --- |
+| F1 | Experiential learning (EL) is one final mark per student: the teacher types its maximum, then each student's mark (AB = 0). It is not part of CO or PO attainment, only of the final total. Stored as an EL assessment with one question Q1 = its maximum and no CO tag (CP017 refuses one) |
+| F2 | CIE 3 is scanned like CIE 1 and 2: Part A fills `Quiz 3`, Part B `CIE Test 3`. Each quiz and test carries `assessment.cie_no` (migration 013) |
+| F3 | CO score weights: CIE test 30, quiz 20, SEE 50, no EL (data in `config_component_weight`) |
+| F4 | Best 2 of 3 CIEs per student, by (quiz n + test n) percentage, ties to the earlier CIE. The dropped CIE's marks leave that student's CO scores (in `student_component_co_pct`, so attainment, root cause, weak-student lists, early-warning labels and the course file all follow) and the final total. Final total out of 100 = best-two CIE average × 30 + EL × 20 + SEE × 50; the count and the split are rules in `attainment_config` |
+| F5 | Hidden from the screens, not deleted: the What-if tab, the Trends page, the Improvement actions page and the rule-versions section of Settings |
+| F6 | The Offerings list has a semester picker (1-8, over the course catalogue), defaulting to a semester with current-year offerings for the login |
+| F7 | The Students tab adds each student's final marks and a root cause per weak student: missed COs, the questions that cost the most marks, and weak prerequisite COs (`fn_student_root_cause`) |
+
 ## Phase 1 — Schema and constraints (week 1) · Member A · ✅ done
 
 Output: approved ER diagram and DDL.
