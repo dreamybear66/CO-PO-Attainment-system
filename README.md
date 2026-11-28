@@ -98,8 +98,11 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   with a chart, COs below target with how many students are below target and the likely upstream
   causes, the improvement actions, and each student's final marks. Every figure comes from the database. Text is set in FiraGO
   (open licence, embedded), so symbols, curly quotes and Indian scripts in CO statements print as typed.
-- **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
-  what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
+- **Web app:** offerings overview with a year and semester picker (every subject of a semester
+  together, defaulting to a semester with current-year offerings), marks and locking, attainment
+  ladder and CO-PO matrix, root cause, students (early warning, weak students, final marks), survey,
+  audit, and a student view. To keep it simple, the What-if tab, the Trends and Improvement actions
+  pages and the rule-versions section are hidden from the screens; their code, routes and API stay. Screens animate in with
   Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/` written for teachers (no technical terms; the picture tilts, cards light up and buttons lean toward the cursor, on mouse and trackpad only), and every animation respects the reduced-motion setting.
 

@@ -13,9 +13,9 @@ import { RootCauseTab } from './offering/RootCauseTab'
 import { StudentsTab } from './offering/StudentsTab'
 import { SurveyTab } from './offering/SurveyTab'
 import type { AttainmentData, OfferingDetail } from './offering/types'
-import { WhatIfTab } from './offering/WhatIfTab'
 
-const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', whatif: 'What-if', students: 'Students', survey: 'Survey' } as const
+// The What-if tab (offering/WhatIfTab.tsx) is hidden to keep the app simple; its code and endpoint remain.
+const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', students: 'Students', survey: 'Survey' } as const
 type Tab = keyof typeof TABS
 
 export function Offering() {
@@ -91,7 +91,6 @@ export function Offering() {
       {active === 'marks' && <MarksTab offering={d} canEdit={canEdit} onChange={detail.reload} />}
       {active === 'attainment' && <AttainmentTab offering={d} att={att} canEdit={canEdit} onCompute={compute} allLocked={allLocked} />}
       {active === 'cause' && <RootCauseTab offering={d} att={att.data} canEdit={canEdit} onAction={att.reload} />}
-      {active === 'whatif' && <WhatIfTab offering={d} computed={computed} canEdit={canEdit} />}
       {active === 'students' && <StudentsTab offering={d} canEdit={canEdit} />}
       {active === 'survey' && <SurveyTab offering={d} canEdit={canEdit} />}
       </motion.div>

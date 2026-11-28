@@ -228,3 +228,22 @@ def test_weak_students_endpoint(client):
     assert len(body["students"]) == 60 - 27                         # below 60 % in at least CO3
     assert client.get("/api/offerings/1/weak-students", headers=login(client, "fac_b")).status_code == 404
     assert client.get("/api/offerings/1/weak-students", headers=login(client, "coord")).status_code == 200
+
+
+# ---------------------------------------------------------------- hidden screens
+
+def test_hidden_screens_are_not_in_the_navigation_but_their_code_stays():
+    web = config.ROOT / "web" / "src"
+    shell = (web / "components" / "Shell.tsx").read_text(encoding="utf-8")
+    offering = (web / "pages" / "Offering.tsx").read_text(encoding="utf-8")
+    settings = (web / "pages" / "Settings.tsx").read_text(encoding="utf-8")
+    app_routes = (web / "App.tsx").read_text(encoding="utf-8")
+    nav = shell[shell.index("const nav: Nav[]"):shell.index("const item")]
+    assert "/trends" not in nav and "/actions" not in nav               # Trends, Improvement actions
+    tabs = next(line for line in offering.splitlines() if line.startswith("const TABS"))
+    assert "whatif" not in tabs                                         # What-if tab
+    assert "<Versions" not in settings.split("export function Settings", 1)[1].split("\nfunction", 1)[0]
+    # hidden, not deleted: the pages, routes and endpoints remain
+    assert (web / "pages" / "Trends.tsx").exists() and (web / "pages" / "Actions.tsx").exists()
+    assert (web / "pages" / "offering" / "WhatIfTab.tsx").exists() and "function Versions" in settings
+    assert 'path="/trends"' in app_routes and 'path="/actions"' in app_routes
