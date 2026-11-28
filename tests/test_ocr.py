@@ -46,6 +46,13 @@ def test_question_lines_are_read_through_ocr_confusions():
     assert r["warnings"] == []
 
 
+def test_bloom_field_read_as_lt_is_level_one():
+    # Read on its own, a Bloom field Tesseract garbled as "14" in the full line comes back as "Lt".
+    q = paper.parse("Q8 Write SQL for the given queries 10 CO5 Lt")["questions"][0]
+    assert (q["q_no"], q["max_marks"], q["cos"], q["bloom"]) == ("Q8", 10, [5], 1)
+    assert paper.BLOOM_WORD.match("Lt") and paper.BLOOM_WORD.match("L4") and not paper.BLOOM_WORD.match("14")
+
+
 def test_part_headings_tag_each_question_through_ocr_noise():
     text = """IS243 Database Management Systems
     CIE 1    Max. marks: 60

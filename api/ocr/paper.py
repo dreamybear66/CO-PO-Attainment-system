@@ -19,9 +19,11 @@ import pytesseract
 from api import config
 from api.ocr import layout
 
+BLOOM = r"(?:[Ll|]\s?)?[1-6Iil|t]"   # "L2"; the L is sometimes lost, a 1 is sometimes read as t
 QUESTION = re.compile(
     r"^\s*(?P<q>Q\S{1,3})\s+(?P<text>.+?)\s+(?P<max>[\dOoIl|]{1,2})\s+"
-    r"(?P<cos>\S+(?:\s*[,/&;]\s*\S+)*)\s+(?P<bl>(?:[Ll|]\s?)?[1-6Iil|])\s*$")   # the L is sometimes lost
+    rf"(?P<cos>\S+(?:\s*[,/&;]\s*\S+)*)\s+(?P<bl>{BLOOM})\s*$")
+BLOOM_WORD = re.compile(rf"^{BLOOM}$")
 STARTS_LIKE_QUESTION = re.compile(r"^\s*Q\S?\d", re.I)
 # "Part A - Quiz", "PartA", "PART B: Test", "Part - B", "Part 8" (B read as 8).
 PART = re.compile(r"^\W*p\s*a\s*r\s*t\s*[-:.]?\s*(?P<part>[AB8])(?![a-z0-9])", re.I)
@@ -110,10 +112,40 @@ def prepare(page: np.ndarray) -> np.ndarray:
     return bw
 
 
+def _reread_bloom(img: np.ndarray, left: int, top: int, width: int, height: int) -> str | None:
+    """Read one Bloom field ("L1") again on its own. In a full line Tesseract sometimes reads a
+    clear "L1" as "14"; read as a single word it gives "Lt" or "1", which the repairs handle."""
+    crop = img[max(top - 15, 0):top + height + 15, max(left - 40, 0):left + width + 40]
+    for cfg in ("--psm 8", "--psm 8 -c tessedit_char_whitelist=L123456"):
+        word = pytesseract.image_to_string(crop, config=cfg).strip()
+        if BLOOM_WORD.match(word):
+            return word
+    return None
+
+
+def _text(img: np.ndarray) -> str:
+    """The page's lines, word by word, with a question line's unreadable Bloom field read again."""
+    d = pytesseract.image_to_data(img, config="--psm 6", output_type=pytesseract.Output.DICT)
+    lines: dict[tuple, list[int]] = {}
+    for i, word in enumerate(d["text"]):
+        if word.strip():
+            lines.setdefault((d["block_num"][i], d["par_num"][i], d["line_num"][i]), []).append(i)
+    out = []
+    for idx in lines.values():
+        words = [d["text"][i] for i in idx]
+        last = idx[-1]
+        if len(words) >= 4 and STARTS_LIKE_QUESTION.match(words[0]) and not BLOOM_WORD.match(words[-1]):
+            fixed = _reread_bloom(img, d["left"][last], d["top"][last], d["width"][last], d["height"][last])
+            if fixed:
+                words[-1] = fixed
+        out.append(" ".join(words))
+    return "\n".join(out)
+
+
 def read(page: np.ndarray) -> dict:
     """Parse a grayscale page image."""
     pytesseract.pytesseract.tesseract_cmd = config.tesseract_cmd()
-    text = pytesseract.image_to_string(prepare(page), config="--psm 6")
+    text = _text(prepare(page))
     result = parse(text)
     result["text"] = text
     return result
