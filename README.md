@@ -25,8 +25,9 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 ### Built
 
 - **Marks capture:** CIE tests, quizzes and the SEE are read from the scanned answer sheets (below);
-  experiential-learning (EL) marks are typed into a per-student table on the Marks tab (an EL
-  assessment is added there with its questions, maxima and COs). Either way
+  experiential learning (EL) is one final mark per student: on the Marks tab the teacher adds EL by
+  typing its maximum (e.g. 40), then types each student's mark. EL counts only in the final total,
+  not in CO attainment. Either way
   the whole batch is validated and nothing is saved if any row fails. Absent students are marked
   `AB` and score 0. There is no CSV upload.
 - **Locking:** an assessment locks only when every mark is in. Unlocking needs a request approved by
@@ -49,15 +50,15 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   hash-chained MongoDB log with a daily anchor and a verifier.
 - **Access control:** PostgreSQL row-level security per role (HoD, faculty, coordinator, student).
   Faculty see only their own offerings and students only their own rows.
-- **Answer-sheet OCR (novelty):** scan one PDF per sitting: on the Marks tab, pick CIE 1, CIE 2 or
-  SEE and choose "Scan answer sheets". Page 1 is the question paper. A CIE paper holds both parts,
+- **Answer-sheet OCR (novelty):** scan one PDF per sitting: on the Marks tab, pick CIE 1, CIE 2,
+  CIE 3 or SEE and choose "Scan answer sheets". Page 1 is the question paper. A CIE paper holds both parts,
   the quiz under "Part A - Quiz" and the test under "Part B - Test", numbered on across parts
   (Q1-Q5, then Q6-Q11); an SEE paper is one list. Tesseract reads each question's number, max
   marks, COs, Bloom level and part (a Bloom field garbled inside its line is read again on its
   own). Every later page is a student's cover page with one mark row
   per paper question (Q1-Q20): the corner squares straighten the scan and a digit model trained on
-  MNIST reads the USN and the handwritten marks. CIE n fills `Quiz n` with Part A and `CIE Test n`
-  with Part B; the SEE fills `SEE`. An assessment the offering does not have yet is created from the
+  MNIST reads the USN and the handwritten marks. CIE n (1-3) fills `Quiz n` with Part A and
+  `CIE Test n` with Part B, both stored as CIE n; the SEE fills `SEE`. An assessment the offering does not have yet is created from the
   paper, and inside each assessment the questions are numbered from Q1 in paper order (paper Q6, the
   first test question, is `CIE Test 1` Q1). Each mark is chosen from 0 to its question's maximum
   and each USN among the enrolled students, so most misreads cannot happen; anything unsure, a
@@ -77,7 +78,15 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   Needs a one-time Google Cloud setup (see Google Forms surveys below).
 - **Weak-student lists:** an offering's **Students** tab lists, per CO, the students whose CO score
   is below target (from the marks so far during the term), with **Copy USNs** for remedial classes.
-- **Early warning (novelty):** when a CIE, quiz or EL is locked, a logistic regression trained on
+- **Final marks:** the **Students** tab shows each student's CIE 1-3 percentages, which CIE was
+  dropped (each student keeps their best two), EL, SEE and the total out of 100, partial while the
+  term runs. The course-file PDF includes the same table.
+- **Root cause per student:** the **Students** tab also lists every student below target in one or
+  more COs: the COs they missed (their score against the target), the questions where they lost the
+  most marks (question, assessment, marks lost, CO), and whether they were also weak in the related
+  CO of a prerequisite course (the CO-dependency links root-cause analysis walks, with their score
+  there).
+- **Early warning (novelty):** when a CIE test or quiz is locked, a logistic regression trained on
   earlier offerings of the same course, at the same point of the term, gives each student's chance
   of ending below target in each CO. Features: the CO marks so far and the student's scores on the
   prerequisite COs (the root-cause links). Students at or above the rule version's `ew_flag_prob`
@@ -87,7 +96,7 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 - **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
   report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
   with a chart, COs below target with how many students are below target and the likely upstream
-  causes, and the improvement actions. Every figure comes from the database. Text is set in FiraGO
+  causes, the improvement actions, and each student's final marks. Every figure comes from the database. Text is set in FiraGO
   (open licence, embedded), so symbols, curly quotes and Indian scripts in CO statements print as typed.
 - **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
   what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
@@ -231,7 +240,7 @@ in C CO5 as a decoy (`datagen/catalog.py`). All data, including course titles, C
 CO-PO mappings, is synthetic.
 
 For answer-sheet OCR, `python -m datagen.ocr_samples --offering-id N --sitting CIE1` (or `CIE2`,
-`SEE`) writes a scanned-looking PDF for that sitting to `samples/`: a printed question paper (for a
+`CIE3`, `SEE`) writes a scanned-looking PDF for that sitting to `samples/`: a printed question paper (for a
 CIE, Part A - Quiz and Part B - Test, numbered on across parts; the offering's saved questions, or
 a typical paper if the quiz or test does not exist yet), then one cover page per enrolled student
 with the marks of both parts written in MNIST digits the model never trained on, slightly rotated

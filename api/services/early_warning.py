@@ -28,7 +28,7 @@ from collections import defaultdict
 import numpy as np
 from psycopg.rows import dict_row
 
-STAGE_TYPES = ("CIE_THEORY", "CIE_QUIZ", "EL")
+STAGE_TYPES = ("CIE_THEORY", "CIE_QUIZ")     # EL is one final mark with no CO: it says nothing per CO
 FEATURES = ["co_so_far", "co_tested", "prereq", "prereq_known"]
 SHOWN = {"co_so_far": "CO{co} marks so far", "prereq": "Prerequisite CO scores"}
 MIN_EFFECT = 0.05                       # smaller pushes are not worth showing as a reason
@@ -61,7 +61,7 @@ def stage(pg, offering_id: int) -> list[dict]:
     picked = [{"type": t, "rank": r, "name": a["name"], "assessment_id": a["assessment_id"]}
               for (t, r), a in sorted(keys.items()) if a["locked"] and t in STAGE_TYPES]
     if not picked:
-        raise EarlyWarningError("Lock a CIE test, quiz or EL assessment first; the warning starts from locked marks")
+        raise EarlyWarningError("Lock a CIE test or quiz first; the warning starts from locked marks")
     return picked
 
 

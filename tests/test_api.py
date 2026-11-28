@@ -24,8 +24,7 @@ def client(db, mongo):
             (5, '1rv25wx001', %(pw)s, 'student', NULL, '1RV25WX001')""", {"pw": pw})
     db.execute("""
         INSERT INTO assessment (assessment_id, offering_id, type, name, max_marks) VALUES (2, 1, 'EL', 'Experiential Learning', 4);
-        INSERT INTO assessment_question VALUES (21, 2, 'Q1', 2), (22, 2, 'Q2', 2);
-        INSERT INTO question_co_map VALUES (21, 1, 1), (22, 2, 1);
+        INSERT INTO assessment_question VALUES (21, 2, 'Q1', 4);       -- EL: one final mark, no CO
     """)
     app.state.dbname = conftest.TEST_DB
     app.state.mongo_name = conftest.TEST_DB
@@ -59,23 +58,23 @@ def test_faculty_lists_only_own_offerings(client):
 
 def test_typed_marks_with_errors_save_nothing(client, db):
     h = login(client, "fac_a")
-    rows = [{"usn": "1RV25WX001", "marks": {"Q1": 3, "Q2": 1}},
-            {"usn": "1rv25wx002", "marks": {"Q1": "AB", "Q2": "x"}},
+    rows = [{"usn": "1RV25WX001", "marks": {"Q1": 5}},
+            {"usn": "1rv25wx002", "marks": {"Q1": "x"}},
             {"usn": "NOSUCH", "marks": {"Q1": 1}},
             {"usn": "1RV25WX003", "marks": {"Q9": 1, "Q2": None}}]
     r = client.put("/api/assessments/2/marks", headers=h, json=rows)
     assert r.status_code == 422
     problems = {(e["row"], e["usn"], e["column"]) for e in r.json()["errors"]}
-    assert problems == {(1, "1RV25WX001", "Q1"), (2, "1RV25WX002", "Q2"), (3, "NOSUCH", "usn"),
+    assert problems == {(1, "1RV25WX001", "Q1"), (2, "1RV25WX002", "Q1"), (3, "NOSUCH", "usn"),
                         (4, "1RV25WX003", "Q9"), (4, "1RV25WX003", "Q2")}
     assert db.execute("SELECT count(*) FROM student_question_mark WHERE question_id IN (21, 22)").fetchone()[0] == 0
 
 
 def test_typed_marks_lock_compute_flow(client, db):
     h = login(client, "fac_a")
-    assert client.put("/api/assessments/2/marks", headers=h, json=full_marks(client, h)).json() == {"saved": 120}
+    assert client.put("/api/assessments/2/marks", headers=h, json=full_marks(client, h)).json() == {"saved": 60}
     sheet = client.get("/api/assessments/2/marks", headers=login(client, "coord")).json()     # the coordinator reads
-    assert sheet["type"] == "EL" and sheet["students"][0]["marks"] == {"Q1": 2, "Q2": 2}
+    assert sheet["type"] == "EL" and sheet["students"][0]["marks"] == {"Q1": 2}
     assert client.post("/api/assessments/2/lock", headers=h).status_code == 200
     result = client.post("/api/offerings/1/compute", headers=h).json()
     assert len(result["cos"]) == 3 and len(result["pos"]) == 2

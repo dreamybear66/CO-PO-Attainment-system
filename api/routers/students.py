@@ -1,6 +1,8 @@
 """Students who need help: weak-student lists and early warning (phase 9, FR-6.4, FR-6.5).
 
 GET  /api/offerings/{id}/students        students below target per CO, and the latest early warning
+GET  /api/offerings/{id}/weak-students   per student below target: missed COs, questions that cost the
+                                         most marks, and weak prerequisite COs (root cause per student)
 POST /api/offerings/{id}/early-warning   run the early warning now (it also runs after each CIE lock)
 """
 
@@ -62,6 +64,84 @@ def students(offering_id: int, user: User = Depends(staff), dbname=Depends(datab
         weak.append({**co, "scored": len(rows), "below": below})
     return {"finished": finished, "target_pct": target_pct, "enrolled": enrolled, "weak": weak,
             "early_warning": {**run, "flagged": flagged} if run else None}
+
+
+QUESTIONS_SHOWN = 3
+
+
+@router.get("/offerings/{offering_id}/weak-students")
+def weak_students(offering_id: int, user: User = Depends(staff), dbname=Depends(database)):
+    """Root cause per student. For every student below the CO target in one or more COs (their CO
+    scores from the best two CIEs and the SEE, under the rule version of the offering's results):
+    each missed CO with their score, the questions on those COs where they lost the most marks
+    (outside any CIE they dropped), and the prerequisite COs (co_dependency, as in fn_root_cause)
+    with their earlier score and whether they were weak there too."""
+    with db.session(user, dbname) as conn:
+        _visible(conn, offering_id)
+        cfg = conn.execute("SELECT ac.config_id, ac.target_pct FROM attainment_config ac "
+                           "WHERE ac.config_id = fn_result_config(%s)", (offering_id,)).fetchone()
+        if not cfg:
+            return {"target_pct": None, "students": []}
+        missed = conn.execute("""
+            SELECT s.usn, st.name, s.co_id, co.co_number, co.statement, round(s.pct, 1) AS pct
+            FROM student_co_score_by_config s
+            JOIN student st USING (usn) JOIN course_outcome co USING (co_id)
+            WHERE s.offering_id = %s AND s.config_id = %s AND s.pct < %s
+            ORDER BY s.usn, co.co_number""", (offering_id, cfg["config_id"], cfg["target_pct"])).fetchall()
+        prereqs = conn.execute("SELECT * FROM fn_student_root_cause(%s)", (offering_id,)).fetchall()
+        questions = conn.execute("""
+            WITH weak AS (
+                SELECT s.usn, s.co_id FROM student_co_score_by_config s
+                WHERE s.offering_id = %(o)s AND s.config_id = %(c)s AND s.pct < %(t)s
+            ),
+            q AS (
+                SELECT e.usn, a.name AS assessment, a.cie_no, aq.question_id, aq.q_no, aq.max_marks,
+                       coalesce(m.marks_obtained, 0) AS got, m.is_absent,
+                       array_agg(co.co_number ORDER BY co.co_number) AS cos, array_agg(qcm.co_id) AS co_ids
+                FROM student_question_mark m
+                JOIN enrollment e           USING (enrollment_id)
+                JOIN assessment_question aq ON aq.question_id = m.question_id
+                JOIN assessment a           ON a.assessment_id = aq.assessment_id
+                JOIN question_co_map qcm    ON qcm.question_id = m.question_id
+                JOIN course_outcome co      ON co.co_id = qcm.co_id
+                WHERE e.offering_id = %(o)s AND e.usn IN (SELECT usn FROM weak) AND a.type <> 'EL'
+                GROUP BY e.usn, a.name, a.cie_no, aq.question_id, aq.q_no, aq.max_marks, m.marks_obtained, m.is_absent
+            ),
+            ranked AS (
+                SELECT q.*, q.max_marks - q.got AS lost,
+                       row_number() OVER (PARTITION BY q.usn ORDER BY q.max_marks - q.got DESC,
+                                          (q.max_marks - q.got) / q.max_marks DESC, q.question_id) AS place
+                FROM q
+                WHERE q.max_marks > q.got
+                  AND EXISTS (SELECT 1 FROM weak w WHERE w.usn = q.usn AND w.co_id = ANY (q.co_ids))
+                  AND NOT EXISTS (SELECT 1 FROM student_cie_result r
+                                  WHERE r.offering_id = %(o)s AND r.usn = q.usn AND r.cie_no = q.cie_no AND NOT r.kept)
+            )
+            SELECT usn, assessment, q_no, cos, max_marks, got, is_absent, lost FROM ranked
+            WHERE place <= %(n)s ORDER BY usn, place""",
+                                 {"o": offering_id, "c": cfg["config_id"], "t": cfg["target_pct"],
+                                  "n": QUESTIONS_SHOWN}).fetchall()
+    by_student: dict[str, dict] = {}
+    for m in missed:
+        st = by_student.setdefault(m["usn"], {"usn": m["usn"], "name": m["name"], "missed": [], "questions": []})
+        st["missed"].append({"co_id": m["co_id"], "co_number": m["co_number"], "statement": m["statement"],
+                             "pct": m["pct"], "prereqs": []})
+    for r in prereqs:
+        co = next((c for c in by_student.get(r["usn"], {}).get("missed", []) if c["co_id"] == r["co_id"]), None)
+        if co is not None and r["up_pct"] is not None:        # only prerequisites the student has a score on
+            co["prereqs"].append({"course_code": r["up_course_code"], "co_number": r["up_co_number"],
+                                  "statement": r["up_statement"], "depth": r["depth"],
+                                  "academic_year": r["up_academic_year"], "pct": r["up_pct"],
+                                  "target_pct": r["up_target_pct"], "below": r["up_below"]})
+    for q in questions:
+        by_student[q["usn"]]["questions"].append({k: q[k] for k in ("assessment", "q_no", "cos", "max_marks", "got",
+                                                                     "is_absent", "lost")})
+    students = sorted(by_student.values(),
+                      key=lambda s: (-len(s["missed"]), sum(float(c["pct"]) for c in s["missed"]) / len(s["missed"]),
+                                     s["usn"]))
+    for st in students:
+        st["weak_prereqs"] = sum(1 for c in st["missed"] for p in c["prereqs"] if p["below"])
+    return {"target_pct": cfg["target_pct"], "students": students}
 
 
 def _run(user: User, dbname, offering_id: int) -> dict:

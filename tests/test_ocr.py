@@ -362,23 +362,21 @@ def test_question_paper_rules(client, db):
     assert client.put("/api/assessments/1/questions", headers=h, json=thirds).status_code == 409
 
 
-def test_el_assessment_is_created_with_its_questions_and_marks_are_typed(client, db):
+def test_cie3_scan_creates_quiz_3_and_test_3_with_their_cie_number(client, db, monkeypatch):
+    from api.routers import ocr as ocr_router
+    monkeypatch.setattr(ocr_router.reader, "read_pdf", lambda data, fallback=None: fake_raw(7))
     h = login(client, "fac_a")
-    el = {"name": "Experiential Learning", "questions": [{"q_no": "Q1", "max_marks": 20, "cos": [1, 2], "bloom": 3},
-                                                         {"q_no": "Q2", "max_marks": 20, "cos": [3], "bloom": 4}]}
-    assert client.post("/api/offerings/1/assessments", headers=login(client, "coord"), json=el).status_code == 403
-    assert client.post("/api/offerings/1/assessments", headers=login(client, "fac_b"), json=el).status_code == 404
-    assert client.post("/api/offerings/1/assessments", headers=h, json={**el, "type": "SEE"}).status_code == 422
-    r = client.post("/api/offerings/1/assessments", headers=h, json=el)
-    assert r.status_code == 201, r.text
-    aid = r.json()["assessment_id"]
-    assert db.execute("SELECT type::text, max_marks::int FROM assessment WHERE assessment_id = %s", (aid,)).fetchone() == ("EL", 40)
-    r = client.put(f"/api/assessments/{aid}/marks", headers=h,
-                   json=[{"usn": "1RV25WX001", "marks": {"Q1": 18, "Q2": "AB"}}])
-    assert r.json() == {"saved": 2}
-    sheet = client.get(f"/api/assessments/{aid}/marks", headers=h).json()
-    assert sheet["students"][0] == {"usn": "1RV25WX001", "name": "Student 1", "marks": {"Q1": 18, "Q2": "AB"}}
-    assert sheet["students"][1]["marks"] == {"Q1": None, "Q2": None}
+    body = scan(client, h, b"%PDF", sitting="CIE3").json()
+    assert body["label"] == "CIE 3"
+    assert [(p["part"], p["name"], p["type"], p["create"]) for p in body["parts"]] == [
+        ("A", "Quiz 3", "CIE_QUIZ", True), ("B", "CIE Test 3", "CIE_THEORY", True)]
+    r = client.post("/api/offerings/1/scan/confirm", headers=h, json=confirm_body(body, sitting="CIE3"))
+    assert r.status_code == 200, r.text
+    assert [(a["name"], a["questions"]) for a in r.json()["assessments"]] == [("Quiz 3", 5), ("CIE Test 3", 2)]
+    assert db.execute("SELECT name, type::text, cie_no FROM assessment WHERE offering_id = 1 AND cie_no IS NOT NULL "
+                      "ORDER BY name").fetchall() == [("CIE Test 3", "CIE_THEORY", 3), ("Quiz 3", "CIE_QUIZ", 3)]
+    assert client.post("/api/offerings/1/scan?sitting=CIE4", headers=h,
+                       files={"file": ("s.pdf", b"%PDF", "application/pdf")}).status_code == 422
 
 
 # ---------------------------------------------------------------- review fixes (PR #12)

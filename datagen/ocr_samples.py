@@ -2,7 +2,7 @@
 
   python -m datagen.ocr_samples --offering-id 42 --sitting CIE1 [--database copo] [--seed 7] [--out samples/x.pdf]
 
-One PDF per sitting (CIE1, CIE2 or SEE). Page 1 is a printed question paper: for a CIE, Part A (the
+One PDF per sitting (CIE1, CIE2, CIE3 or SEE). Page 1 is a printed question paper: for a CIE, Part A (the
 quiz) and Part B (the test) under their headings, numbered on across parts; for the SEE, one list.
 The questions are the offering's saved ones ('Quiz 1' and 'CIE Test 1' for CIE1, 'SEE' for SEE),
 or a typical paper when an assessment does not exist yet. Each later page is one student's cover
@@ -218,8 +218,10 @@ def random_key(paper: Paper, usns: list[str], rng: np.random.Generator, absent_s
 # ---------------------------------------------------------------- from the database
 
 # A typical paper per part, used when the assessment does not exist yet: (maxima, COs to cycle).
-TYPICAL = {"CIE1": {"A": ([2] * 5, [1, 2, 3]), "B": ([10, 10, 10, 10, 5, 5], [1, 2, 3])},
-           "CIE2": {"A": ([2] * 5, [3, 4, 5]), "B": ([10, 10, 10, 10, 5, 5], [3, 4, 5])},
+# The CIE COs follow the demo catalogue (datagen/catalog.py ASSESSMENTS).
+TYPICAL = {"CIE1": {"A": ([2] * 5, [1, 2]), "B": ([10, 10, 10, 10, 5, 5], [1, 2])},
+           "CIE2": {"A": ([2] * 5, [2, 3, 4]), "B": ([10, 10, 10, 10, 5, 5], [2, 3, 4])},
+           "CIE3": {"A": ([2] * 5, [4, 5]), "B": ([10, 10, 10, 10, 5, 5], [4, 5])},
            "SEE": {"B": ([10] * 10, [1, 2, 3, 4, 5])}}
 
 
@@ -265,7 +267,7 @@ def main() -> None:
 
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--offering-id", type=int, required=True)
-    p.add_argument("--sitting", choices=["CIE1", "CIE2", "SEE"], required=True)
+    p.add_argument("--sitting", choices=["CIE1", "CIE2", "CIE3", "SEE"], required=True)
     p.add_argument("--database", default=None)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--out", type=Path, default=None)

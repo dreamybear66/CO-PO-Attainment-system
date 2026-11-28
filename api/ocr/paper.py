@@ -29,11 +29,13 @@ STARTS_LIKE_QUESTION = re.compile(r"^\s*Q\S?\d", re.I)
 PART = re.compile(r"^\W*p\s*a\s*r\s*t\s*[-:.]?\s*(?P<part>[AB8])(?![a-z0-9])", re.I)
 MAX_MARKS = re.compile(r"max\.?\s*marks\s*[:\-]?\s*(\d{1,3})", re.I)
 # What one scanned sitting fills: part -> (assessment name, assessment type). The names are the
-# offering's assessment names; a CIE paper's Part A is the quiz and Part B the test.
+# offering's assessment names; a CIE paper's Part A is the quiz and Part B the test. "cie" is the
+# CIE number stored with both (assessment.cie_no), which decides each student's best two CIEs.
 SITTINGS: dict[str, dict] = {
-    "CIE1": {"label": "CIE 1", "parts": {"A": ("Quiz 1", "CIE_QUIZ"), "B": ("CIE Test 1", "CIE_THEORY")}},
-    "CIE2": {"label": "CIE 2", "parts": {"A": ("Quiz 2", "CIE_QUIZ"), "B": ("CIE Test 2", "CIE_THEORY")}},
-    "SEE": {"label": "SEE", "parts": {"B": ("SEE", "SEE")}},
+    "CIE1": {"label": "CIE 1", "cie": 1, "parts": {"A": ("Quiz 1", "CIE_QUIZ"), "B": ("CIE Test 1", "CIE_THEORY")}},
+    "CIE2": {"label": "CIE 2", "cie": 2, "parts": {"A": ("Quiz 2", "CIE_QUIZ"), "B": ("CIE Test 2", "CIE_THEORY")}},
+    "CIE3": {"label": "CIE 3", "cie": 3, "parts": {"A": ("Quiz 3", "CIE_QUIZ"), "B": ("CIE Test 3", "CIE_THEORY")}},
+    "SEE": {"label": "SEE", "cie": None, "parts": {"B": ("SEE", "SEE")}},
 }
 CONFUSED = str.maketrans({"I": "1", "i": "1", "L": "1", "l": "1", "|": "1", "!": "1", "t": "1", "T": "1",
                           "O": "0", "o": "0", "S": "5", "s": "5", "Z": "2", "z": "2", "B": "8"})
