@@ -9,13 +9,13 @@ import { int, term, when } from '../format'
 import { useApi } from '../hooks'
 import { AttainmentTab } from './offering/AttainmentTab'
 import { MarksTab } from './offering/MarksTab'
-import { RootCauseTab } from './offering/RootCauseTab'
 import { StudentsTab } from './offering/StudentsTab'
 import { SurveyTab } from './offering/SurveyTab'
 import type { AttainmentData, OfferingDetail } from './offering/types'
 
 // The What-if tab (offering/WhatIfTab.tsx) is hidden to keep the app simple; its code and endpoint remain.
-const TABS = { marks: 'Marks and locking', attainment: 'Attainment', cause: 'Root cause', students: 'Students', survey: 'Survey' } as const
+// The course-level Root cause tab was removed; root cause per student is on the Students tab.
+const TABS = { marks: 'Marks and locking', attainment: 'Attainment', students: 'Students', survey: 'Survey' } as const
 type Tab = keyof typeof TABS
 
 export function Offering() {
@@ -45,7 +45,7 @@ export function Offering() {
       detail.reload()
       setTab('attainment')
       const below = r.cos.filter((c) => Number(c.final_level) < Number(c.target)).length
-      setNotice(below ? `Computed. ${below} CO${below > 1 ? 's are' : ' is'} below target; an improvement action was added for each.` : 'Computed. Every CO meets its target.')
+      setNotice(below ? `Computed. ${below} CO${below > 1 ? 's are' : ' is'} below target.` : 'Computed. Every CO meets its target.')
     } catch (e) {
       setNotice((e as ApiError).message)
     } finally {
@@ -69,8 +69,7 @@ export function Offering() {
         <div className="actions">
           {lastComputed && <span className="stamp" style={{ alignSelf: 'center' }}>Computed {when(lastComputed)}</span>}
           {computed && (
-            <button className="btn" title="The course file of this offering, from its computed results"
-                    onClick={() => download(`/api/offerings/${id}/course-file.pdf`, `${d.code}-${d.academic_year}-${d.section}-course-file.pdf`)
+            <button className="btn" onClick={() => download(`/api/offerings/${id}/course-file.pdf`, `${d.code}-${d.academic_year}-${d.section}-course-file.pdf`)
                       .catch((e) => setNotice((e as Error).message))}>
               Course file (PDF)
             </button>
@@ -90,7 +89,6 @@ export function Offering() {
       <motion.div key={active} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_OUT }}>
       {active === 'marks' && <MarksTab offering={d} canEdit={canEdit} onChange={detail.reload} />}
       {active === 'attainment' && <AttainmentTab offering={d} att={att} canEdit={canEdit} onCompute={compute} allLocked={allLocked} />}
-      {active === 'cause' && <RootCauseTab offering={d} att={att.data} canEdit={canEdit} onAction={att.reload} />}
       {active === 'students' && <StudentsTab offering={d} canEdit={canEdit} />}
       {active === 'survey' && <SurveyTab offering={d} canEdit={canEdit} />}
       </motion.div>
