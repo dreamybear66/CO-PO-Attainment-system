@@ -13,6 +13,13 @@ latest early-warning run of an offering: assessments used, model, flag cut-off) 
 `attainment_config.ew_flag_prob` (default 0.5). Migration 010 adds `assessment_question.bloom_level`
 and `attainment_config.ocr_review_confidence`.
 
+`013_simple_flow.sql` adds no table. It adds `assessment.cie_no` (1-3: Quiz n and CIE Test n make up
+CIE n) and four rules to `attainment_config`: `cie_best_of` (each student's best 2 CIEs count) and
+`total_cie_weight` / `total_el_weight` / `total_see_weight` (the final total out of 100: 30 / 20 / 50).
+Views on top of the marks: `student_co_marks`, `student_cie_result` (each student's CIE percentages,
+places and which are kept), `student_final_marks` (the final total), and `student_component_co_pct`
+now leaves out EL and each student's dropped CIE.
+
 ```mermaid
 erDiagram
     department ||--o{ program : has
@@ -88,3 +95,6 @@ the anchor stores the daily head hash of the chain.
 | Role needs its link (faculty_id / usn) | CHECKs on `app_user` |
 | At most one login per faculty member / student | UNIQUE `app_user (faculty_id)`, `app_user (usn)` |
 | Unlock decision has who and when; no self-approval | CHECKs on `unlock_request` |
+| CIE number 1-3, only on quizzes and CIE tests, one quiz and one test per CIE | CHECKs and UNIQUE `(offering_id, type, cie_no)` on `assessment` |
+| EL is one final mark, never tagged to a CO; locks without a CO tag | `question_co_not_el` trigger (CP017), `assessment_lock` trigger (`013_simple_flow.sql`) |
+| Final-total weights sum to 100 | CHECK on `attainment_config` |

@@ -18,6 +18,8 @@ type Action = { action_id: number; code: string; co_number: number; academic_yea
 const VIEWS = { all: 'All', open: 'Marks still open', ready: 'Ready to compute', done: 'Computed' } as const
 type View = keyof typeof VIEWS
 
+const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8] as const
+
 const state = (o: Offering): View =>
   o.computed_at ? 'done' : o.assessments > 0 && o.locked === o.assessments ? 'ready' : 'open'
 
@@ -27,11 +29,21 @@ export function Offerings() {
   const list = useApi<Offering[]>('/api/offerings')
   const years = useMemo(() => [...new Set((list.data ?? []).map((o) => o.academic_year))], [list.data])
   const [year, setYear] = useState<string | null>(null)
+  const [semester, setSemester] = useState<number | 'all' | null>(null)
   const [view, setView] = useState<View>('all')
   const activeYear = year ?? years[0] ?? null
+  // Default semester: the first one with offerings in the current (latest) year for this login.
+  const firstSemester = useMemo(() => {
+    const current = (list.data ?? []).filter((o) => o.academic_year === years[0]).map((o) => o.semester)
+    return current.length ? Math.min(...current) : 'all'
+  }, [list.data, years])
+  const activeSemester = semester ?? firstSemester
 
-  const inYear = (list.data ?? []).filter((o) => o.academic_year === activeYear)
+  // Every subject of the chosen semester (course catalogue) in the chosen year, all sections together.
+  const inYear = (list.data ?? []).filter((o) => o.academic_year === activeYear
+    && (activeSemester === 'all' || o.semester === activeSemester))
   const rows = inYear.filter((o) => view === 'all' || state(o) === view)
+  const scope = `${activeYear ?? ''}${activeSemester === 'all' ? '' : ` · semester ${activeSemester}`}`
   const totals = {
     offerings: inYear.length,
     assessments: inYear.reduce((s, o) => s + o.assessments, 0),
@@ -47,7 +59,7 @@ export function Offerings() {
         <div>
           <h1>Offerings</h1>
           <p className="sub">
-            {activeYear ? <>{activeYear}: {open > 0 ? `${int(open)} assessments are still open for marks` : 'every assessment is locked'}
+            {activeYear ? <>{scope}: {open > 0 ? `${int(open)} assessments are still open for marks` : 'every assessment is locked'}
               {totals.below > 0 ? `, and ${int(totals.below)} COs are below target across ${int(totals.computed)} computed offerings.` : '.'}</> : 'No offerings yet.'}
           </p>
         </div>
@@ -58,14 +70,20 @@ export function Offerings() {
         <select id="year" className="input" value={activeYear ?? ''} onChange={(e) => setYear(e.target.value)}>
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
+        <label className="visually-hidden" htmlFor="semester">Semester</label>
+        <select id="semester" className="input" style={{ width: 'auto' }} value={String(activeSemester)}
+                onChange={(e) => setSemester(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
+          <option value="all">All semesters</option>
+          {SEMESTERS.map((n) => <option key={n} value={n}>Semester {n}</option>)}
+        </select>
         <Segmented label="Show" value={view} onChange={setView}
                    options={(Object.keys(VIEWS) as View[]).map((v) => ({ value: v, label: VIEWS[v] }))} />
         <span className="spacer" />
         <span className="stamp">{user?.role === 'faculty' ? 'Your offerings' : 'All sections of the programme'}</span>
       </div>
 
-      <div className="kpis" aria-label={`Totals for ${activeYear ?? ''}`}>
-        <div className="kpi"><div className="kpi-label">Offerings</div><div className="kpi-value num"><NumberTicker value={totals.offerings} /></div><div className="delta">course sections in {activeYear}</div></div>
+      <div className="kpis" aria-label={`Totals for ${scope}`}>
+        <div className="kpi"><div className="kpi-label">Offerings</div><div className="kpi-value num"><NumberTicker value={totals.offerings} /></div><div className="delta">course sections in {scope}</div></div>
         <div className="kpi"><div className="kpi-label">Assessments locked</div><div className="kpi-value num"><NumberTicker value={totals.locked} /><small>of {int(totals.assessments)}</small></div>
           <Meter value={totals.locked} max={totals.assessments} label="Share of assessments locked" /><div className="delta">locked marks can no longer change</div></div>
         <div className="kpi"><div className="kpi-label">Attainment computed</div><div className="kpi-value num"><NumberTicker value={totals.computed} /><small>of {int(totals.offerings)}</small></div>
@@ -79,10 +97,10 @@ export function Offerings() {
 
       <div className="with-rail">
         <section className="panel" aria-labelledby="t-list">
-          <header><h2 id="t-list">{VIEWS[view]} · {activeYear}</h2><span className="meta num">{int(rows.length)} shown</span></header>
+          <header><h2 id="t-list">{VIEWS[view]} · {scope}</h2><span className="meta num">{int(rows.length)} shown</span></header>
           {list.error ? <ErrorBox message={`Couldn't load offerings. ${list.error}`} onRetry={list.reload} />
             : list.loading && !list.data ? <SkeletonRows rows={6} />
-            : rows.length === 0 ? <Empty>No offerings match this view.</Empty>
+            : rows.length === 0 ? <Empty>{activeSemester !== 'all' && inYear.length === 0 ? `No semester ${activeSemester} subjects are offered in ${activeYear}.` : 'No offerings match this view.'}</Empty>
             : (
               <div className="table-wrap">
                 <table>
@@ -174,7 +192,7 @@ function OpenActions() {
               ))}
             </div>
           )}
-        {a.data && a.data.length > 5 && <div style={{ marginTop: 12 }}><Link className="card-link" to="/actions">View all {int(a.data.length)}</Link></div>}
+        {a.data && a.data.length > 5 && <p className="small muted" style={{ marginTop: 12 }}>and {int(a.data.length - 5)} more, each on its offering's Attainment tab</p>}
       </div>
     </>
   )

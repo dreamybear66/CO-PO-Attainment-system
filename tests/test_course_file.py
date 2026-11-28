@@ -64,7 +64,11 @@ def test_every_number_in_the_course_file_matches_the_database(client, db):
         assert f"{float(value):.2f}" in lines[lines.index(code):lines.index(code) + 10]
     assert {"3.00", "2.20", "0.40", "2.30", "1.48"} <= set(lines)          # the worked example, PRD Section 5
     assert "CO3: final level 0.40 against a target of 2.00; 33 of 60 students scored below 60%." in " ".join(lines)
-    assert "Rule version 1" in text and "CIE theory 20, CIE quiz 10, EL 20, SEE 50" in text
+    assert "Rule version 1" in text and "CIE theory 30, CIE quiz 20, SEE 50" in text
+    # final marks: only the SEE so far, so student 1 has 21 of 30 -> 35.0 out of 50
+    final = lines[lines.index("Final marks"):]
+    row = final[final.index("1RV25WX001"):final.index("1RV25WX001") + 9]
+    assert row == ["1RV25WX001", "-", "-", "-", "-", "-", "21/30", "35.0", "50"]
     assert "CO3 final level 0.40 is below the target 2.00" in " ".join(lines)          # the automatic action
 
 

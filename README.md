@@ -11,7 +11,7 @@ accreditation reports.
 Three features go beyond automation: **answer-sheet OCR**, **early-warning prediction** and
 **prerequisite-aware root-cause analysis**, all built.
 
-**Status:** all ten phases are built and 205 tests pass. Google Forms surveys need
+**Status:** all ten phases are built and 222 tests pass. Google Forms surveys need
 a one-time Google Cloud setup (Google Forms surveys, below).
 What's left is tracked in [implementation.md](implementation.md#pending).
 
@@ -25,8 +25,9 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 ### Built
 
 - **Marks capture:** CIE tests, quizzes and the SEE are read from the scanned answer sheets (below);
-  experiential-learning (EL) marks are typed into a per-student table on the Marks tab (an EL
-  assessment is added there with its questions, maxima and COs). Either way
+  experiential learning (EL) is one final mark per student: on the Marks tab the teacher adds EL by
+  typing its maximum (e.g. 40), then types each student's mark. EL counts only in the final total,
+  not in CO attainment. Either way
   the whole batch is validated and nothing is saved if any row fails. Absent students are marked
   `AB` and score 0. There is no CSV upload.
 - **Locking:** an assessment locks only when every mark is in. Unlocking needs a request approved by
@@ -49,15 +50,15 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   hash-chained MongoDB log with a daily anchor and a verifier.
 - **Access control:** PostgreSQL row-level security per role (HoD, faculty, coordinator, student).
   Faculty see only their own offerings and students only their own rows.
-- **Answer-sheet OCR (novelty):** scan one PDF per sitting: on the Marks tab, pick CIE 1, CIE 2 or
-  SEE and choose "Scan answer sheets". Page 1 is the question paper. A CIE paper holds both parts,
+- **Answer-sheet OCR (novelty):** scan one PDF per sitting: on the Marks tab, pick CIE 1, CIE 2,
+  CIE 3 or SEE and choose "Scan answer sheets". Page 1 is the question paper. A CIE paper holds both parts,
   the quiz under "Part A - Quiz" and the test under "Part B - Test", numbered on across parts
   (Q1-Q5, then Q6-Q11); an SEE paper is one list. Tesseract reads each question's number, max
   marks, COs, Bloom level and part (a Bloom field garbled inside its line is read again on its
   own). Every later page is a student's cover page with one mark row
   per paper question (Q1-Q20): the corner squares straighten the scan and a digit model trained on
-  MNIST reads the USN and the handwritten marks. CIE n fills `Quiz n` with Part A and `CIE Test n`
-  with Part B; the SEE fills `SEE`. An assessment the offering does not have yet is created from the
+  MNIST reads the USN and the handwritten marks. CIE n (1-3) fills `Quiz n` with Part A and
+  `CIE Test n` with Part B, both stored as CIE n; the SEE fills `SEE`. An assessment the offering does not have yet is created from the
   paper, and inside each assessment the questions are numbered from Q1 in paper order (paper Q6, the
   first test question, is `CIE Test 1` Q1). Each mark is chosen from 0 to its question's maximum
   and each USN among the enrolled students, so most misreads cannot happen; anything unsure, a
@@ -75,36 +76,53 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   filled in. **Fetch responses** (and a nightly job) checks each response like an in-app survey and
   keeps only a hashed USN and the ratings. The tab shows the response rate and the ratings per CO.
   Needs a one-time Google Cloud setup (see Google Forms surveys below).
-- **Weak-student lists:** an offering's **Students** tab lists, per CO, the students whose CO score
-  is below target (from the marks so far during the term), with **Copy USNs** for remedial classes.
-- **Early warning (novelty):** when a CIE, quiz or EL is locked, a logistic regression trained on
+- **Students tab:** three views, **Final marks**, **Weak students** and **Early warning**. Weak
+  students can be filtered by CO (with the count per CO) and copied with **Copy USNs** for remedial
+  classes; during the term the list uses the marks so far.
+- **Final marks:** the **Final marks** view shows each student's CIE 1-3 percentages, which CIE was
+  dropped (each student keeps their best two), EL, SEE and the total out of 100, partial while the
+  term runs, with a search by USN or name. The course-file PDF includes the same table.
+- **Root cause per student:** the **Weak students** view lists every student below target in one or
+  more COs: the COs they missed (with their score), the questions where they lost the most marks,
+  and the related COs of prerequisite courses where they were also weak (the CO-dependency links,
+  with their earlier score).
+- **Early warning (novelty):** when a CIE test or quiz is locked, a logistic regression trained on
   earlier offerings of the same course, at the same point of the term, gives each student's chance
   of ending below target in each CO. Features: the CO marks so far and the student's scores on the
   prerequisite COs (the root-cause links). Students at or above the rule version's `ew_flag_prob`
   (default 0.5) are flagged with the reason, e.g. "CO2 marks so far 23% (typical 70%)". It is
-  advice only and never changes official results. Replayed on 2025-26: AUC 0.79 after CIE Test 1
-  ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
+  advice only and never changes official results. Replayed on 2025-26: AUC 0.89 after CIE Test 1,
+  0.94 after CIE 1 and 2 ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
   report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
   with a chart, COs below target with how many students are below target and the likely upstream
-  causes, and the improvement actions. Every figure comes from the database. Text is set in FiraGO
+  causes, the improvement actions, and each student's final marks. Every figure comes from the database. Text is set in FiraGO
   (open licence, embedded), so symbols, curly quotes and Indian scripts in CO statements print as typed.
-- **Web app:** offerings overview, marks and locking, attainment ladder and CO-PO matrix, root cause,
-  what-if, trends, improvement actions, rules and audit, and a student view. Screens animate in with
-  Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
+- **Web app:** offerings overview with a year and semester picker (every subject of a semester
+  together, defaulting to a semester with current-year offerings), marks and locking, attainment
+  (COs and POs met, each CO's share of students and level, each PO's level, improvement actions),
+  students (final marks, weak students, early warning), survey, audit, and a student view. The
+  screens show results only, without notes on how they are calculated; the course-level Root cause
+  tab was removed (root cause per student stays). To keep it simple, the What-if tab, the Trends and Improvement actions
+  pages and the rule-versions section are hidden from the screens; their code, routes and API stay. Screens animate in with
+  Motion and GSAP (the CO bars and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/` written for teachers (no technical terms; the picture tilts, cards light up and buttons lean toward the cursor, on mouse and trackpad only), and every animation respects the reduced-motion setting.
 
 ## How attainment is calculated
 
-1. **Student CO score.** For each assessment component, take the student's marks on the questions
-   that test the CO, divided by the maximum for those questions. Combine the components with these
-   weights, using only the components that test the CO:
+1. **Student CO score.** A term has three CIEs; CIE n is Quiz n and CIE Test n, written in one
+   sitting. For each student, rank their CIEs by percentage ((quiz n + test n marks) / (quiz n +
+   test n maximum), AB = 0) and keep the best two (ties go to the earlier CIE; a student with two or
+   fewer CIEs keeps them all). Marks of the dropped CIE are left out of that student's CO scores.
+   Then, for each assessment component, take the student's marks on the questions that test the CO,
+   divided by the maximum for those questions, and combine the components with these weights, using
+   only the components that test the CO:
 
-   | Component | CIE theory | CIE quiz | EL | SEE |
-   | --- | ---: | ---: | ---: | ---: |
-   | Weight | 20 | 10 | 20 | 50 |
+   | Component | CIE test | CIE quiz | SEE |
+   | --- | ---: | ---: | ---: |
+   | Weight | 30 | 20 | 50 |
 
-   (CIE theory 40 + quiz 20 + EL 40 + SEE 100, halved, gives 100.)
+   Experiential learning (EL) is one final mark per student and is not part of CO attainment.
 2. **Direct level.** Take the share of students whose CO score reaches the target (60 %), and map it
    to a level: 3 if ≥ 70 % of students, 2 if ≥ 60 %, 1 if ≥ 50 %, otherwise 0.
 3. **Indirect level.** Take the share of survey ratings at or above the rule version's
@@ -116,6 +134,11 @@ What's left is tracked in [implementation.md](implementation.md#pending).
 
 All the numbers above come from the current rule version in `attainment_config`. The demo data has
 two versions: target 55 % until Aug 2024, then 60 %.
+
+**Final marks.** Each student's total out of 100 = (average % of their best two CIEs) × 30 + (EL mark
+/ EL maximum) × 20 + (SEE / SEE maximum) × 50. While the term runs, the total counts only the parts
+with marks and says what it is out of. The best-of count and the 30 / 20 / 50 split are rules in
+`attainment_config` too (`cie_best_of`, `total_*_weight`).
 
 ## Architecture
 
@@ -181,7 +204,7 @@ Open http://localhost:8000 and sign in with `DEMO_PASSWORD` from `.env`:
 | Login | Role | Sees |
 | --- | --- | --- |
 | `hod` | HoD (`admin`) | Every offering, unlock approvals, rule versions, audit verification |
-| `fac01` – `fac14` | Faculty | Own offerings only: scan answer sheets, type EL marks, lock, compute, root cause, what-if |
+| `fac01` – `fac14` | Faculty | Own offerings only: scan answer sheets, type EL marks, lock, compute, root cause, final marks |
 | `coordinator` | Programme coordinator | Everything, read-only, plus audit verification |
 | `1rv23is001` (and other USNs) | Student | Own CO scores and course-exit surveys |
 
@@ -207,26 +230,37 @@ on :5173, with `/api` proxied to :8000).
 The generator builds one ISE programme:
 
 - 16 courses and 6 batches, giving 1,440 students.
-- 280 offerings from 2021-22 to 2026-27 (odd term).
-- 556,800 question-wise marks and 11,965 course-exit surveys.
-- Current-term offerings have only CIE Test 1 and Quiz 1, and stay unlocked.
+- 280 offerings from 2021-22 to 2026-27 (odd term). Every finished offering has CIE 1-3 (Quiz n +
+  CIE Test n), a single-mark EL out of 40 and the SEE, all locked and computed.
+- 686,400 question-wise marks and 11,954 course-exit surveys.
+- Current-term (2026-27 odd) offerings are part-way through, by section: A has nothing yet (scan it
+  from CIE 1), B has CIE 1 and 2 locked and CIE 3 saved, C has CIE 1 locked and CIE 2 saved, D has
+  CIE 1 saved.
 
 Demo logins (`hod`, `coordinator`, `fac01`–`fac14`, four student USNs) use `DEMO_PASSWORD` from
-`.env`, and survey respondents are stored as an HMAC of the USN keyed by `SURVEY_HASH_SECRET`, so set
-both before generating. `--reset` empties PostgreSQL and the MongoDB `survey_responses` and
+`.env`. `scripts.demo` gives student `DEMO_STUDENT_USN` (default 1RV23IS010) the college email in
+`DEMO_STUDENT_EMAIL`, if set, so a real Google account can answer that student's survey. Survey
+respondents are stored as an HMAC of the USN keyed by `SURVEY_HASH_SECRET`, so set it and
+`DEMO_PASSWORD` before generating. `--reset` empties PostgreSQL and the MongoDB `survey_responses` and
 `audit_log` together; the PostgreSQL load commits only once the surveys are in MongoDB.
 `--database NAME` targets the PostgreSQL and MongoDB databases of that name.
 
 The 2023 batch carries a planted root-cause story: Data Structures CO2 → DBMS CO4, with Programming
-in C CO5 as a decoy (`datagen/catalog.py`). All data, including course titles, CO statements and
-CO-PO mappings, is synthetic.
+in C CO5 as a decoy (`datagen/catalog.py`). Marks follow each student's general ability (a strong
+student is strong in most COs, as in a real class), and units 4 and 5 are harder (`CO_EASE`), so a
+typical section is at level 3 in CO1-CO3 and around level 2 in CO4-CO5, with about 20-25 students
+below target in some CO (IS351 2025-26 section A: 3.0, 3.0, 3.0, 2.2, 2.2). All data, including
+course titles, CO statements and CO-PO mappings, is synthetic.
 
 For answer-sheet OCR, `python -m datagen.ocr_samples --offering-id N --sitting CIE1` (or `CIE2`,
-`SEE`) writes a scanned-looking PDF for that sitting to `samples/`: a printed question paper (for a
+`CIE3`, `SEE`) writes a scanned-looking PDF for that sitting to `samples/`: a printed question paper (for a
 CIE, Part A - Quiz and Part B - Test, numbered on across parts; the offering's saved questions, or
 a typical paper if the quiz or test does not exist yet), then one cover page per enrolled student
 with the marks of both parts written in MNIST digits the model never trained on, slightly rotated
-and noised. A JSON answer key with every true value is written next to it.
+and noised. Marks follow a class-like ability per student, the same in every sitting, and IS351
+papers use Computer Networks questions by unit. A JSON answer key with every true value is written
+next to it. The four demo scans for IS351 2026-27 section A (`--sitting CIE1` ... `SEE`, offering
+233) end at levels 3, 3, 3, 2, 2 with 25 weak students once saved, locked and computed.
 
 ### Computing attainment
 
@@ -350,6 +384,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 | CP006 | Marks incomplete at lock | CP014 | Invalid scenario |
 | | | CP015 | Config is not the offering's rule version (use a what-if) |
 | | | CP016 | Root-cause action for a CO without a shortfall |
+| | | CP017 | An EL question tagged to a CO (EL is one final mark) |
 
 ## Tests
 
@@ -358,7 +393,7 @@ Rule violations raise SQLSTATE class `CP`. The API returns them with the databas
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-All 206 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
+All 222 tests pass in a few minutes (the OCR tests need Tesseract and the digit model, and are
 skipped without them). Each test rebuilds `copo_test` and re-seeds the worked example.
 They cover:
 

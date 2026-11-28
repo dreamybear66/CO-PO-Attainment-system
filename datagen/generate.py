@@ -27,14 +27,14 @@ from datagen import catalog as cat
 from scripts.migrate import truncate_all
 
 # Latent skill per (student, CO) = SHARED_ABILITY x general ability + UNIQUE x CO-specific noise,
-# with unit variance. The shared part correlates every pair of COs (latent r = SHARED_ABILITY^2),
-# so it is kept small: at 0.35 (r = 0.12), sampling at n = 60 per section pushed three unrelated
-# declared dependencies and the decoy to the root-cause threshold rc_min_r = 0.40. At 0.15
-# (r = 0.02), seed 2026 gives the planted pair r = 0.75-0.82 in every weak-batch section, the
-# decoy at most 0.38, and one unrelated pair above 0.40 (IS363 CO3 <- IS233 CO2, 2024-25 even B,
-# r = 0.46), which is sampling noise: it stays at 0.45 with no shared ability at all.
-SHARED_ABILITY = 0.15
+# with unit variance. A strong student is strong in most COs (latent r = SHARED_ABILITY^2 between
+# any two COs), as in real classes: the students below target in one CO are mostly the same few in
+# the others, so a section has about 20 weak students rather than nearly everyone missing some CO.
+# That shared part also correlates every declared prerequisite pair, so the planted decoy is kept
+# free of it in the weak batch (plant()): it must stay below the root-cause threshold rc_min_r.
+SHARED_ABILITY = 0.93
 UNIQUE = float(np.sqrt(1 - SHARED_ABILITY ** 2))
+QUESTION_NOISE = 0.4          # logit sd of one mark around the student's skill (a good or bad day)
 
 TABLES_IN_LOAD_ORDER = [
     "department", "program", "faculty", "student", "course", "course_prerequisite",
@@ -121,6 +121,7 @@ class Builder:
                 cfg_id, 1, cfg["target_pct"], c["l3_pct"], c["l2_pct"], c["l1_pct"],
                 c["direct_weight"], c["indirect_weight"], c["co_target_level"], c["po_target_level"],
                 c["rc_min_n"], c["rc_min_r"], cfg["valid_from"], cfg["valid_to"],
+                cat.CIE_BEST_OF, cat.TOTAL_WEIGHTS["cie"], cat.TOTAL_WEIGHTS["el"], cat.TOTAL_WEIGHTS["see"],
             ))
             for comp, w in cat.COMPONENT_WEIGHTS.items():
                 r["config_component_weight"].append((cfg_id, comp, w))
@@ -168,12 +169,14 @@ class Builder:
     def plant(self, sections: dict[str, list[str]]) -> None:
         cause = self.co_id[cat.PLANTED["cause_co"]] - 1
         weak = self.co_id[cat.PLANTED["weak_co"]] - 1
+        decoy = self.co_id[cat.PLANTED["decoy_co"]] - 1
         for usns in sections.values():
             for usn in usns:
                 row = self.skill_row[usn]
                 if self.rng.random() < 0.5:
                     self.skill[row, cause] -= 1.2
                 self.skill[row, weak] = 0.8 * self.skill[row, cause] + 0.6 * self.rng.normal()
+                self.skill[row, decoy] = self.rng.normal()      # no real link to the weak CO
 
     # ------------------------------------------------------------------ offerings and marks
 
@@ -206,24 +209,30 @@ class Builder:
                     # students x this course's COs, built once per offering
                     skills = self.skill[np.ix_([self.skill_row[u] for u in usns],
                                                [co - 1 for co in course_cos])]
-                    for name, comp, qmarks, cos in cat.ASSESSMENTS:
-                        if is_current and name not in cat.CURRENT_TERM_ASSESSMENTS:
+                    # current term: only the CIEs scanned so far in this section, locked or not
+                    progress = dict(cat.CURRENT_TERM_PROGRESS[section]) if is_current else {}
+                    for name, comp, qmarks, cos, cie in cat.ASSESSMENTS:
+                        if is_current and cie not in progress:
                             continue
                         ids["assessment"] += 1
                         aid = ids["assessment"]
-                        r["assessment"].append((aid, oid, comp, name, sum(qmarks), False, None))
-                        if not is_current:
+                        r["assessment"].append((aid, oid, comp, name, sum(qmarks), False, None, cie))
+                        if not is_current or progress[cie]:
                             self.locks.append(aid)
                         questions = []
                         for qi, qmax in enumerate(qmarks):
                             ids["question"] += 1
                             qid = ids["question"]
                             r["assessment_question"].append((qid, aid, f"Q{qi + 1}", qmax))
+                            weights = np.zeros(cat.CO_COUNT)      # question's weight per course CO
+                            if not cos:                           # EL: one final mark, no CO tag;
+                                weights[:] = 1 / cat.CO_COUNT     # it follows the course skill overall
+                                questions.append((qid, qmax, weights))
+                                continue
                             if name in cat.SHARED_LAST_QUESTION and qi == len(qmarks) - 1:
                                 tags = [(cos[0], 0.5), (cos[-1], 0.5)]
                             else:
                                 tags = [(cos[qi % len(cos)], 1.0)]
-                            weights = np.zeros(cat.CO_COUNT)      # question's weight per course CO
                             for n, w in tags:
                                 r["question_co_map"].append((qid, self.co_id[(code, n)], w))
                                 weights[n - 1] = w
@@ -238,7 +247,8 @@ class Builder:
         rows = self.rows["student_question_mark"]
         for qid, qmax, weights in questions:
             z = skills @ weights
-            frac = sigmoid(cat.COMPONENT_EASE[comp] + 1.1 * z + self.rng.normal(0, 0.6, n))
+            ease = cat.COMPONENT_EASE[comp] + weights @ cat.CO_EASE
+            frac = sigmoid(ease + 1.1 * z + self.rng.normal(0, QUESTION_NOISE, n))
             got = np.clip(np.round(frac * qmax * 2) / 2, 0, qmax)
             for (eid, _), a, m in zip(enrol, absent, got):
                 rows.append((eid, qid, None, True) if a else (eid, qid, float(m), False))
@@ -289,11 +299,12 @@ COLUMNS = {
     "co_po_map": "co_id, po_id, strength",
     "co_dependency": "co_id, prereq_co_id, strength",
     "attainment_config": ("config_id, program_id, target_pct, l3_pct, l2_pct, l1_pct, direct_weight, "
-                          "indirect_weight, co_target_level, po_target_level, rc_min_n, rc_min_r, valid_from, valid_to"),
+                          "indirect_weight, co_target_level, po_target_level, rc_min_n, rc_min_r, valid_from, valid_to, "
+                          "cie_best_of, total_cie_weight, total_el_weight, total_see_weight"),
     "config_component_weight": "config_id, component, weight_pct",
     "course_offering": "offering_id, course_id, academic_year, term, faculty_id, section",
     "enrollment": "enrollment_id, offering_id, usn",
-    "assessment": "assessment_id, offering_id, type, name, max_marks, locked, locked_at",
+    "assessment": "assessment_id, offering_id, type, name, max_marks, locked, locked_at, cie_no",
     "assessment_question": "question_id, assessment_id, q_no, max_marks",
     "question_co_map": "question_id, co_id, weight",
     "student_question_mark": "enrollment_id, question_id, marks_obtained, is_absent",

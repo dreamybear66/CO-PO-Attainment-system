@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
-import { useAuth } from '../auth'
 import { Empty, ErrorBox, Pill, SkeletonRows } from '../components/States'
 import { COMPONENT, day, int, num, when } from '../format'
 import { useApi } from '../hooks'
@@ -13,19 +12,18 @@ type Verify = {
 }
 
 export function Settings() {
-  const { user } = useAuth()
   return (
     <>
       <div className="title-row">
-        <div><h1>Rules and audit</h1><p className="sub">Attainment rules are versioned: every result keeps the version it was computed with. The audit trail is hash-chained and anchored daily.</p></div>
+        <div><h1>Audit</h1><p className="sub">Every change to marks, mappings, rules and results is recorded in a hash-chained trail, anchored daily.</p></div>
       </div>
-      <Versions admin={user?.role === 'admin'} />
+      {/* The rule-versions section (Versions, below) is hidden to keep the app simple; the code and /api/configs remain. */}
       <Audit />
     </>
   )
 }
 
-function Versions({ admin }: { admin: boolean }) {
+export function Versions({ admin }: { admin: boolean }) {
   const v = useApi<Version[]>('/api/configs')
   const latest = v.data?.[0]
   return (

@@ -3,9 +3,9 @@
 How the CO-PO Attainment Management System gets built. Requirement IDs (FR-x, NFR-x) and suggested
 changes (S1–S13) refer to the [PRD](https://claude.ai/artifact/G8HdvxVTjQ47XZ6AeEhard).
 
-## Progress (23 Nov 2026)
+## Progress (28 Nov 2026)
 
-Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 205 tests pass. On 23 Nov 2026 the project was rescoped from
+Phases 1–6 are built and merged; phases 7–10 are built (PRs open); 222 tests pass. On 28 Nov 2026 the flow was simplified (decisions F1-F7). On 23 Nov 2026 the project was rescoped from
 accreditation support to automating teachers' CO-PO work, which added phases 7–10 (not started).
 
 | Phase | Status | Branch · PR | Output |
@@ -27,6 +27,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
 | Combined paper, no CSV | Merged (#17) | `feat/ocr-combined-paper` | One scanned PDF per sitting (Part A quiz + Part B test), 20-row cover page, typed EL marks, CSV upload removed; decisions M1-M6 |
 | Scan review fixes | PR open | `fix/scan-review-save` | Save bar kept in view on the scan review; Bloom field re-read so no question line is dropped |
+| Simple flow | PR open (on `fix/scan-review-save`) | `feat/simple-flow` | CIE 3, best 2 of 3 CIEs per student (CO scores and final total), single-mark EL outside CO attainment, weights 30/20/50, final marks, root cause per student, semester picker; what-if, trends, actions and rule versions hidden; Root cause tab removed, simpler Attainment and Students tabs without calculation notes, class-like demo data and samples. Decisions F1-F11 |
 
 ## Pending
 
@@ -46,7 +47,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 - [x] Who owns the Google Cloud project: Krrish's personal Google account (decided 23 Nov 2026).
 - [ ] Create the Google Cloud project and put its OAuth client in `.env` (README: Google Forms setup).
 - [ ] Early-warning target: what recall and precision? The cut-off is 0.5 (decided); at 0.5 after
-  CIE Test 1, recall is 35 % and precision 78 %, at 0.3 69 % and 61 %
+  CIE Test 1, recall is 17 % and precision 62 %, at 0.3 64 % and 50 % (after CIE 1 and 2: 54 % and
+  79 %; demo data of 28 Nov 2026)
   ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - [ ] Course-file PDF: which sections, and does the college have a template?
 
@@ -124,6 +126,24 @@ Recorded in PRD Section 10 as R1–R8; phases 7–10 below apply them.
 | M4 | CIE n fills `Quiz n` (Part A, CIE_QUIZ) and `CIE Test n` (Part B, CIE_THEORY); the SEE fills `SEE`. A missing assessment is created from the paper with max marks = the part's sum. Within each assessment the questions are renumbered from Q1 in paper order (chosen over keeping the paper numbers, so every assessment reads Q1.. as the demo data and typed marks do) |
 | M5 | EL marks are typed into a per-student table (`PUT /api/assessments/{id}/marks`, all or nothing, row errors returned); an EL assessment is added on the Marks tab with its questions |
 | M6 | Confirming scanned marks only saves them; locking and computing stay separate, manual steps |
+
+## Decisions (28 Nov 2026) — the simple flow
+
+Made by the user to keep the app simple for the demo; `feat/simple-flow` builds them.
+
+| # | Decision |
+| --- | --- |
+| F1 | Experiential learning (EL) is one final mark per student: the teacher types its maximum, then each student's mark (AB = 0). It is not part of CO or PO attainment, only of the final total. Stored as an EL assessment with one question Q1 = its maximum and no CO tag (CP017 refuses one) |
+| F2 | CIE 3 is scanned like CIE 1 and 2: Part A fills `Quiz 3`, Part B `CIE Test 3`. Each quiz and test carries `assessment.cie_no` (migration 013) |
+| F3 | CO score weights: CIE test 30, quiz 20, SEE 50, no EL (data in `config_component_weight`) |
+| F4 | Best 2 of 3 CIEs per student, by (quiz n + test n) percentage, ties to the earlier CIE. The dropped CIE's marks leave that student's CO scores (in `student_component_co_pct`, so attainment, root cause, weak-student lists, early-warning labels and the course file all follow) and the final total. Final total out of 100 = best-two CIE average × 30 + EL × 20 + SEE × 50; the count and the split are rules in `attainment_config` |
+| F5 | Hidden from the screens, not deleted: the What-if tab, the Trends page, the Improvement actions page and the rule-versions section of Settings |
+| F6 | The Offerings list has a semester picker (1-8, over the course catalogue), defaulting to a semester with current-year offerings for the login |
+| F7 | The Students tab adds each student's final marks and a root cause per weak student: missed COs, the questions that cost the most marks, and weak prerequisite COs (`fn_student_root_cause`) |
+| F8 | (follow-up) The Root cause tab is removed; root cause per student stays on the Students tab. The Attainment tab keeps COs met, CO attainment, a plain PO attainment list and improvement actions; the Rules used card, the CO-PO matrix and the direct/survey table are gone |
+| F9 | (follow-up) The Students tab has three views: Final marks, Weak students (filter by CO) and Early warning |
+| F10 | (follow-up) No text on any tab explains how a figure is calculated or how a step works; status and error messages stay |
+| F11 | (follow-up) Demo data looks like a real class: a section at about levels 3, 3, 3, 2, 2 with about 20 weak students (strong students strong in most COs, units 4-5 harder); the scan samples use Computer Networks questions and differ per CIE |
 
 ## Phase 1 — Schema and constraints (week 1) · Member A · ✅ done
 

@@ -56,13 +56,13 @@ export function Shell({ children }: { children: ReactNode }) {
     // Unlock requests are decided in the Offerings page's side panel, so their count sits here.
     { to: '/', label: 'Offerings', d: icon.offerings, roles: ['admin', 'faculty', 'coordinator'],
       count: pending.data?.length || null },
-    { to: '/trends', label: 'Trends', d: icon.trends, roles: ['admin', 'faculty', 'coordinator'] },
-    { to: '/actions', label: 'Improvement actions', d: icon.actions, roles: ['admin', 'faculty', 'coordinator'] },
+    // The Trends and Improvement actions pages are hidden from the menu to keep the app
+    // simple; their pages, routes and endpoints remain.
     { to: '/me', label: 'My CO scores', d: icon.scores, roles: ['student'] },
     { to: '/me/surveys', label: 'Course-exit surveys', d: icon.surveys, roles: ['student'] },
   ]
   const bottom: Nav[] = [
-    { to: '/settings', label: 'Rules and audit', d: icon.settings, roles: ['admin', 'coordinator'] },
+    { to: '/settings', label: 'Audit', d: icon.settings, roles: ['admin', 'coordinator'] },
   ]
   const item = (n: Nav) => n.roles.includes(user.role) && (
     <NavLink key={n.to} to={n.to} end className="nav-item">

@@ -2,8 +2,8 @@
 
 One PDF per offering, built only from what the database holds: the rule version used, the
 assessments, CO attainment (direct, survey, final) with a chart, PO attainment with a chart, the
-COs below target with their likely upstream causes, how many students are below target, and the
-improvement actions. Drawn with PyMuPDF (already used for OCR). Text uses FiraGO, an open-licence
+COs below target with their likely upstream causes, how many students are below target, the
+improvement actions, and each student's final marks (best two CIEs, EL, SEE). Drawn with PyMuPDF (already used for OCR). Text uses FiraGO, an open-licence
 Unicode font from pymupdf-fonts, embedded in the PDF, so CO statements, names and actions with
 symbols (>=), curly quotes or Devanagari come out as written; a character FiraGO lacks is shown as
 "?". The layout is plain and fixed; a college template can replace `render` without touching `gather`.
@@ -45,7 +45,7 @@ class NoResults(ValueError):
 
 def gather(conn, offering_id: int) -> dict:
     """Everything the report shows, read through the caller's session (RLS applies)."""
-    from api.routers.offerings import attainment
+    from api.routers.offerings import attainment, final_marks
 
     head = conn.execute("""
         SELECT o.offering_id, c.code, c.title, c.semester, o.academic_year, o.term, o.section, f.name AS faculty,
@@ -69,7 +69,8 @@ def gather(conn, offering_id: int) -> dict:
         SELECT a.name, a.type, a.max_marks, a.locked_at,
                (SELECT count(*) FROM assessment_question q WHERE q.assessment_id = a.assessment_id) AS questions
         FROM assessment a WHERE a.offering_id = %s
-        ORDER BY array_position(ARRAY['CIE_THEORY','CIE_QUIZ','EL','SEE']::assessment_component[], a.type), a.name""",
+        ORDER BY a.cie_no NULLS LAST,
+                 array_position(ARRAY['CIE_QUIZ','CIE_THEORY','EL','SEE']::assessment_component[], a.type), a.name""",
                                (offering_id,)).fetchall()
     below_target = {r["co_id"]: r["n"] for r in conn.execute("""
         SELECT s.co_id, count(*) FILTER (WHERE s.pct < %s) AS n
@@ -83,7 +84,7 @@ def gather(conn, offering_id: int) -> dict:
     actions = [a for a in att["actions"] if a["offering_id"] == offering_id]
     return {"head": head, "rules": rules, "assessments": assessments, "cos": att["cos"], "pos": att["pos"],
             "map": att["map"], "weak": weak, "causes": causes, "below_target": below_target, "actions": actions,
-            "generated": datetime.now(timezone.utc)}
+            "final": final_marks(conn, offering_id), "generated": datetime.now(timezone.utc)}
 
 
 # ---------------------------------------------------------------- layout
@@ -222,7 +223,8 @@ def render(d: dict) -> bytes:
            f"2 if {_fmt(r['l2_pct'], 0)}%, 1 if {_fmt(r['l1_pct'], 0)}%, else 0. Final level = "
            f"{_fmt(r['direct_weight'], 0)}% direct + {_fmt(r['indirect_weight'], 0)}% survey. "
            f"Targets: CO {_fmt(r['co_target_level'])}, PO {_fmt(r['po_target_level'])}. "
-           f"Component weights: {r['components']}.", 9.5)
+           f"CO score weights: {r['components']} (experiential learning is not part of CO attainment). "
+           f"Each student's best {r['cie_best_of']} CIEs count (a CIE is its quiz and test together).", 9.5)
 
     w.heading("Assessments")
     w.table([("Assessment", 0.34, "l"), ("Component", 0.22, "l"), ("Questions", 0.12, "r"), ("Max marks", 0.14, "r"),
@@ -278,6 +280,26 @@ def render(d: dict) -> bytes:
         w.y += 4
     w.text("Root-cause findings are correlations between the same students' scores, evidence for review rather than proof.",
            7.5, color=MUTED, gap=6)
+
+    f = d["final"]
+    if f["students"] and f["weights"]:
+        wt = f["weights"]
+        w.heading("Final marks")
+        w.text(f"Out of 100: average of the best {f['best_of']} CIEs x {_fmt(wt['cie'], 0)} + EL x {_fmt(wt['el'], 0)} "
+               f"+ SEE x {_fmt(wt['see'], 0)}, each as a share of its maximum. AB counts as zero.", 9)
+
+        def pct(v):
+            return "-" if v is None else f"{float(v):.1f}"
+
+        def part(got, mx):
+            return "-" if mx is None else f"{float(got):g}/{float(mx):g}"
+
+        w.table([("USN", 0.16, "l"), ("CIE 1 %", 0.1, "r"), ("CIE 2 %", 0.1, "r"), ("CIE 3 %", 0.1, "r"),
+                 ("Dropped", 0.1, "l"), ("EL", 0.1, "r"), ("SEE", 0.12, "r"), ("Total", 0.11, "r"), ("Of", 0.11, "r")],
+                [[st["usn"], pct(st["cie1"]), pct(st["cie2"]), pct(st["cie3"]),
+                  ", ".join(f"CIE {n}" for n in st["dropped"]) or "-", part(st["el"], st["el_max"]),
+                  part(st["see"], st["see_max"]), _fmt(st["total"], 1), _fmt(st["out_of"], 0)] for st in f["students"]],
+                size=8)
 
     w.heading("Improvement actions")
     if d["actions"]:

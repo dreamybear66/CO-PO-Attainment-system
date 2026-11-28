@@ -3,7 +3,7 @@ import type { MapCell, PoRow } from '../../components/CoPoMatrix'
 import type { Offering } from '../Offerings'
 
 export type Assessment = {
-  assessment_id: number; name: string; type: string; max_marks: string; locked: boolean; locked_at: string | null
+  assessment_id: number; name: string; type: string; cie_no: number | null; max_marks: string; locked: boolean; locked_at: string | null
   questions: number; marks_entered: number; marks_expected: number; unlock_status: string | null
 }
 export type Config = {
@@ -11,6 +11,7 @@ export type Config = {
   direct_weight: string; indirect_weight: string; co_target_level: string; po_target_level: string
   valid_from: string; valid_to: string | null; rc_min_n: number; rc_min_r: string
   rc_max_depth: number; rc_depth_decay: string; favourable_rating: number
+  cie_best_of: number; total_cie_weight: string; total_el_weight: string; total_see_weight: string
   component_weights: Record<string, number>
 }
 export type OfferingDetail = Offering & {

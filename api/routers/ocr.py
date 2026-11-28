@@ -1,12 +1,12 @@
 """Answer-sheet OCR (phase 7, FR-3.7 to FR-3.9): scan one sitting, then save what the teacher confirms.
 
-POST /api/offerings/{id}/scan?sitting=CIE1|CIE2|SEE   read the PDF; returns suggestions only, saves nothing
+POST /api/offerings/{id}/scan?sitting=CIE1|CIE2|CIE3|SEE  read the PDF; returns suggestions only, saves nothing
 POST /api/offerings/{id}/scan/confirm                 save the confirmed questions and marks, in one transaction
 PUT  /api/assessments/{id}/questions                  save one assessment's questions, max marks, COs and Bloom levels
 
 One PDF per sitting: page 1 is the question paper, every later page a student's cover page. A CIE
-paper has Part A (the quiz) and Part B (the test), numbered on across parts; CIE n fills 'Quiz n'
-with Part A and 'CIE Test n' with Part B, and the SEE fills 'SEE'. An assessment that does not
+paper has Part A (the quiz) and Part B (the test), numbered on across parts; CIE n (1-3) fills
+'Quiz n' with Part A and 'CIE Test n' with Part B, both stored with cie_no = n, and the SEE fills 'SEE'. An assessment that does not
 exist yet is created from the paper. Within each assessment the questions are renumbered from Q1
 in paper order (paper Q6, the first Part B question, is 'CIE Test 1' Q1); the cover-page row of a
 question is its paper number. Confirmed marks go through the same validation, triggers and audit
@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api")
 editors = require("admin", "faculty")
 MAX_BYTES = 40 * 1024 * 1024
 
-Sitting = Literal["CIE1", "CIE2", "SEE"]
+Sitting = Literal["CIE1", "CIE2", "CIE3", "SEE"]
 PART_LABEL = {"A": "Part A - Quiz", "B": "Part B - Test"}
 
 
@@ -240,11 +240,15 @@ def confirm(offering_id: int, body: ConfirmIn, user: User = Depends(editors), db
                 if not mine:
                     continue
                 aid = t["assessment_id"]
+                cie = SITTINGS[body.sitting]["cie"]
                 if aid is None:
                     aid = conn.execute(
-                        "INSERT INTO assessment (offering_id, type, name, max_marks) VALUES (%s, %s, %s, %s) "
+                        "INSERT INTO assessment (offering_id, type, name, max_marks, cie_no) VALUES (%s, %s, %s, %s, %s) "
                         "RETURNING assessment_id",
-                        (offering_id, t["type"], t["name"], sum(q.max_marks for q in mine))).fetchone()["assessment_id"]
+                        (offering_id, t["type"], t["name"], sum(q.max_marks for q in mine), cie)).fetchone()["assessment_id"]
+                elif cie is not None:          # made before CIE numbers were stored
+                    conn.execute("UPDATE assessment SET cie_no = %s WHERE assessment_id = %s AND cie_no IS NULL",
+                                 (cie, aid))
                 own = [qsvc.QuestionIn(q_no=numbers[q.q_no], max_marks=q.max_marks, cos=q.cos, bloom=q.bloom)
                        for q in mine]
                 try:

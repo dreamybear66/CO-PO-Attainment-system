@@ -62,9 +62,8 @@ export function SurveyTab({ offering, canEdit }: { offering: OfferingDetail; can
       <section className="panel" aria-labelledby="t-form">
         <header>
           <h2 id="t-form">Course-exit survey form</h2>
-          <span className="meta">{form ? `Created ${when(form.created_at)}` : 'Google Forms, in your own Google account'}</span>
+          {form && <span className="meta">Created {when(form.created_at)}</span>}
         </header>
-        {!d.finished && <p className="note">Responses are accepted once every assessment of this offering is locked. Earlier answers stay in the form and are read after that.</p>}
 
         {!form && !canEdit && <Empty>No survey form has been created for this offering yet.</Empty>}
         {!form && canEdit && !data.data.google_configured && (
@@ -76,11 +75,11 @@ export function SurveyTab({ offering, canEdit }: { offering: OfferingDetail; can
               <span className="step-no">1</span>
               {google.data.connected
                 ? <span>Connected to Google as <strong>{google.data.email}</strong>. <button className="btn small ghost" disabled={busy} onClick={disconnect}>Disconnect</button></span>
-                : <span>Connect your Google account so the form is created in your Drive. <button className="btn small" disabled={busy} onClick={connect}>Connect Google</button></span>}
+                : <span>Connect your Google account. <button className="btn small" disabled={busy} onClick={connect}>Connect Google</button></span>}
             </div>
             <div>
               <span className="step-no">2</span>
-              <span>Create the form: college email, USN, name and phone number, then one 1–5 rating for each of the {offering.cos.length} COs.{' '}
+              <span>Create the form.{' '}
                 <button className="btn small primary" disabled={busy || !google.data.connected} onClick={create}>Create the survey form</button></span>
             </div>
           </div>
@@ -94,14 +93,8 @@ export function SurveyTab({ offering, canEdit }: { offering: OfferingDetail; can
               <a className="btn small primary" href={`https://wa.me/?text=${encodeURIComponent(share ?? '')}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>
               {form.mine && <a className="btn small ghost" href={form.edit_uri} target="_blank" rel="noreferrer">Open in Google Forms</a>}
             </div>
-            <p className="small muted" style={{ margin: '10px 0' }}>
-              WhatsApp opens with the message and link filled in; pick the class group and send. Students answer with their college email and USN;
-              only a hashed USN and the ratings are kept.
-            </p>
-            <div className="filters" style={{ marginBottom: 0 }}>
-              {form.mine
-                ? <button className="btn small" disabled={busy} onClick={fetchNow}>{busy ? 'Fetching…' : 'Fetch responses'}</button>
-                : <span className="small muted">The teacher who created the form can fetch responses now; they are also fetched every night.</span>}
+            <div className="filters" style={{ marginTop: 12, marginBottom: 0 }}>
+              {form.mine && <button className="btn small" disabled={busy} onClick={fetchNow}>{busy ? 'Fetching…' : 'Fetch responses'}</button>}
               <span className="small muted">
                 {form.last_synced_at ? `Last fetched ${when(form.last_synced_at)}` : 'Not fetched yet'}
                 {form.last_sync && ` · ${form.last_sync.read} in the form, ${form.last_sync.accepted} new last time`}
@@ -120,7 +113,6 @@ export function SurveyTab({ offering, canEdit }: { offering: OfferingDetail; can
       <section className="panel" aria-labelledby="t-dash">
         <header>
           <h2 id="t-dash">Responses</h2>
-          <span className="meta">in-app and Google Form answers together · ratings of {d.favourable_rating} or more count as favourable</span>
         </header>
         <div className="kpis">
           <div className="kpi"><div className="kpi-label">Answered</div><div className="kpi-value">{int(d.responses)}<small>of {int(d.enrolled)}</small></div></div>

@@ -10,6 +10,7 @@ import type { Assessment, OfferingDetail } from './types'
 const SITTINGS = [
   { key: 'CIE1', label: 'CIE 1', fills: ['Quiz 1', 'CIE Test 1'] },
   { key: 'CIE2', label: 'CIE 2', fills: ['Quiz 2', 'CIE Test 2'] },
+  { key: 'CIE3', label: 'CIE 3', fills: ['Quiz 3', 'CIE Test 3'] },
   { key: 'SEE', label: 'SEE', fills: ['SEE'] },
 ] as const
 
@@ -29,7 +30,6 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         <section className="panel" aria-labelledby="t-scan">
           <header>
             <h2 id="t-scan">Scan answer sheets</h2>
-            <span className="meta">One PDF per sitting · the question paper, then each student's cover page</span>
           </header>
           <div className="table-wrap">
             <table>
@@ -48,9 +48,9 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
       <section className="panel" aria-labelledby="t-assess">
         <header>
           <h2 id="t-assess">Assessments</h2>
-          <span className="meta">{open.length ? `${open.length} open · lock each one once its marks are final` : offering.assessments.length ? 'All locked' : ''}</span>
+          <span className="meta">{open.length ? `${open.length} open` : offering.assessments.length ? 'All locked' : ''}</span>
         </header>
-        {offering.assessments.length === 0 ? <Empty>No assessments yet. Scanning a sitting adds its quiz and test; add experiential learning below.</Empty> : (
+        {offering.assessments.length === 0 ? <Empty>No assessments yet.</Empty> : (
           <div className="table-wrap">
             <table>
               <thead><tr><th>Assessment</th><th className="n hide-phone">Questions</th><th className="n">Max</th><th className="n">Marks entered</th><th>Status</th>{canEdit && <th className="n">Actions</th>}</tr></thead>
@@ -67,7 +67,6 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         {canEdit && !hasEl && !adding &&
           <div className="filters" style={{ marginTop: 12, marginBottom: 0 }}>
             <button className="btn small" onClick={() => setAdding(true)}>Add experiential learning</button>
-            <span className="small muted">Its marks are typed in, not scanned.</span>
           </div>}
         {message && <p className="small" role="status" style={{ marginTop: 12 }}>{message}</p>}
       </section>
@@ -104,12 +103,6 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
           </div>
         </section>
       )}
-      <p className="small muted">
-        Scan one PDF per sitting: page 1 is the question paper, then one cover page per student. A CIE paper lists the quiz under
-        <span className="id"> Part A - Quiz</span> and the test under <span className="id">Part B - Test</span>, numbered on from one part to the next;
-        CIE 1 fills Quiz 1 and CIE Test 1, the SEE fills SEE, and a missing assessment is created from the paper. You check every value before it is saved.
-        Experiential-learning marks are typed in; enter <span className="id">AB</span> for an absent student (counts as zero).
-      </p>
     </div>
   )
 }
@@ -181,8 +174,9 @@ function AssessmentRow({ a, canEdit, weight, onMessage, onChange, onType }: {
   return (
     <>
       <tr>
-        <td>{a.name}<span className="sub">{COMPONENT[a.type]}{weight ? ` · ${weight}% of the CO score` : ''}{a.type === 'EL' ? ' · typed' : ' · scanned'}</span></td>
-        <td className="n num hide-phone">{a.questions}</td>
+        <td>{a.name}<span className="sub">{COMPONENT[a.type]}{a.cie_no ? ` · CIE ${a.cie_no}` : ''}{a.type === 'EL' ? ' · one mark, final total only · typed'
+          : `${weight ? ` · ${weight}% of the CO score` : ''} · scanned`}</span></td>
+        <td className="n num hide-phone">{a.type === 'EL' ? '—' : a.questions}</td>
         <td className="n num">{int(num(a.max_marks))}</td>
         <td className="n num">{int(a.marks_entered)}<span className="sub">of {int(a.marks_expected)}</span></td>
         <td>{status}</td>

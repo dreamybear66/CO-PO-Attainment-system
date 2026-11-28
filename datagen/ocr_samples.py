@@ -2,7 +2,7 @@
 
   python -m datagen.ocr_samples --offering-id 42 --sitting CIE1 [--database copo] [--seed 7] [--out samples/x.pdf]
 
-One PDF per sitting (CIE1, CIE2 or SEE). Page 1 is a printed question paper: for a CIE, Part A (the
+One PDF per sitting (CIE1, CIE2, CIE3 or SEE). Page 1 is a printed question paper: for a CIE, Part A (the
 quiz) and Part B (the test) under their headings, numbered on across parts; for the SEE, one list.
 The questions are the offering's saved ones ('Quiz 1' and 'CIE Test 1' for CIE1, 'SEE' for SEE),
 or a typical paper when an assessment does not exist yet. Each later page is one student's cover
@@ -15,6 +15,7 @@ Everything is synthetic: no real question paper, answer sheet or student mark is
 """
 
 import argparse
+import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -42,6 +43,40 @@ STEMS = [
     "Discuss transaction isolation levels",
     "Write a recursive query",
 ]
+
+
+# Question text for the demo course, IS351 Computer Networks, by CO (one unit each), so a paper's
+# questions read like the unit they test. Other courses get STEMS. No digits at the end: the reader
+# takes the last numbers on a line as marks.
+CO_STEMS = {
+    "IS351": {
+        1: ["Define bandwidth and throughput", "Compare the OSI and TCP/IP models",
+            "Explain circuit and packet switching", "List the guided transmission media",
+            "Explain the layered network architecture", "Describe line coding with an example"],
+        2: ["Explain framing with byte stuffing", "Compute the CRC for the given data",
+            "Explain sliding window protocols", "Compare pure and slotted ALOHA",
+            "Explain CSMA/CD with a flowchart", "Describe the Ethernet frame format"],
+        3: ["Explain IPv4 addressing and subnetting", "Apply the distance vector algorithm",
+            "Explain link state routing", "Compare the IPv4 and IPv6 headers",
+            "Explain how ARP resolves an address", "Subnet the given network address"],
+        4: ["Explain the TCP three-way handshake", "Compare TCP and UDP",
+            "Explain TCP congestion control", "Describe flow control in TCP",
+            "Explain the TCP segment header", "Discuss slow start and fast retransmit"],
+        5: ["Explain how DNS resolves a name", "Describe an HTTP request and response",
+            "Explain SMTP and POP for email", "Compare persistent and non-persistent HTTP",
+            "Explain the role of web caching", "Describe the FTP control and data connections"],
+    },
+}
+
+
+def stem(code: str, cos: list[int], used: dict[int, int], i: int) -> str:
+    """The next unused question text for the question's first CO, or a generic one."""
+    by_co = CO_STEMS.get(code, {}).get(cos[0]) if cos else None
+    if not by_co:
+        return STEMS[i % len(STEMS)]
+    n = used.get(cos[0], 0)
+    used[cos[0]] = n + 1
+    return by_co[n % len(by_co)]
 
 
 @dataclass
@@ -215,11 +250,47 @@ def random_key(paper: Paper, usns: list[str], rng: np.random.Generator, absent_s
     return key
 
 
+# How each part of a paper scores, as in the demo data (datagen/catalog.py COMPONENT_EASE).
+PART_COMPONENT = {"A": "CIE_QUIZ", "B": "CIE_THEORY", None: "SEE"}
+# Logit offset per CO number for the demo PDFs. Easier than the demo data's CO_EASE, because a scan
+# has whole marks only: with these, IS351 2026-27 section A ends at levels 3, 3, 3, 2, 2 with about
+# 25 students below target in some CO, once CIE 1-3 and the SEE are saved (seed 7).
+SAMPLE_CO_EASE = np.array([0.9, 0.9, 0.9, 0.1, -0.05])
+
+
+def class_key(paper: Paper, usns: list[str], rng: np.random.Generator, absent_share: float = 0.03) -> Key:
+    """Marks a real class might get, for the demo PDFs: like the demo data (datagen/generate.py),
+    each student has one skill per CO, mostly their general ability, which stays the same in every
+    sitting (seeded from the USN); each mark adds a good or bad day (rng). CO difficulty is
+    SAMPLE_CO_EASE."""
+    from datagen import catalog as cat
+    from datagen.generate import QUESTION_NOISE, SHARED_ABILITY, UNIQUE, sigmoid
+    key = Key(paper=paper)
+    for usn in usns:
+        if rng.random() < absent_share:
+            key.absent.append(usn)
+            continue
+        own = np.random.default_rng(int.from_bytes(hashlib.sha256(usn.encode()).digest()[:8], "big"))
+        skill = SHARED_ABILITY * own.normal() + UNIQUE * own.normal(size=cat.CO_COUNT)
+        marks = {}
+        for q in paper.questions:
+            cos = [c for c in q.cos if 1 <= c <= cat.CO_COUNT] or [1]
+            z = float(np.mean([skill[c - 1] for c in cos]))
+            ease = cat.COMPONENT_EASE[PART_COMPONENT[q.part]] + float(np.mean([SAMPLE_CO_EASE[c - 1] for c in cos]))
+            frac = sigmoid(ease + 1.1 * z + rng.normal(0, QUESTION_NOISE))
+            marks[q.q_no] = int(np.clip(round(frac * q.max_marks), 0, q.max_marks))
+        key.sheets.append(Sheet(usn=usn, marks=marks))
+    rng.shuffle(key.sheets)
+    return key
+
+
 # ---------------------------------------------------------------- from the database
 
 # A typical paper per part, used when the assessment does not exist yet: (maxima, COs to cycle).
-TYPICAL = {"CIE1": {"A": ([2] * 5, [1, 2, 3]), "B": ([10, 10, 10, 10, 5, 5], [1, 2, 3])},
-           "CIE2": {"A": ([2] * 5, [3, 4, 5]), "B": ([10, 10, 10, 10, 5, 5], [3, 4, 5])},
+# The CIE COs follow the demo catalogue (datagen/catalog.py ASSESSMENTS).
+TYPICAL = {"CIE1": {"A": ([2] * 5, [1, 2]), "B": ([10, 10, 10, 10, 5, 5], [1, 2])},
+           "CIE2": {"A": ([2] * 5, [2, 3, 4]), "B": ([10, 10, 10, 10, 5, 5], [2, 3, 4])},
+           "CIE3": {"A": ([2] * 5, [4, 5]), "B": ([10, 10, 10, 10, 5, 5], [4, 5])},
            "SEE": {"B": ([10] * 10, [1, 2, 3, 4, 5])}}
 
 
@@ -233,6 +304,7 @@ def paper_from_db(conn, offering_id: int, sitting: str, rng: np.random.Generator
     course_cos = [r["co_number"] for r in conn.execute(
         "SELECT co_number FROM course_outcome WHERE course_id = %s ORDER BY co_number", (o["course_id"],))]
     questions: list[Question] = []
+    used: dict[int, int] = {}
     for part, (name, _) in SITTINGS[sitting]["parts"].items():
         rows = conn.execute("""
             SELECT q.max_marks, coalesce(q.bloom_level, 0) AS bloom, array_agg(co.co_number ORDER BY co.co_number) AS cos
@@ -247,7 +319,7 @@ def paper_from_db(conn, offering_id: int, sitting: str, rng: np.random.Generator
         for r in rows:
             i = len(questions)
             questions.append(Question(q_no=f"Q{i + 1}", max_marks=int(r["max_marks"]), cos=list(r["cos"]),
-                                      bloom=int(r["bloom"]) or int(rng.integers(1, 5)), text=STEMS[i % len(STEMS)],
+                                      bloom=int(r["bloom"]) or int(rng.integers(1, 5)), text=stem(o["code"], list(r["cos"]), used, i),
                                       part=part if sitting != "SEE" else None))
     if len(questions) > layout.MAX_QUESTIONS:
         raise SystemExit(f"the {sitting} paper has {len(questions)} questions; the cover page has {layout.MAX_QUESTIONS} rows")
@@ -265,16 +337,17 @@ def main() -> None:
 
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--offering-id", type=int, required=True)
-    p.add_argument("--sitting", choices=["CIE1", "CIE2", "SEE"], required=True)
+    p.add_argument("--sitting", choices=["CIE1", "CIE2", "CIE3", "SEE"], required=True)
     p.add_argument("--database", default=None)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args()
-    rng = np.random.default_rng(args.seed)
+    # Each sitting gets its own draws, so a student's CIE 1, 2 and 3 marks differ.
+    rng = np.random.default_rng([args.seed, ["CIE1", "CIE2", "CIE3", "SEE"].index(args.sitting)])
     with psycopg.connect(config.owner_dsn(args.database), row_factory=dict_row) as conn:
         paper, usns = paper_from_db(conn, args.offering_id, args.sitting, rng)
     out = args.out or config.ROOT / "samples" / f"offering-{args.offering_id}-{args.sitting.lower()}.pdf"
-    key = random_key(paper, usns, rng)
+    key = class_key(paper, usns, rng)
     build_pdf(key, out, seed=args.seed)
     print(f"wrote {out} ({len(key.sheets) + 1} pages, {len(key.absent)} absent) and {out.with_suffix('.json').name}")
 

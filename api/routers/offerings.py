@@ -1,9 +1,10 @@
-"""Offerings, assessments, typed marks, locking, computation, root cause and what-if (faculty and HoD)."""
+"""Offerings, assessments, typed EL marks, final marks, locking, computation, root cause and what-if
+(faculty and HoD)."""
 
 from typing import Literal
 
 import psycopg
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
@@ -13,7 +14,6 @@ from api.db import User
 from api.errors import message
 from api.routers import students
 from api.services import course_file, early_warning, marks, whatif
-from api.services import questions as qsvc
 
 router = APIRouter(prefix="/api")
 staff = require("admin", "faculty", "coordinator")
@@ -45,7 +45,10 @@ def visible_offering(conn, offering_id: int) -> dict:
 
 @router.get("/offerings")
 def list_offerings(academic_year: str | None = None, course_id: int | None = None,
+                   semester: int | None = Query(None, ge=1, le=8),
                    user: User = Depends(staff), dbname=Depends(database)):
+    """The caller's visible offerings; `semester` (1-8) gives every subject of that semester of the
+    course catalogue."""
     where = ["fn_can_view_offering(o.offering_id)"]
     params: list = []
     if academic_year:
@@ -54,6 +57,9 @@ def list_offerings(academic_year: str | None = None, course_id: int | None = Non
     if course_id:
         where.append("o.course_id = %s")
         params.append(course_id)
+    if semester:
+        where.append("c.semester = %s")
+        params.append(semester)
     with db.session(user, dbname) as conn:
         return conn.execute(OFFERING_SQL + " WHERE " + " AND ".join(where) +
                             " ORDER BY o.academic_year DESC, o.term DESC, c.code, o.section", params).fetchall()
@@ -64,7 +70,7 @@ def offering_detail(offering_id: int, user: User = Depends(staff), dbname=Depend
     with db.session(user, dbname) as conn:
         head = visible_offering(conn, offering_id)
         assessments = conn.execute("""
-            SELECT a.assessment_id, a.name, a.type, a.max_marks, a.locked, a.locked_at,
+            SELECT a.assessment_id, a.name, a.type, a.cie_no, a.max_marks, a.locked, a.locked_at,
                    (SELECT count(*) FROM assessment_question q WHERE q.assessment_id = a.assessment_id) AS questions,
                    (SELECT count(*) FROM student_question_mark m JOIN assessment_question q USING (question_id)
                      WHERE q.assessment_id = a.assessment_id) AS marks_entered,
@@ -73,7 +79,8 @@ def offering_detail(offering_id: int, user: User = Depends(staff), dbname=Depend
                    (SELECT r.status FROM unlock_request r WHERE r.assessment_id = a.assessment_id
                      ORDER BY r.requested_at DESC LIMIT 1) AS unlock_status
             FROM assessment a WHERE a.offering_id = %s
-            ORDER BY array_position(ARRAY['CIE_THEORY','CIE_QUIZ','EL','SEE']::assessment_component[], a.type), a.name
+            ORDER BY a.cie_no NULLS LAST,
+                     array_position(ARRAY['CIE_QUIZ','CIE_THEORY','EL','SEE']::assessment_component[], a.type), a.name
         """, (offering_id,)).fetchall()
         cos = conn.execute("""
             SELECT co.co_id, co.co_number, co.statement, co.bloom_level
@@ -89,25 +96,25 @@ def offering_detail(offering_id: int, user: User = Depends(staff), dbname=Depend
 
 # ---------------------------------------------------------------- marks and locking
 
-class AssessmentIn(BaseModel):
+class ElIn(BaseModel):
     type: Literal["EL"] = "EL"           # CIE tests, quizzes and the SEE are created by scanning their paper
     name: str = Field(default="Experiential Learning", min_length=2, max_length=60)
-    questions: list[qsvc.QuestionIn] = Field(min_length=1, max_length=20)
+    max_marks: int = Field(ge=1, le=999)
 
 
 @router.post("/offerings/{offering_id}/assessments", status_code=201)
-def create_assessment(offering_id: int, body: AssessmentIn, user: User = Depends(editors), dbname=Depends(database)):
-    """An experiential-learning assessment with its questions; its maximum is their sum."""
+def create_assessment(offering_id: int, body: ElIn, user: User = Depends(editors), dbname=Depends(database)):
+    """Experiential learning: one final mark per student out of `max_marks`, stored as a single
+    question Q1 with no CO. It counts only in the final total, not in CO attainment."""
     with db.session(user, dbname) as conn:
-        o = visible_offering(conn, offering_id)
+        visible_offering(conn, offering_id)
+        if conn.execute("SELECT 1 FROM assessment WHERE offering_id = %s AND type = 'EL'", (offering_id,)).fetchone():
+            raise HTTPException(409, "This offering already has experiential learning")
         aid = conn.execute("INSERT INTO assessment (offering_id, type, name, max_marks) VALUES (%s, %s, %s, %s) "
                            "RETURNING assessment_id",
-                           (offering_id, body.type, body.name.strip(), sum(q.max_marks for q in body.questions))
-                           ).fetchone()["assessment_id"]
-        try:
-            qsvc.replace(conn, aid, o["course_id"], body.questions)
-        except qsvc.QuestionError as exc:
-            raise HTTPException(exc.status, exc.detail) from None
+                           (offering_id, body.type, body.name.strip(), body.max_marks)).fetchone()["assessment_id"]
+        conn.execute("INSERT INTO assessment_question (assessment_id, q_no, max_marks) VALUES (%s, 'Q1', %s)",
+                     (aid, body.max_marks))
     return {"assessment_id": aid}
 
 
@@ -186,7 +193,7 @@ def lock(assessment_id: int, background: BackgroundTasks, user: User = Depends(e
         kind = conn.execute("SELECT type::text AS t FROM assessment WHERE assessment_id = %s", (assessment_id,)).fetchone()["t"]
         changed = conn.execute("UPDATE assessment SET locked = true WHERE assessment_id = %s AND NOT locked",
                                (assessment_id,)).rowcount
-    # Phase 9: a newly locked CIE, quiz or EL refreshes the early warning after the response is sent
+    # Phase 9: a newly locked CIE test or quiz refreshes the early warning after the response is sent
     # (best effort); locking one that was already locked changes nothing, so nothing is retrained.
     if changed and kind in early_warning.STAGE_TYPES:
         background.add_task(students.refresh_after_lock, user, dbname, a["offering_id"])
@@ -214,6 +221,33 @@ def unlock(assessment_id: int, user: User = Depends(editors), dbname=Depends(dat
         assessment_or_404(conn, assessment_id)
         conn.execute("UPDATE assessment SET locked = false WHERE assessment_id = %s AND locked", (assessment_id,))
     return {"locked": False}
+
+
+# ---------------------------------------------------------------- final marks
+
+def final_marks(conn, offering_id: int) -> dict:
+    """Each student's final total out of 100 (student_final_marks, migration 013): the average of
+    their best CIEs, EL and SEE, weighted by the offering's rule version; partial while the term runs."""
+    rule = conn.execute("""
+        SELECT ac.cie_best_of, ac.total_cie_weight, ac.total_el_weight, ac.total_see_weight
+        FROM v_offering_config oc JOIN attainment_config ac USING (config_id) WHERE oc.offering_id = %s""",
+                        (offering_id,)).fetchone()
+    rows = conn.execute("""
+        SELECT f.usn, st.name, round(f.cie1_pct, 1) AS cie1, round(f.cie2_pct, 1) AS cie2, round(f.cie3_pct, 1) AS cie3,
+               f.cies, f.dropped_cies AS dropped, round(f.cie_pct, 1) AS cie_pct,
+               f.el_got AS el, f.el_max, f.see_got AS see, f.see_max, f.total, f.out_of
+        FROM student_final_marks f JOIN student st USING (usn)
+        WHERE f.offering_id = %s ORDER BY f.usn""", (offering_id,)).fetchall()
+    weights = ({"cie": rule["total_cie_weight"], "el": rule["total_el_weight"], "see": rule["total_see_weight"]}
+               if rule else None)
+    return {"best_of": rule["cie_best_of"] if rule else None, "weights": weights, "students": rows}
+
+
+@router.get("/offerings/{offering_id}/final-marks")
+def get_final_marks(offering_id: int, user: User = Depends(staff), dbname=Depends(database)):
+    with db.session(user, dbname) as conn:
+        visible_offering(conn, offering_id)
+        return final_marks(conn, offering_id)
 
 
 # ---------------------------------------------------------------- attainment

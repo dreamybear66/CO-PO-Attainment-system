@@ -1,5 +1,7 @@
 """Fixed catalogue for the synthetic ISE programme: courses, prerequisites, COs, POs."""
 
+import numpy as np
+
 PROGRAM = {"dept": "Information Science and Engineering",
            "name": "B.E. Information Science and Engineering", "degree": "B.E."}
 
@@ -79,23 +81,34 @@ FIXED_DEPENDENCIES = [
     (PLANTED["weak_co"], PLANTED["decoy_co"], 2),
 ]
 
-# (name, component, max marks per question, CO numbers covered). Questions cycle through the
-# covered COs; the last question of each CIE test is shared 50/50 by its first and last CO.
+# (name, component, max marks per question, CO numbers covered, CIE number). Questions cycle through
+# the covered COs; the last question of each CIE test is shared 50/50 by its first and last CO.
+# CIE n is Quiz n + CIE Test n (one sitting); each student keeps the best two of the three CIEs.
+# Experiential learning (EL) is one final mark (Q1 = its maximum) with no CO: it counts only in
+# the final total, never in CO attainment.
 ASSESSMENTS = [
-    ("CIE Test 1", "CIE_THEORY", [10, 10, 10, 10, 5, 5], [1, 2, 3]),
-    ("CIE Test 2", "CIE_THEORY", [10, 10, 10, 10, 5, 5], [3, 4, 5]),
-    ("Quiz 1", "CIE_QUIZ", [2, 2, 2, 2, 2], [1, 2, 3]),
-    ("Quiz 2", "CIE_QUIZ", [2, 2, 2, 2, 2], [3, 4, 5]),
-    ("Experiential Learning", "EL", [10, 10, 10, 10], [2, 4, 5]),
-    ("SEE", "SEE", [10] * 10, [1, 2, 3, 4, 5]),
+    ("CIE Test 1", "CIE_THEORY", [10, 10, 10, 10, 5, 5], [1, 2], 1),
+    ("Quiz 1", "CIE_QUIZ", [2, 2, 2, 2, 2], [1, 2], 1),
+    ("CIE Test 2", "CIE_THEORY", [10, 10, 10, 10, 5, 5], [2, 3, 4], 2),
+    ("Quiz 2", "CIE_QUIZ", [2, 2, 2, 2, 2], [2, 3, 4], 2),
+    ("CIE Test 3", "CIE_THEORY", [10, 10, 10, 10, 5, 5], [4, 5], 3),
+    ("Quiz 3", "CIE_QUIZ", [2, 2, 2, 2, 2], [4, 5], 3),
+    ("Experiential Learning", "EL", [40], [], None),
+    ("SEE", "SEE", [10] * 10, [1, 2, 3, 4, 5], None),
 ]
-SHARED_LAST_QUESTION = {"CIE Test 1", "CIE Test 2"}
-# In the current (in-progress) term only these assessments have happened.
-CURRENT_TERM_ASSESSMENTS = {"CIE Test 1", "Quiz 1"}
+SHARED_LAST_QUESTION = {"CIE Test 1", "CIE Test 2", "CIE Test 3"}
+# The current (in-progress) term, by section: which CIEs have been scanned, and whether each is
+# locked. Section A has nothing yet (scan it from the start), the others are part-way through. Each
+# keeps an assessment open, so none counts as finished (sp_compute_all computes finished offerings).
+CURRENT_TERM_PROGRESS = {"A": [], "B": [(1, True), (2, True), (3, False)], "C": [(1, True), (2, False)],
+                         "D": [(1, False)]}
 
 # Logit offsets per component: quizzes and EL score higher than the SEE.
 COMPONENT_EASE = {"CIE_THEORY": 1.0, "CIE_QUIZ": 1.2, "EL": 1.4, "SEE": 0.7}
-ABSENCE_RATE = {"CIE_THEORY": 0.03, "CIE_QUIZ": 0.03, "EL": 0.0, "SEE": 0.01}
+# Logit offsets per CO number (CO1..CO5): units 4 and 5 are harder, so a typical section is at level 3
+# in CO1-CO3 and around level 2 in CO4-CO5 (IS351 2025-26 A: 3, 3, 3, 2, 2, with 22 weak students).
+CO_EASE = np.array([0.7, 0.7, 0.7, -0.3, 0.0])
+ABSENCE_RATE = {"CIE_THEORY": 0.03, "CIE_QUIZ": 0.03, "EL": 0.02, "SEE": 0.01}
 
 # Two rule versions show that results keep the config they were computed with.
 CONFIGS = [
@@ -105,7 +118,11 @@ CONFIGS = [
 CONFIG_COMMON = {"l3_pct": 70, "l2_pct": 60, "l1_pct": 50, "direct_weight": 80,
                  "indirect_weight": 20, "co_target_level": 2.0, "po_target_level": 2.0,
                  "rc_min_n": 20, "rc_min_r": 0.40}    # root-cause minimum students and correlation
-COMPONENT_WEIGHTS = {"CIE_THEORY": 20, "CIE_QUIZ": 10, "EL": 20, "SEE": 50}
+# CO score weights (EL has none: it is not part of CO attainment), and the final total out of 100:
+# average of the kept CIEs x 30 + EL x 20 + SEE x 50 (attainment_config, migration 013).
+COMPONENT_WEIGHTS = {"CIE_THEORY": 30, "CIE_QUIZ": 20, "SEE": 50}
+CIE_BEST_OF = 2
+TOTAL_WEIGHTS = {"cie": 30, "el": 20, "see": 50}
 
 BATCHES = [2021, 2022, 2023, 2024, 2025, 2026]
 SECTIONS = ["A", "B", "C", "D"]

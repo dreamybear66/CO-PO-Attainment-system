@@ -196,7 +196,7 @@ def test_lock_with_every_mark_or_absence(open_assessment):
 
 def test_lock_needs_question_maxima_to_match(db):
     db.execute("""
-        INSERT INTO assessment (assessment_id, offering_id, type, name, max_marks) VALUES (3, 1, 'EL', 'EL', 40);
+        INSERT INTO assessment (assessment_id, offering_id, type, name, max_marks) VALUES (3, 1, 'CIE_THEORY', 'Test', 40);
         INSERT INTO assessment_question VALUES (31, 3, 'R1', 10);
         INSERT INTO question_co_map VALUES (31, 1, 1);
         INSERT INTO student_question_mark SELECT i, 31, 5, false FROM generate_series(1, 60) i;

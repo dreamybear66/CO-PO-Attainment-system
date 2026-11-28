@@ -42,7 +42,7 @@ def build(conn, *, n: int = 60, effect: float = 0.8, noise: float = 0.5, seed: i
         INSERT INTO attainment_config (config_id, program_id, target_pct, l3_pct, l2_pct, l1_pct,
             direct_weight, indirect_weight, co_target_level, po_target_level, valid_from)
         VALUES (1, 1, 60, 70, 60, 50, 80, 20, 2.0, 2.0, '2020-08-01');
-        INSERT INTO config_component_weight VALUES (1, 'CIE_THEORY', 20), (1, 'CIE_QUIZ', 10), (1, 'EL', 20), (1, 'SEE', 50);
+        INSERT INTO config_component_weight VALUES (1, 'CIE_THEORY', 30), (1, 'CIE_QUIZ', 20), (1, 'SEE', 50);
     """)
     for cid, code, sem, year, term in COURSES:
         conn.execute("INSERT INTO course VALUES (%s, %s, %s, 4, %s, 1)", (cid, code, code, sem))
