@@ -91,8 +91,8 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   of ending below target in each CO. Features: the CO marks so far and the student's scores on the
   prerequisite COs (the root-cause links). Students at or above the rule version's `ew_flag_prob`
   (default 0.5) are flagged with the reason, e.g. "CO2 marks so far 23% (typical 70%)". It is
-  advice only and never changes official results. Replayed on 2025-26: AUC 0.79 after CIE Test 1
-  ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
+  advice only and never changes official results. Replayed on 2025-26: AUC 0.69 after CIE Test 1
+  (which tests CO1-CO2 only), 0.87 after CIE 1 and 2 ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
   report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
   with a chart, COs below target with how many students are below target and the likely upstream

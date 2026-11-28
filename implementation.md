@@ -47,7 +47,8 @@ accreditation support to automating teachers' CO-PO work, which added phases 7â€
 - [x] Who owns the Google Cloud project: Krrish's personal Google account (decided 23 Nov 2026).
 - [ ] Create the Google Cloud project and put its OAuth client in `.env` (README: Google Forms setup).
 - [ ] Early-warning target: what recall and precision? The cut-off is 0.5 (decided); at 0.5 after
-  CIE Test 1, recall is 35 % and precision 78 %, at 0.3 69 % and 61 %
+  CIE Test 1, recall is 17 % and precision 62 %, at 0.3 64 % and 50 % (after CIE 1 and 2: 54 % and
+  79 %; demo data of 28 Nov 2026)
   ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - [ ] Course-file PDF: which sections, and does the college have a template?
 
