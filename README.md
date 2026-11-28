@@ -76,23 +76,23 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   filled in. **Fetch responses** (and a nightly job) checks each response like an in-app survey and
   keeps only a hashed USN and the ratings. The tab shows the response rate and the ratings per CO.
   Needs a one-time Google Cloud setup (see Google Forms surveys below).
-- **Weak-student lists:** an offering's **Students** tab lists, per CO, the students whose CO score
-  is below target (from the marks so far during the term), with **Copy USNs** for remedial classes.
-- **Final marks:** the **Students** tab shows each student's CIE 1-3 percentages, which CIE was
+- **Students tab:** three views, **Final marks**, **Weak students** and **Early warning**. Weak
+  students can be filtered by CO (with the count per CO) and copied with **Copy USNs** for remedial
+  classes; during the term the list uses the marks so far.
+- **Final marks:** the **Final marks** view shows each student's CIE 1-3 percentages, which CIE was
   dropped (each student keeps their best two), EL, SEE and the total out of 100, partial while the
-  term runs. The course-file PDF includes the same table.
-- **Root cause per student:** the **Students** tab also lists every student below target in one or
-  more COs: the COs they missed (their score against the target), the questions where they lost the
-  most marks (question, assessment, marks lost, CO), and whether they were also weak in the related
-  CO of a prerequisite course (the CO-dependency links root-cause analysis walks, with their score
-  there).
+  term runs, with a search by USN or name. The course-file PDF includes the same table.
+- **Root cause per student:** the **Weak students** view lists every student below target in one or
+  more COs: the COs they missed (with their score), the questions where they lost the most marks,
+  and the related COs of prerequisite courses where they were also weak (the CO-dependency links,
+  with their earlier score).
 - **Early warning (novelty):** when a CIE test or quiz is locked, a logistic regression trained on
   earlier offerings of the same course, at the same point of the term, gives each student's chance
   of ending below target in each CO. Features: the CO marks so far and the student's scores on the
   prerequisite COs (the root-cause links). Students at or above the rule version's `ew_flag_prob`
   (default 0.5) are flagged with the reason, e.g. "CO2 marks so far 23% (typical 70%)". It is
-  advice only and never changes official results. Replayed on 2025-26: AUC 0.69 after CIE Test 1
-  (which tests CO1-CO2 only), 0.87 after CIE 1 and 2 ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
+  advice only and never changes official results. Replayed on 2025-26: AUC 0.89 after CIE Test 1,
+  0.94 after CIE 1 and 2 ([docs/early-warning-evaluation.md](docs/early-warning-evaluation.md)).
 - **Course file (PDF):** **Course file (PDF)** on a computed offering downloads its course-file
   report: rules used, assessments, CO attainment with a chart, the course-exit survey, PO attainment
   with a chart, COs below target with how many students are below target and the likely upstream
@@ -100,10 +100,12 @@ What's left is tracked in [implementation.md](implementation.md#pending).
   (open licence, embedded), so symbols, curly quotes and Indian scripts in CO statements print as typed.
 - **Web app:** offerings overview with a year and semester picker (every subject of a semester
   together, defaulting to a semester with current-year offerings), marks and locking, attainment
-  ladder and CO-PO matrix, root cause, students (early warning, weak students, final marks), survey,
-  audit, and a student view. To keep it simple, the What-if tab, the Trends and Improvement actions
+  (COs and POs met, each CO's share of students and level, each PO's level, improvement actions),
+  students (final marks, weak students, early warning), survey, audit, and a student view. The
+  screens show results only, without notes on how they are calculated; the course-level Root cause
+  tab was removed (root cause per student stays). To keep it simple, the What-if tab, the Trends and Improvement actions
   pages and the rule-versions section are hidden from the screens; their code, routes and API stay. Screens animate in with
-  Motion and GSAP (the CO ladder, matrix and charts draw in), the sign-in page shows an animated
+  Motion and GSAP (the CO bars and charts draw in), the sign-in page shows an animated
   CO-PO network, signed-out visitors land on a product page at `/` written for teachers (no technical terms; the picture tilts, cards light up and buttons lean toward the cursor, on mouse and trackpad only), and every animation respects the reduced-motion setting.
 
 ## How attainment is calculated
@@ -244,15 +246,21 @@ respondents are stored as an HMAC of the USN keyed by `SURVEY_HASH_SECRET`, so s
 `--database NAME` targets the PostgreSQL and MongoDB databases of that name.
 
 The 2023 batch carries a planted root-cause story: Data Structures CO2 → DBMS CO4, with Programming
-in C CO5 as a decoy (`datagen/catalog.py`). All data, including course titles, CO statements and
-CO-PO mappings, is synthetic.
+in C CO5 as a decoy (`datagen/catalog.py`). Marks follow each student's general ability (a strong
+student is strong in most COs, as in a real class), and units 4 and 5 are harder (`CO_EASE`), so a
+typical section is at level 3 in CO1-CO3 and around level 2 in CO4-CO5, with about 20-25 students
+below target in some CO (IS351 2025-26 section A: 3.0, 3.0, 3.0, 2.2, 2.2). All data, including
+course titles, CO statements and CO-PO mappings, is synthetic.
 
 For answer-sheet OCR, `python -m datagen.ocr_samples --offering-id N --sitting CIE1` (or `CIE2`,
 `CIE3`, `SEE`) writes a scanned-looking PDF for that sitting to `samples/`: a printed question paper (for a
 CIE, Part A - Quiz and Part B - Test, numbered on across parts; the offering's saved questions, or
 a typical paper if the quiz or test does not exist yet), then one cover page per enrolled student
 with the marks of both parts written in MNIST digits the model never trained on, slightly rotated
-and noised. A JSON answer key with every true value is written next to it.
+and noised. Marks follow a class-like ability per student, the same in every sitting, and IS351
+papers use Computer Networks questions by unit. A JSON answer key with every true value is written
+next to it. The four demo scans for IS351 2026-27 section A (`--sitting CIE1` ... `SEE`, offering
+233) end at levels 3, 3, 3, 2, 2 with 25 weak students once saved, locked and computed.
 
 ### Computing attainment
 

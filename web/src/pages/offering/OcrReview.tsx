@@ -128,10 +128,6 @@ export function OcrReview({ data, offering, onSaved, onClose, onErrors }: {
         <h2 id="t-ocr">Check the scanned sheets: {data.label}</h2>
         <span className="meta">{sheets.length} sheets · {flagged} to check · {skipped.size} skipped · {absent.length} without a sheet</span>
       </header>
-      <p className="small muted" style={{ marginBottom: 12 }}>
-        Nothing is saved yet. Values read with less than {Math.round(data.threshold * 100)}% confidence, totals that do not add up and
-        unclear USNs are highlighted. Correct anything that is wrong, then confirm.
-      </p>
       {data.paper.warnings.map((w) => <p key={w} className="note">{w}</p>)}
 
       <div className="table-wrap" style={{ marginBottom: 16 }}>

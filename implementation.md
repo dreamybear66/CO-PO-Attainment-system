@@ -27,7 +27,7 @@ accreditation support to automating teachers' CO-PO work, which added phases 7�
 | 10 — Course-file PDF | PR open | `feat/course-file` | See [Phase 10](#phase-10--course-file-pdf) |
 | Combined paper, no CSV | Merged (#17) | `feat/ocr-combined-paper` | One scanned PDF per sitting (Part A quiz + Part B test), 20-row cover page, typed EL marks, CSV upload removed; decisions M1-M6 |
 | Scan review fixes | PR open | `fix/scan-review-save` | Save bar kept in view on the scan review; Bloom field re-read so no question line is dropped |
-| Simple flow | PR open (on `fix/scan-review-save`) | `feat/simple-flow` | CIE 3, best 2 of 3 CIEs per student (CO scores and final total), single-mark EL outside CO attainment, weights 30/20/50, final marks, root cause per student, semester picker; what-if, trends, actions and rule versions hidden; demo data rebuilt. Decisions F1-F7 |
+| Simple flow | PR open (on `fix/scan-review-save`) | `feat/simple-flow` | CIE 3, best 2 of 3 CIEs per student (CO scores and final total), single-mark EL outside CO attainment, weights 30/20/50, final marks, root cause per student, semester picker; what-if, trends, actions and rule versions hidden; Root cause tab removed, simpler Attainment and Students tabs without calculation notes, class-like demo data and samples. Decisions F1-F11 |
 
 ## Pending
 
@@ -140,6 +140,10 @@ Made by the user to keep the app simple for the demo; `feat/simple-flow` builds 
 | F5 | Hidden from the screens, not deleted: the What-if tab, the Trends page, the Improvement actions page and the rule-versions section of Settings |
 | F6 | The Offerings list has a semester picker (1-8, over the course catalogue), defaulting to a semester with current-year offerings for the login |
 | F7 | The Students tab adds each student's final marks and a root cause per weak student: missed COs, the questions that cost the most marks, and weak prerequisite COs (`fn_student_root_cause`) |
+| F8 | (follow-up) The Root cause tab is removed; root cause per student stays on the Students tab. The Attainment tab keeps COs met, CO attainment, a plain PO attainment list and improvement actions; the Rules used card, the CO-PO matrix and the direct/survey table are gone |
+| F9 | (follow-up) The Students tab has three views: Final marks, Weak students (filter by CO) and Early warning |
+| F10 | (follow-up) No text on any tab explains how a figure is calculated or how a step works; status and error messages stay |
+| F11 | (follow-up) Demo data looks like a real class: a section at about levels 3, 3, 3, 2, 2 with about 20 weak students (strong students strong in most COs, units 4-5 harder); the scan samples use Computer Networks questions and differ per CIE |
 
 ## Phase 1 — Schema and constraints (week 1) · Member A · ✅ done
 

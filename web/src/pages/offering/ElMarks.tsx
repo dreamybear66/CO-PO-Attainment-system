@@ -61,12 +61,8 @@ export function ElMarks({ a, onSaved, onClose, onErrors }: {
     <section className="panel ocr" aria-labelledby="t-el">
       <header>
         <h2 id="t-el">Type marks: {a.name}</h2>
-        <span className="meta">Out of {max} · {int(filled)} of {int(students.length)} students filled</span>
+        <span className="meta">Out of {max} · {int(filled)} of {int(students.length)} filled · <span className="id">AB</span> = absent</span>
       </header>
-      <p className="small muted" style={{ marginBottom: 12 }}>
-        One mark per student, out of {max}, or <span className="id">AB</span> for an absent student (counts as zero).
-        EL counts only in the final total, not in CO attainment. Empty boxes are left as they are; nothing is saved if any value is out of range.
-      </p>
       <div className="table-wrap">
         <table>
           <thead><tr><th>USN</th><th className="hide-phone">Name</th><th className="n">Mark<span className="sub">of {max}</span></th></tr></thead>
@@ -118,7 +114,7 @@ export function NewEl({ offering, onCreated, onClose }: { offering: OfferingDeta
 
   return (
     <section className="panel ocr" aria-labelledby="t-newel">
-      <header><h2 id="t-newel">Add experiential learning</h2><span className="meta">One final mark per student</span></header>
+      <header><h2 id="t-newel">Add experiential learning</h2></header>
       <form className="filters" style={{ marginBottom: 0 }} onSubmit={(e) => { e.preventDefault(); if (ok) create() }}>
         <label htmlFor="el-max">Maximum marks</label>
         <input id="el-max" className="input ocr-num" type="number" min={1} max={999} value={max} onChange={(e) => setMax(e.target.value)} />
@@ -128,7 +124,6 @@ export function NewEl({ offering, onCreated, onClose }: { offering: OfferingDeta
         <button className="btn primary" disabled={busy || !ok}>{busy ? 'Adding…' : 'Add'}</button>
       </form>
       {error && <div className="error-box" role="alert">{error}</div>}
-      <p className="small muted" style={{ marginTop: 12 }}>EL counts {offering.config ? `${Number(offering.config.total_el_weight)} of 100` : 'only'} in the final total; it is not part of CO attainment.</p>
     </section>
   )
 }

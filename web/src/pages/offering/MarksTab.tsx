@@ -30,7 +30,6 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         <section className="panel" aria-labelledby="t-scan">
           <header>
             <h2 id="t-scan">Scan answer sheets</h2>
-            <span className="meta">One PDF per sitting · the question paper, then each student's cover page</span>
           </header>
           <div className="table-wrap">
             <table>
@@ -49,9 +48,9 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
       <section className="panel" aria-labelledby="t-assess">
         <header>
           <h2 id="t-assess">Assessments</h2>
-          <span className="meta">{open.length ? `${open.length} open · lock each one once its marks are final` : offering.assessments.length ? 'All locked' : ''}</span>
+          <span className="meta">{open.length ? `${open.length} open` : offering.assessments.length ? 'All locked' : ''}</span>
         </header>
-        {offering.assessments.length === 0 ? <Empty>No assessments yet. Scanning a sitting adds its quiz and test; add experiential learning below.</Empty> : (
+        {offering.assessments.length === 0 ? <Empty>No assessments yet.</Empty> : (
           <div className="table-wrap">
             <table>
               <thead><tr><th>Assessment</th><th className="n hide-phone">Questions</th><th className="n">Max</th><th className="n">Marks entered</th><th>Status</th>{canEdit && <th className="n">Actions</th>}</tr></thead>
@@ -68,7 +67,6 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
         {canEdit && !hasEl && !adding &&
           <div className="filters" style={{ marginTop: 12, marginBottom: 0 }}>
             <button className="btn small" onClick={() => setAdding(true)}>Add experiential learning</button>
-            <span className="small muted">One final mark per student, typed in; it counts in the final total, not in CO attainment.</span>
           </div>}
         {message && <p className="small" role="status" style={{ marginTop: 12 }}>{message}</p>}
       </section>
@@ -105,12 +103,6 @@ export function MarksTab({ offering, canEdit, onChange }: { offering: OfferingDe
           </div>
         </section>
       )}
-      <p className="small muted">
-        Scan one PDF per sitting: page 1 is the question paper, then one cover page per student. A CIE paper lists the quiz under
-        <span className="id"> Part A - Quiz</span> and the test under <span className="id">Part B - Test</span>, numbered on from one part to the next;
-        CIE 1, 2 and 3 fill Quiz n and CIE Test n, the SEE fills SEE, and a missing assessment is created from the paper. You check every value before it is saved.
-        Each student's best two CIEs count. Experiential learning is one mark per student, typed in; enter <span className="id">AB</span> for an absent student (counts as zero).
-      </p>
     </div>
   )
 }
